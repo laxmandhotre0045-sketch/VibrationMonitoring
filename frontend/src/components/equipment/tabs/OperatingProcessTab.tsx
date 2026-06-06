@@ -1,0 +1,130 @@
+import React from "react";
+import { useFormContext, Controller } from "react-hook-form";
+import { Activity, Wrench } from "lucide-react";
+import { EquipmentFormData } from "@/types/equipment";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { FormField, TextInput, SelectInput, TextareaInput, RangeInput } from "@/components/ui/FormField";
+import { MultiSelect } from "@/components/ui/MultiSelect";
+
+const LUBRICATION_TYPES = ["Grease", "Oil Bath", "Oil Mist", "Forced Oil", "Splash Lubrication", "Automatic Lubrication"];
+const OPERATING_ENVIRONMENTS = [
+  "Indoor", "Outdoor", "Dusty", "Wet Area", "High Temperature", "Low Temperature",
+  "Corrosive Environment", "Chemical Area", "Hazardous Area", "Marine Environment",
+  "Mining Environment", "Clean Room", "Food Grade Area",
+];
+
+export function OperatingProcessTab() {
+  const { register, control, watch } = useFormContext<EquipmentFormData>();
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Operating Conditions */}
+      <SectionCard title="Process & Operating Details" icon={<Activity size={15} />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="flex flex-col gap-4">
+            <FormField label="Operating Speed Range (RPM)">
+              <Controller
+                name="operating_speed_min"
+                control={control}
+                render={({ field: fieldMin }) => (
+                  <Controller
+                    name="operating_speed_max"
+                    control={control}
+                    render={({ field: fieldMax }) => (
+                      <RangeInput
+                        unit="RPM"
+                        valueMin={fieldMin.value ?? ""}
+                        valueMax={fieldMax.value ?? ""}
+                        onChangeMin={(v) => fieldMin.onChange(v ? Number(v) : null)}
+                        onChangeMax={(v) => fieldMax.onChange(v ? Number(v) : null)}
+                      />
+                    )}
+                  />
+                )}
+              />
+            </FormField>
+
+            <FormField label="Load Range (%)">
+              <Controller
+                name="load_range_min"
+                control={control}
+                render={({ field: fieldMin }) => (
+                  <Controller
+                    name="load_range_max"
+                    control={control}
+                    render={({ field: fieldMax }) => (
+                      <RangeInput
+                        unit="%"
+                        valueMin={fieldMin.value ?? ""}
+                        valueMax={fieldMax.value ?? ""}
+                        onChangeMin={(v) => fieldMin.onChange(v ? Number(v) : null)}
+                        onChangeMax={(v) => fieldMax.onChange(v ? Number(v) : null)}
+                      />
+                    )}
+                  />
+                )}
+              />
+            </FormField>
+
+            <FormField label="Normal Operating Load (%)">
+              <TextInput type="number" min="0" max="100" unit="%" {...register("normal_operating_load")} placeholder="e.g. 75" />
+            </FormField>
+          </div>
+
+          <FormField label="Process Details" className="h-full">
+            <TextareaInput
+              {...register("process_details")}
+              rows={7}
+              placeholder="Describe the process this equipment supports..."
+              className="h-full"
+            />
+          </FormField>
+        </div>
+
+        <div className="mt-5">
+          <FormField label="Operating Environment">
+            <Controller
+              name="operating_environment"
+              control={control}
+              render={({ field }) => (
+                <MultiSelect
+                  options={OPERATING_ENVIRONMENTS}
+                  value={field.value || []}
+                  onChange={field.onChange}
+                  placeholder="Select all applicable environments..."
+                />
+              )}
+            />
+          </FormField>
+        </div>
+      </SectionCard>
+
+      {/* Lubrication & Maintenance */}
+      <SectionCard title="Lubrication & Maintenance" icon={<Wrench size={15} />}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <FormField label="Lubrication Type">
+            <Controller
+              name="lubrication_type"
+              control={control}
+              render={({ field }) => (
+                <SelectInput {...field} value={field.value || ""} options={LUBRICATION_TYPES} placeholder="Select type" />
+              )}
+            />
+          </FormField>
+
+          <FormField label="Installation Date">
+            <TextInput type="date" {...register("installation_date")} />
+          </FormField>
+
+          <FormField label="Last Maintenance Date">
+            <TextInput type="date" {...register("last_maintenance_date")} />
+          </FormField>
+
+          <FormField label="Maintenance Notes" className="md:col-span-2 lg:col-span-4">
+            <TextareaInput {...register("maintenance_notes")} rows={3} placeholder="Enter any maintenance notes, history, or remarks..." />
+          </FormField>
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
