@@ -1,27 +1,49 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* SensoVibe — Multi-level signal orange system */
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 40 100% 99%;       /* #FFFDF8 warm white */
+    --foreground: 214 67% 25%;       /* #15366D — typography & nav */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --primary: 221 83% 53%;
+    --card-foreground: 214 67% 25%;
+    --sidebar: 40 100% 99%;
+    --border: 40 18% 90%;
+    --input: 40 18% 90%;
+    --primary: 214 67% 25%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --primary-hover: 218 59% 29%;
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 214 67% 25%;
+    --muted: 40 20% 96%;
+    --surface: 40 14% 97%;
+    --muted-foreground: 215 16% 42%;
+    /* Signal orange tiers */
+    --signal-light: 38 90% 55%;    /* #F5A623 — focus, current, highlights */
+    --signal-dark: 38 100% 43%;    /* #D98C00 — metrics, completed */
+    --signal-deep: 33 100% 36%;    /* #B86E00 — hover, critical actions */
+    --cta: 24 100% 50%;            /* #FF6B00 — primary CTA buttons */
+    --cta-hover: 22 100% 45%;      /* #E55F00 — CTA hover */
+    --cta-foreground: 0 0% 100%;
+    --accent: var(--signal-light);
+    --accent-foreground: 214 67% 25%;
+    --accent-dark: var(--signal-dark);
+    --accent-deep: var(--signal-deep);
+    --warm: 40 100% 99%;
+    --success: 142 71% 45%;
+    --warning: 38 90% 55%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --ring: 221 83% 53%;
+    --ring: 38 90% 55%;
     --radius: 0.5rem;
+    --machine-healthy: 142 71% 45%;
+    --machine-warning: 38 90% 55%;
+    --machine-critical: 0 84% 60%;
+    --sensor-offline: 215 16% 65%;
   }
 }
 
@@ -30,35 +52,263 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 }
 
-.tab-active {
-  @apply bg-blue-600 text-white shadow-md;
+.page-bg {
+  background-color: #FFFDF8;
 }
 
-.tab-completed {
-  @apply bg-blue-50 text-blue-700 border border-blue-200;
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #F5A623, #D98C00);
+  border-radius: 9999px;
+  opacity: 0.6;
 }
 
-.tab-inactive {
-  @apply bg-white text-gray-500 border border-gray-200;
-}
+@layer components {
+  /* Gradient — progress bars, key indicators only */
+  .signal-gradient {
+    background: linear-gradient(90deg, #F5A623 0%, #D98C00 100%);
+  }
 
-.section-card {
-  @apply bg-white rounded-xl border border-gray-200 p-5 shadow-sm;
-}
+  .signal-gradient-v {
+    background: linear-gradient(180deg, #F5A623 0%, #D98C00 100%);
+  }
 
-.field-label {
-  @apply text-sm font-medium text-gray-700 mb-1 block;
-}
+  /* Thin accent line — not a surface fill */
+  .signal-indicator {
+    @apply h-0.5 rounded-full signal-gradient;
+  }
 
-.required-star {
-  @apply text-red-500 ml-0.5;
-}
+  .signal-nav-rail {
+    @apply absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-sm;
+    background: #ffa500;
+  }
 
-.input-unit {
-  @apply absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none;
+  .sidebar-shell {
+    @apply relative flex flex-col shrink-0 h-screen z-30 bg-white;
+    border-right: 1px solid rgba(255, 165, 0, 0.28);
+    box-shadow: 4px 0 16px rgba(255, 165, 0, 0.06);
+  }
+
+  .sidebar-shell::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #ffa500;
+    z-index: 1;
+  }
+
+  .sidebar-nav-item {
+    @apply relative flex items-center gap-3 px-3 min-h-[54px] rounded-lg transition-all duration-200;
+    color: rgba(21, 54, 109, 0.78);
+  }
+
+  .sidebar-nav-item:hover {
+    background: rgba(255, 165, 0, 0.08);
+    color: #15366d;
+  }
+
+  .sidebar-nav-item-active {
+    background: rgba(255, 165, 0, 0.12);
+    color: #ffa500;
+    border: 1px solid rgba(255, 165, 0, 0.22);
+  }
+
+  .sidebar-nav-item-active:hover {
+    background: rgba(255, 165, 0, 0.15);
+    color: #ffa500;
+  }
+
+  .sidebar-logo-divider {
+    @apply h-px w-full mt-4;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      #ffa500 20%,
+      #ffa500 80%,
+      transparent 100%
+    );
+    opacity: 0.35;
+  }
+
+  .brand-divider {
+    @apply signal-indicator w-12;
+  }
+
+  .brand-divider-wide {
+    @apply h-0.5 w-full rounded-full;
+    background: linear-gradient(90deg, #F5A623 0%, #D98C00 55%, transparent 100%);
+  }
+
+  /* Focus — light orange ring only */
+  .signal-focus {
+    @apply focus:outline-none focus:border-signal-light focus:ring-2 focus:ring-[rgba(245,166,35,0.22)];
+  }
+
+  .tab-active {
+    @apply bg-white text-brand border border-signal-light shadow-sm;
+  }
+
+  .tab-completed {
+    @apply bg-white text-signal-dark border border-border;
+  }
+
+  .tab-inactive {
+    @apply bg-card text-muted-foreground border border-border;
+  }
+
+  .section-card {
+    @apply content-card p-6;
+  }
+
+  /* Page content cards — white surface, #FFA500 accent */
+  .content-card {
+    @apply relative rounded-xl bg-card overflow-hidden;
+    border: 1px solid rgba(255, 165, 0, 0.28);
+    box-shadow:
+      0 1px 3px rgba(21, 54, 109, 0.05),
+      0 4px 16px rgba(255, 165, 0, 0.1);
+  }
+
+  .content-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #ff6b00;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .form-actions-bar {
+    @apply relative z-10 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-4 p-6 sm:p-8;
+  }
+
+  .section-header-accent {
+    @apply signal-indicator w-12 mt-2;
+  }
+
+  .field-label {
+    @apply text-sm font-semibold text-foreground mb-1.5 block;
+  }
+
+  .required-star {
+    @apply text-destructive ml-0.5;
+  }
+
+  .input-unit {
+    @apply absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none;
+  }
+
+  .input-focus {
+    @apply focus:outline-none focus:border-signal-light focus:ring-2 focus:ring-[rgba(245,166,35,0.22)];
+  }
+
+  .logo-zone {
+    @apply relative shrink-0;
+  }
+
+  .logo-divider {
+    @apply h-px w-full mt-1.5;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      #e5e7eb 8%,
+      #e5e7eb 92%,
+      transparent 100%
+    );
+  }
+
+  .metric-value {
+    @apply text-signal-dark font-semibold tabular-nums;
+  }
+
+  @keyframes sensor-pulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.85; }
+  }
+
+  .sensor-pulse-node {
+    animation: sensor-pulse 4s ease-in-out infinite;
+  }
+
+  .sensor-pulse-node:nth-child(2) {
+    animation-delay: 1.3s;
+  }
+
+  .sensor-pulse-node:nth-child(3) {
+    animation-delay: 2.6s;
+  }
+
+  /* Sensor rings — 15–20s cycle, machine preview only */
+  @keyframes sensor-pulse-slow {
+    0%, 100% {
+      opacity: 0.18;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.32;
+      transform: scale(1.03);
+    }
+  }
+
+  .sensor-pulse-ring-slow {
+    opacity: 0.2;
+    animation: sensor-pulse-slow 18s ease-in-out infinite;
+  }
+
+  /* Primary CTA — vibrant orange pill (reference: Submit Secure Ticket) */
+  .btn-cta {
+    @apply inline-flex items-center justify-center font-semibold text-white rounded-full transition-all duration-200;
+    background-color: #ff6b00;
+    box-shadow: 0 4px 14px rgba(255, 107, 0, 0.32);
+  }
+
+  .btn-cta:hover:not(:disabled) {
+    background-color: #e55f00;
+    box-shadow: 0 6px 20px rgba(255, 107, 0, 0.4);
+  }
+
+  .btn-cta:focus-visible {
+    outline: none;
+    box-shadow:
+      0 4px 14px rgba(255, 107, 0, 0.32),
+      0 0 0 2px #fff,
+      0 0 0 4px rgba(255, 107, 0, 0.45);
+  }
+
+  .btn-cta:disabled {
+    @apply opacity-40 cursor-not-allowed;
+  }
+
+  .btn-cta-outline {
+    @apply inline-flex items-center justify-center font-semibold rounded-full transition-all duration-200;
+    color: #ff6b00;
+    background-color: #fff;
+    border: 2px solid #ff6b00;
+    box-shadow: 0 2px 8px rgba(255, 107, 0, 0.12);
+  }
+
+  .btn-cta-outline:hover:not(:disabled) {
+    background-color: rgba(255, 107, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(255, 107, 0, 0.2);
+  }
+
+  .btn-cta-outline:disabled {
+    @apply opacity-50 cursor-not-allowed;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    box-shadow: none;
+  }
 }

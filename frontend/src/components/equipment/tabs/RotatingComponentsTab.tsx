@@ -19,18 +19,13 @@ export function RotatingComponentsTab() {
   const isGearboxType = machineType === "Gearbox" || driveType === "Gear Drive";
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-11">
       <SectionCard title="Bearing Details" icon={<RotateCw size={15} />}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <FormField label="Bearing Details" className="lg:col-span-2">
-            <TextareaInput
-              {...register("bearing_details")}
-              rows={3}
-              placeholder="Enter bearing type, size, and other details..."
-            />
+            <TextareaInput {...register("bearing_details")} rows={3} placeholder="Bearing type, size, and details..." />
           </FormField>
-
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             <FormField label="Bearing Number (DE)">
               <TextInput {...register("bearing_number_de")} placeholder="e.g. 6205" />
             </FormField>
@@ -41,8 +36,8 @@ export function RotatingComponentsTab() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Rotating Component Specifications" icon={<RotateCw size={15} />}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+      <SectionCard title="Rotating Components" icon={<RotateCw size={15} />}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {isMotorType && (
             <FormField label="Motor Pole Count">
               <Controller
@@ -60,51 +55,26 @@ export function RotatingComponentsTab() {
               />
             </FormField>
           )}
-
           {isFanType && (
             <FormField label="Number of Fan Blades">
-              <TextInput
-                type="number"
-                min="1"
-                {...register("fan_blades")}
-                placeholder="e.g. 6"
-              />
+              <TextInput type="number" min="1" {...register("fan_blades")} placeholder="e.g. 6" />
             </FormField>
           )}
-
           {isPumpType && (
             <FormField label="Number of Pump Vanes">
-              <TextInput
-                type="number"
-                min="1"
-                {...register("pump_vanes")}
-                placeholder="e.g. 7"
-              />
+              <TextInput type="number" min="1" {...register("pump_vanes")} placeholder="e.g. 7" />
             </FormField>
           )}
-
           {isGearboxType && (
             <>
               <FormField label="Gearbox Ratio">
-                <TextInput
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  {...register("gearbox_ratio")}
-                  placeholder="e.g. 4.2"
-                />
+                <TextInput type="number" step="0.001" min="0" {...register("gearbox_ratio")} placeholder="e.g. 4.2" />
               </FormField>
               <FormField label="Number of Gear Teeth">
-                <TextInput
-                  type="number"
-                  min="1"
-                  {...register("gear_teeth")}
-                  placeholder="e.g. 32"
-                />
+                <TextInput type="number" min="1" {...register("gear_teeth")} placeholder="e.g. 32" />
               </FormField>
             </>
           )}
-
           <FormField label="Direction of Rotation">
             <Controller
               name="direction_of_rotation"
@@ -115,15 +85,6 @@ export function RotatingComponentsTab() {
             />
           </FormField>
         </div>
-
-        {!isMotorType && !isFanType && !isPumpType && !isGearboxType && (
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <p className="text-sm text-blue-700">
-              Additional component fields (pole count, fan blades, pump vanes, gearbox ratio) will appear based on the
-              Machine Type and Drive Type selected in <strong>Basic Details</strong> and <strong>Mechanical Details</strong>.
-            </p>
-          </div>
-        )}
       </SectionCard>
     </div>
   );

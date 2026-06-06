@@ -118,15 +118,22 @@ export interface PaginatedEquipment {
 }
 
 export const CRITICALITY_COLORS: Record<string, string> = {
-  Low: "bg-green-100 text-green-800 border-green-200",
-  Medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  High: "bg-red-100 text-red-800 border-red-200",
-  Critical: "bg-purple-100 text-purple-800 border-purple-200",
+  Low: "bg-machine-healthy/10 text-machine-healthy border border-machine-healthy/25",
+  Medium: "bg-machine-warning/10 text-machine-warning border border-machine-warning/25",
+  High: "bg-machine-critical/10 text-machine-critical border border-machine-critical/25",
+  Critical: "bg-machine-critical/15 text-machine-critical border border-machine-critical/30",
 };
 
 export const CRITICALITY_DOT: Record<string, string> = {
-  Low: "bg-green-500",
-  Medium: "bg-yellow-500",
-  High: "bg-red-500",
-  Critical: "bg-purple-600",
+  Low: "bg-machine-healthy",
+  Medium: "bg-machine-warning",
+  High: "bg-machine-critical",
+  Critical: "bg-machine-critical",
+};
+
+export const ASSET_STATUS_COLORS: Record<string, string> = {
+  Active: "bg-machine-healthy/10 text-machine-healthy border border-machine-healthy/25",
+  "Under Maintenance": "bg-machine-warning/10 text-machine-warning border border-machine-warning/25",
+  Inactive: "bg-machine-offline/10 text-machine-offline border border-machine-offline/25",
+  Offline: "bg-machine-offline/10 text-machine-offline border border-machine-offline/25",
 };

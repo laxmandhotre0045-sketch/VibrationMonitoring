@@ -1,4 +1,5 @@
 import React from "react";
+import { Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FormFieldProps {
@@ -12,17 +13,30 @@ interface FormFieldProps {
 
 export function FormField({ label, required, error, hint, children, className }: FormFieldProps) {
   return (
-    <div className={cn("flex flex-col gap-1", className)}>
-      <label className="text-sm font-medium text-gray-700">
+    <div className={cn("flex flex-col gap-2", className)}>
+      <label className="text-base font-medium text-foreground">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-destructive ml-0.5">*</span>}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-gray-400">{hint}</p>}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {hint && !error && (
+        <div className="flex items-start gap-2 px-3 py-2.5 bg-warm border border-border border-l-2 border-l-signal-light rounded-r-md">
+          <Info size={14} className="text-signal-dark shrink-0 mt-0.5" />
+          <p className="text-sm text-muted-foreground leading-relaxed">{hint}</p>
+        </div>
+      )}
+      {error && <p className="text-sm text-destructive font-medium">{error}</p>}
     </div>
   );
 }
+
+const inputBase = cn(
+  "w-full px-4 py-3 text-base rounded-lg transition-colors",
+  "bg-white text-foreground border border-border",
+  "placeholder:text-muted-foreground",
+  "focus:outline-none focus:border-signal-light focus:ring-2 focus:ring-[rgba(245,166,35,0.22)]",
+  "hover:border-border"
+);
 
 interface TextInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   unit?: string;
@@ -34,15 +48,15 @@ export function TextInput({ unit, error, className, ...props }: TextInputProps) 
     <div className="relative">
       <input
         className={cn(
-          "w-full px-3 py-2 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all",
-          error ? "border-red-400 bg-red-50" : "border-gray-300 hover:border-gray-400",
-          unit && "pr-12",
+          inputBase,
+          error && "border-destructive/50 bg-destructive/5 focus:ring-destructive/15 focus:border-destructive",
+          unit && "pr-16",
           className
         )}
         {...props}
       />
       {unit && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
           {unit}
         </span>
       )}
@@ -60,8 +74,9 @@ export function SelectInput({ options, placeholder, error, className, ...props }
   return (
     <select
       className={cn(
-        "w-full px-3 py-2 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer",
-        error ? "border-red-400 bg-red-50" : "border-gray-300 hover:border-gray-400",
+        inputBase,
+        "appearance-none cursor-pointer",
+        error && "border-destructive/50 bg-destructive/5",
         className
       )}
       {...props}
@@ -84,8 +99,9 @@ export function TextareaInput({ error, className, ...props }: TextareaInputProps
   return (
     <textarea
       className={cn(
-        "w-full px-3 py-2 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none",
-        error ? "border-red-400 bg-red-50" : "border-gray-300 hover:border-gray-400",
+        inputBase,
+        "resize-none",
+        error && "border-destructive/50 bg-destructive/5",
         className
       )}
       {...props}
@@ -94,44 +110,32 @@ export function TextareaInput({ error, className, ...props }: TextareaInputProps
 }
 
 interface RangeInputProps {
-  labelMin?: string;
-  labelMax?: string;
   unit?: string;
   valueMin?: number | string;
   valueMax?: number | string;
   onChangeMin?: (v: string) => void;
   onChangeMax?: (v: string) => void;
-  error?: string;
   type?: string;
 }
 
-export function RangeInput({ unit, valueMin, valueMax, onChangeMin, onChangeMax, type = "number" }: RangeInputProps) {
+export function RangeInput({
+  unit,
+  valueMin,
+  valueMax,
+  onChangeMin,
+  onChangeMax,
+  type = "number",
+}: RangeInputProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-4">
       <div className="relative flex-1">
-        <input
-          type={type}
-          value={valueMin ?? ""}
-          onChange={(e) => onChangeMin?.(e.target.value)}
-          placeholder="Min"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400"
-        />
-        {unit && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{unit}</span>
-        )}
+        <input type={type} value={valueMin ?? ""} onChange={(e) => onChangeMin?.(e.target.value)} placeholder="Min" className={inputBase} />
+        {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{unit}</span>}
       </div>
-      <span className="text-gray-400 text-sm font-medium">—</span>
+      <span className="text-muted-foreground text-base">—</span>
       <div className="relative flex-1">
-        <input
-          type={type}
-          value={valueMax ?? ""}
-          onChange={(e) => onChangeMax?.(e.target.value)}
-          placeholder="Max"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400"
-        />
-        {unit && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{unit}</span>
-        )}
+        <input type={type} value={valueMax ?? ""} onChange={(e) => onChangeMax?.(e.target.value)} placeholder="Max" className={inputBase} />
+        {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{unit}</span>}
       </div>
     </div>
   );

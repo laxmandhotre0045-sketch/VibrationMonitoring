@@ -1,6 +1,6 @@
 import React from "react";
 import { useFormContext, Controller } from "react-hook-form";
-import { Settings, Zap } from "lucide-react";
+import { Settings } from "lucide-react";
 import { EquipmentFormData } from "@/types/equipment";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { FormField, TextInput, SelectInput } from "@/components/ui/FormField";
@@ -14,71 +14,51 @@ export function MechanicalDetailsTab() {
   const { register, control } = useFormContext<EquipmentFormData>();
 
   return (
-    <div className="flex flex-col gap-5">
-      <SectionCard title="Mechanical & Construction Details" icon={<Settings size={15} />}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          <FormField label="Rated Power">
-            <TextInput
-              type="number"
-              step="0.01"
-              min="0"
-              unit="kW"
-              {...register("rated_power_kw")}
-              placeholder="e.g. 75"
-            />
-          </FormField>
-
-          <FormField label="Rated RPM">
-            <TextInput
-              type="number"
-              min="0"
-              unit="RPM"
-              {...register("rated_rpm")}
-              placeholder="e.g. 1480"
-            />
-          </FormField>
-
-          <FormField label="Drive Type">
-            <Controller
-              name="drive_type"
-              control={control}
-              render={({ field }) => (
-                <SelectInput {...field} value={field.value || ""} options={DRIVE_TYPES} placeholder="Select drive type" />
-              )}
-            />
-          </FormField>
-
-          <FormField label="Load Type">
-            <Controller
-              name="load_type"
-              control={control}
-              render={({ field }) => (
-                <SelectInput {...field} value={field.value || ""} options={LOAD_TYPES} placeholder="Select load type" />
-              )}
-            />
-          </FormField>
-
-          <FormField label="Foundation Type">
-            <Controller
-              name="foundation_type"
-              control={control}
-              render={({ field }) => (
-                <SelectInput {...field} value={field.value || ""} options={FOUNDATION_TYPES} placeholder="Select foundation" />
-              )}
-            />
-          </FormField>
-
-          <FormField label="Coupling Details">
-            <Controller
-              name="coupling_details"
-              control={control}
-              render={({ field }) => (
-                <SelectInput {...field} value={field.value || ""} options={COUPLING_TYPES} placeholder="Select coupling" />
-              )}
-            />
-          </FormField>
-        </div>
-      </SectionCard>
-    </div>
+    <SectionCard title="Mechanical Details" icon={<Settings size={15} />}>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <FormField label="Rated Power">
+          <TextInput type="number" step="0.01" min="0" unit="kW" {...register("rated_power_kw")} placeholder="e.g. 75" />
+        </FormField>
+        <FormField label="Rated RPM">
+          <TextInput type="number" min="0" unit="RPM" {...register("rated_rpm")} placeholder="e.g. 1480" />
+        </FormField>
+        <FormField label="Drive Type">
+          <Controller
+            name="drive_type"
+            control={control}
+            render={({ field }) => (
+              <SelectInput {...field} value={field.value || ""} options={DRIVE_TYPES} placeholder="Select drive type" />
+            )}
+          />
+        </FormField>
+        <FormField label="Load Type">
+          <Controller
+            name="load_type"
+            control={control}
+            render={({ field }) => (
+              <SelectInput {...field} value={field.value || ""} options={LOAD_TYPES} placeholder="Select load type" />
+            )}
+          />
+        </FormField>
+        <FormField label="Foundation Type">
+          <Controller
+            name="foundation_type"
+            control={control}
+            render={({ field }) => (
+              <SelectInput {...field} value={field.value || ""} options={FOUNDATION_TYPES} placeholder="Select foundation" />
+            )}
+          />
+        </FormField>
+        <FormField label="Coupling Details">
+          <Controller
+            name="coupling_details"
+            control={control}
+            render={({ field }) => (
+              <SelectInput {...field} value={field.value || ""} options={COUPLING_TYPES} placeholder="Select coupling" />
+            )}
+          />
+        </FormField>
+      </div>
+    </SectionCard>
   );
 }

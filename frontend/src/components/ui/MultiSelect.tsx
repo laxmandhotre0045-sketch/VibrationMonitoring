@@ -23,11 +23,7 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
   }, []);
 
   const toggle = (option: string) => {
-    if (value.includes(option)) {
-      onChange(value.filter((v) => v !== option));
-    } else {
-      onChange([...value, option]);
-    }
+    onChange(value.includes(option) ? value.filter((v) => v !== option) : [...value, option]);
   };
 
   const remove = (option: string, e: React.MouseEvent) => {
@@ -40,43 +36,33 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
       <div
         className={cn(
           "min-h-[38px] w-full px-3 py-1.5 text-sm border rounded-lg bg-white cursor-pointer flex flex-wrap gap-1 items-center",
-          error ? "border-red-400" : "border-gray-300 hover:border-gray-400",
-          open && "ring-2 ring-blue-500 border-transparent"
+          error ? "border-destructive/50" : "border-border hover:border-signal-light/60",
+          open && "border-signal-light ring-2 ring-[rgba(245,166,35,0.22)]"
         )}
         onClick={() => setOpen(!open)}
       >
-        {value.length === 0 && (
-          <span className="text-gray-400 py-0.5">{placeholder}</span>
-        )}
+        {value.length === 0 && <span className="text-muted-foreground py-0.5">{placeholder}</span>}
         {value.map((v) => (
-          <span
-            key={v}
-            className="flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full"
-          >
+          <span key={v} className="flex items-center gap-1 bg-warm text-brand text-xs px-2 py-0.5 rounded-md border border-signal-light/40">
             {v}
-            <X size={10} className="cursor-pointer hover:text-blue-600" onClick={(e) => remove(v, e)} />
+            <X size={10} className="cursor-pointer hover:text-brand-accent" onClick={(e) => remove(v, e)} />
           </span>
         ))}
-        <ChevronDown size={14} className="ml-auto text-gray-400 shrink-0" />
+        <ChevronDown size={14} className="ml-auto text-muted-foreground shrink-0" />
       </div>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-card-hover max-h-52 overflow-y-auto">
           {options.map((opt) => (
             <div
               key={opt}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors",
-                value.includes(opt) && "bg-blue-50 text-blue-700 font-medium"
+                "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-background transition-colors",
+                value.includes(opt) && "bg-warm text-brand font-medium border-l-2 border-l-signal-dark"
               )}
               onClick={() => toggle(opt)}
             >
-              <div
-                className={cn(
-                  "w-4 h-4 rounded border flex items-center justify-center",
-                  value.includes(opt) ? "bg-blue-600 border-blue-600" : "border-gray-300"
-                )}
-              >
+              <div className={cn("w-4 h-4 rounded border flex items-center justify-center", value.includes(opt) ? "bg-signal-dark border-signal-dark" : "border-border")}>
                 {value.includes(opt) && (
                   <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12">
                     <path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />

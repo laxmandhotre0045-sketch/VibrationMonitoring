@@ -3,9 +3,9 @@ import { useFormContext, useFieldArray, Controller } from "react-hook-form";
 import { Radio, Plus, Trash2 } from "lucide-react";
 import { EquipmentFormData } from "@/types/equipment";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
 import { SelectInput, TextInput } from "@/components/ui/FormField";
 import { SensorMountingDiagram } from "../SensorMountingDiagram";
-import { cn } from "@/lib/utils";
 
 const SENSOR_TYPES = [
   "IEPE Accelerometer", "MEMS Accelerometer", "Velocity Sensor", "Displacement Probe",
@@ -67,29 +67,28 @@ export function SensorsOrientationTab() {
   };
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Default Sensor Mounting Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <SectionCard title="Sensor Mounting & Orientation (Default)" icon={<Radio size={15} />}>
+          <SectionCard title="Sensor Mounting & Orientation" icon={<Radio size={16} />}>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-base">
                 <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="text-left text-xs font-semibold text-gray-500 pb-3 pr-4">Location</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 pb-3 pr-4">Mounting Location</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 pb-3">Orientation</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-base font-medium text-muted-foreground pb-4 pr-6">Location</th>
+                    <th className="text-left text-base font-medium text-muted-foreground pb-4 pr-6">Mounting Location</th>
+                    <th className="text-left text-base font-medium text-muted-foreground pb-4">Orientation</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border">
                   {defaultRows.map((row, idx) => (
                     <tr key={row.label} className="py-2">
                       <td className="py-2 pr-4">
-                        <span className="text-sm font-medium text-gray-700">{row.label}</span>
+                        <span className="text-base font-medium text-foreground">{row.label}</span>
                       </td>
                       <td className="py-2 pr-4">
                         <select
-                          className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full text-base px-4 py-3 border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/10"
                           value={row.selectedMounting}
                           onChange={(e) => {
                             const updated = [...defaultRows];
@@ -104,7 +103,7 @@ export function SensorsOrientationTab() {
                       </td>
                       <td className="py-2">
                         <select
-                          className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full text-base px-4 py-3 border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/10"
                           value={row.selectedOrientation}
                           onChange={(e) => {
                             const updated = [...defaultRows];
@@ -126,44 +125,31 @@ export function SensorsOrientationTab() {
         </div>
 
         {/* Diagram */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center">
+        <div className="bg-white rounded-xl border border-border shadow-sm p-5 flex items-center justify-center">
           <SensorMountingDiagram orientations={diagramOrientations} />
         </div>
       </div>
 
       {/* Additional Sensors */}
-      <SectionCard title="Additional Sensor Configurations" icon={<Radio size={15} />}>
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-gray-500">
-            Add sensors beyond the default DE/NDE set — each with full configuration.
-          </p>
-          <button
-            type="button"
-            onClick={addSensor}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-          >
-            <Plus size={14} /> Add Sensor
-          </button>
+      <SectionCard title="Additional Sensors" icon={<Radio size={16} />}>
+        <div className="flex items-center justify-end mb-4">
+          <Button type="button" size="sm" icon={<Plus size={14} />} onClick={addSensor}>
+            Add Sensor
+          </Button>
         </div>
-
-        {fields.length === 0 && (
-          <div className="text-center py-8 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-xl">
-            No additional sensors added. Click "Add Sensor" to configure a sensor.
-          </div>
-        )}
 
         <div className="flex flex-col gap-4">
           {fields.map((field, idx) => {
             const samplingRate = watch(`sensors.${idx}.sampling_rate`);
             const freqRange = watch(`sensors.${idx}.frequency_range`);
             return (
-              <div key={field.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50 relative">
+              <div key={field.id} className="border border-border rounded-xl p-4 bg-white relative">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-semibold text-gray-700">Sensor {idx + 1}</span>
+                  <span className="text-base font-semibold text-foreground">Sensor {idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => remove(idx)}
-                    className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                    className="text-destructive hover:text-destructive p-1 rounded hover:bg-destructive/10 transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -172,7 +158,7 @@ export function SensorsOrientationTab() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {/* Sensor Type */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600">Sensor Type *</label>
+                    <label className="text-base font-medium text-foreground">Sensor Type *</label>
                     <Controller
                       name={`sensors.${idx}.sensor_type`}
                       control={control}
@@ -184,7 +170,7 @@ export function SensorsOrientationTab() {
 
                   {/* Mounting Location */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600">Mounting Location *</label>
+                    <label className="text-base font-medium text-foreground">Mounting Location *</label>
                     <Controller
                       name={`sensors.${idx}.mounting_location`}
                       control={control}
@@ -196,7 +182,7 @@ export function SensorsOrientationTab() {
 
                   {/* Orientation */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600">Orientation *</label>
+                    <label className="text-base font-medium text-foreground">Orientation *</label>
                     <Controller
                       name={`sensors.${idx}.orientation`}
                       control={control}
@@ -208,7 +194,7 @@ export function SensorsOrientationTab() {
 
                   {/* Mounting Method */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600">Mounting Method</label>
+                    <label className="text-base font-medium text-foreground">Mounting Method</label>
                     <Controller
                       name={`sensors.${idx}.mounting_method`}
                       control={control}
@@ -220,7 +206,7 @@ export function SensorsOrientationTab() {
 
                   {/* Sensitivity */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600">Sensitivity</label>
+                    <label className="text-base font-medium text-foreground">Sensitivity</label>
                     <div className="flex gap-1">
                       <input
                         type="number"
@@ -228,7 +214,7 @@ export function SensorsOrientationTab() {
                         min="0"
                         {...register(`sensors.${idx}.sensitivity`)}
                         placeholder="Value"
-                        className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                       />
                       <Controller
                         name={`sensors.${idx}.sensitivity_unit`}
@@ -237,7 +223,7 @@ export function SensorsOrientationTab() {
                           <select
                             {...f}
                             value={f.value || ""}
-                            className="w-20 px-1 py-1.5 text-xs border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-20 px-1 py-1.5 text-xs border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                           >
                             <option value="">Unit</option>
                             {SENSITIVITY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -249,7 +235,7 @@ export function SensorsOrientationTab() {
 
                   {/* Sampling Rate */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600">Sampling Rate</label>
+                    <label className="text-base font-medium text-foreground">Sampling Rate</label>
                     <Controller
                       name={`sensors.${idx}.sampling_rate`}
                       control={control}
@@ -264,16 +250,16 @@ export function SensorsOrientationTab() {
                           min="1"
                           {...register(`sensors.${idx}.sampling_rate_custom`)}
                           placeholder="Hz value"
-                          className="flex-1 px-2 py-1.5 text-sm border border-blue-300 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-2 py-1.5 text-sm border border-brand/30 rounded-lg bg-brand/5 focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                         />
-                        <span className="text-xs text-gray-500">Hz</span>
+                        <span className="text-xs text-muted-foreground">Hz</span>
                       </div>
                     )}
                   </div>
 
                   {/* Frequency Range */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600">Frequency Range</label>
+                    <label className="text-base font-medium text-foreground">Frequency Range</label>
                     <Controller
                       name={`sensors.${idx}.frequency_range`}
                       control={control}
@@ -288,17 +274,17 @@ export function SensorsOrientationTab() {
                           min="0"
                           {...register(`sensors.${idx}.frequency_range_custom_min`)}
                           placeholder="Min Hz"
-                          className="flex-1 px-2 py-1.5 text-sm border border-blue-300 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-2 py-1.5 text-sm border border-brand/30 rounded-lg bg-brand/5 focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                         />
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                         <input
                           type="number"
                           min="0"
                           {...register(`sensors.${idx}.frequency_range_custom_max`)}
                           placeholder="Max Hz"
-                          className="flex-1 px-2 py-1.5 text-sm border border-blue-300 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-2 py-1.5 text-sm border border-brand/30 rounded-lg bg-brand/5 focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                         />
-                        <span className="text-xs text-gray-500">Hz</span>
+                        <span className="text-xs text-muted-foreground">Hz</span>
                       </div>
                     )}
                   </div>

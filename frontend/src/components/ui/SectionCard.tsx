@@ -3,19 +3,32 @@ import { cn } from "@/lib/utils";
 
 interface SectionCardProps {
   title: string;
+  description?: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  delay?: number;
 }
 
-export function SectionCard({ title, icon, children, className }: SectionCardProps) {
+export function SectionCard({ title, description, icon, children, className }: SectionCardProps) {
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden", className)}>
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50">
-        {icon && <span className="text-blue-600">{icon}</span>}
-        <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+    <div className={cn("content-card", className)}>
+      <div className="px-8 pt-8 pb-0">
+        <div className="flex items-center gap-3">
+          {icon && (
+            <span className="w-10 h-10 rounded-lg bg-[#FFA500]/10 border border-[#FFA500]/30 flex items-center justify-center text-[#FFA500] shrink-0">
+              {icon}
+            </span>
+          )}
+          <div className="min-w-0">
+            <h3 className="text-xl font-semibold text-foreground tracking-tight">{title}</h3>
+            {description && (
+              <p className="text-base text-muted-foreground mt-1 leading-relaxed">{description}</p>
+            )}
+          </div>
+        </div>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-8">{children}</div>
     </div>
   );
 }

@@ -14,14 +14,13 @@ const OPERATING_ENVIRONMENTS = [
 ];
 
 export function OperatingProcessTab() {
-  const { register, control, watch } = useFormContext<EquipmentFormData>();
+  const { register, control } = useFormContext<EquipmentFormData>();
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Operating Conditions */}
-      <SectionCard title="Process & Operating Details" icon={<Activity size={15} />}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-11">
+      <SectionCard title="Operating & Process" icon={<Activity size={15} />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="flex flex-col gap-6">
             <FormField label="Operating Speed Range (RPM)">
               <Controller
                 name="operating_speed_min"
@@ -43,7 +42,6 @@ export function OperatingProcessTab() {
                 )}
               />
             </FormField>
-
             <FormField label="Load Range (%)">
               <Controller
                 name="load_range_min"
@@ -65,43 +63,30 @@ export function OperatingProcessTab() {
                 )}
               />
             </FormField>
-
             <FormField label="Normal Operating Load (%)">
               <TextInput type="number" min="0" max="100" unit="%" {...register("normal_operating_load")} placeholder="e.g. 75" />
             </FormField>
           </div>
-
           <FormField label="Process Details" className="h-full">
-            <TextareaInput
-              {...register("process_details")}
-              rows={7}
-              placeholder="Describe the process this equipment supports..."
-              className="h-full"
-            />
+            <TextareaInput {...register("process_details")} rows={7} placeholder="Process description..." className="h-full" />
           </FormField>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-6">
           <FormField label="Operating Environment">
             <Controller
               name="operating_environment"
               control={control}
               render={({ field }) => (
-                <MultiSelect
-                  options={OPERATING_ENVIRONMENTS}
-                  value={field.value || []}
-                  onChange={field.onChange}
-                  placeholder="Select all applicable environments..."
-                />
+                <MultiSelect options={OPERATING_ENVIRONMENTS} value={field.value || []} onChange={field.onChange} placeholder="Select environments..." />
               )}
             />
           </FormField>
         </div>
       </SectionCard>
 
-      {/* Lubrication & Maintenance */}
       <SectionCard title="Lubrication & Maintenance" icon={<Wrench size={15} />}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           <FormField label="Lubrication Type">
             <Controller
               name="lubrication_type"
@@ -111,17 +96,14 @@ export function OperatingProcessTab() {
               )}
             />
           </FormField>
-
           <FormField label="Installation Date">
             <TextInput type="date" {...register("installation_date")} />
           </FormField>
-
           <FormField label="Last Maintenance Date">
             <TextInput type="date" {...register("last_maintenance_date")} />
           </FormField>
-
           <FormField label="Maintenance Notes" className="md:col-span-2 lg:col-span-4">
-            <TextareaInput {...register("maintenance_notes")} rows={3} placeholder="Enter any maintenance notes, history, or remarks..." />
+            <TextareaInput {...register("maintenance_notes")} rows={3} placeholder="Maintenance notes..." />
           </FormField>
         </div>
       </SectionCard>
