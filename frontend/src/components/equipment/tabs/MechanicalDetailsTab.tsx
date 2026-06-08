@@ -11,16 +11,20 @@ const FOUNDATION_TYPES = ["Concrete Foundation", "Steel Structure", "Skid Mounte
 const COUPLING_TYPES = ["Flexible", "Grid", "Gear", "Jaw", "Disc", "Tyre", "Chain", "Fluid", "Direct"];
 
 export function MechanicalDetailsTab() {
-  const { register, control } = useFormContext<EquipmentFormData>();
+  const { control } = useFormContext<EquipmentFormData>();
 
   return (
     <SectionCard title="Mechanical Details" icon={<Settings size={15} />}>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         <FormField label="Rated Power">
-          <TextInput type="number" step="0.01" min="0" unit="kW" {...register("rated_power_kw")} placeholder="e.g. 75" />
+          <Controller name="rated_power_kw" control={control} render={({ field }) => (
+            <TextInput type="number" step="0.01" min="0" unit="kW" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 75" />
+          )} />
         </FormField>
         <FormField label="Rated RPM">
-          <TextInput type="number" min="0" unit="RPM" {...register("rated_rpm")} placeholder="e.g. 1480" />
+          <Controller name="rated_rpm" control={control} render={({ field }) => (
+            <TextInput type="number" min="0" unit="RPM" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value))} placeholder="e.g. 1480" />
+          )} />
         </FormField>
         <FormField label="Drive Type">
           <Controller

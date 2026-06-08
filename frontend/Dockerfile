@@ -38,17 +38,13 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Preview — serve the production build (good for smoke-testing the build)
+# Preview — serve the production build with nginx
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS preview
+FROM nginx:alpine AS preview
 
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 4173
 
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
+CMD ["nginx", "-g", "daemon off;"]

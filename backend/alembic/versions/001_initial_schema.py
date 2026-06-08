@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("line", sa.String(255), nullable=False),
         # Asset Identification
         sa.Column("machine_name", sa.String(255), nullable=False),
-        sa.Column("machine_id", sa.String(100), nullable=False),
+        sa.Column("machine_id", sa.String(100), nullable=True),
         sa.Column("machine_type", sa.String(50), nullable=False),
         sa.Column("machine_criticality", sa.String(20), nullable=False),
         sa.Column("manufacturer", sa.String(255), nullable=True),

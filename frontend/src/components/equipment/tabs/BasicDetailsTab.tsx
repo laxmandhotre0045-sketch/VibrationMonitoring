@@ -17,7 +17,7 @@ interface BasicDetailsTabProps {
 }
 
 export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
-  const { register, control } = useFormContext<EquipmentFormData>();
+  const { control } = useFormContext<EquipmentFormData>();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -39,13 +39,19 @@ export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
       <SectionCard title="Location Hierarchy" icon={<MapPin size={15} />}>
         <div className="flex flex-col gap-6">
           <FormField label="Plant Name">
-            <TextInput {...register("plant_name")} placeholder="e.g. Pune Plant" />
+            <Controller name="plant_name" control={control} render={({ field }) => (
+              <TextInput {...field} value={field.value ?? ""} placeholder="e.g. Pune Plant" />
+            )} />
           </FormField>
           <FormField label="Area">
-            <TextInput {...register("area")} placeholder="e.g. Utilities" />
+            <Controller name="area" control={control} render={({ field }) => (
+              <TextInput {...field} value={field.value ?? ""} placeholder="e.g. Utilities" />
+            )} />
           </FormField>
           <FormField label="Line">
-            <TextInput {...register("line")} placeholder="e.g. Cooling Water Line" />
+            <Controller name="line" control={control} render={({ field }) => (
+              <TextInput {...field} value={field.value ?? ""} placeholder="e.g. Cooling Water Line" />
+            )} />
           </FormField>
         </div>
       </SectionCard>
@@ -53,42 +59,39 @@ export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
       <SectionCard title="Machine Identification" icon={<Tag size={15} />}>
         <div className="flex flex-col gap-6">
           <FormField label="Machine Name">
-            <TextInput {...register("machine_name")} placeholder="e.g. Cooling Water Pump P-204" />
+            <Controller name="machine_name" control={control} render={({ field }) => (
+              <TextInput {...field} value={field.value ?? ""} placeholder="e.g. Cooling Water Pump P-204" />
+            )} />
           </FormField>
           <FormField label="Machine ID / Asset Code">
-            <TextInput {...register("machine_id")} placeholder="e.g. PUMP-P204" />
+            <Controller name="machine_id" control={control} render={({ field }) => (
+              <TextInput {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value || null)} placeholder="e.g. PUMP-P204" />
+            )} />
           </FormField>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Machine Type">
-              <Controller
-                name="machine_type"
-                control={control}
-                render={({ field }) => (
-                  <SelectInput {...field} options={MACHINE_TYPES} placeholder="Select type" />
-                )}
-              />
+              <Controller name="machine_type" control={control} render={({ field }) => (
+                <SelectInput {...field} value={field.value ?? ""} options={MACHINE_TYPES} placeholder="Select type" />
+              )} />
             </FormField>
             <FormField label="Machine Criticality">
-              <Controller
-                name="machine_criticality"
-                control={control}
-                render={({ field }) => (
-                  <div className="relative">
-                    <select
-                      {...field}
-                      className="w-full pl-8 pr-4 py-3 text-base border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.22)] appearance-none cursor-pointer"
-                    >
-                      <option value="">Select</option>
-                      {CRITICALITY.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    {field.value && (
-                      <span className={cn("absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full", CRITICALITY_DOT[field.value])} />
-                    )}
-                  </div>
-                )}
-              />
+              <Controller name="machine_criticality" control={control} render={({ field }) => (
+                <div className="relative">
+                  <select
+                    {...field}
+                    value={field.value ?? ""}
+                    className="w-full pl-8 pr-4 py-3 text-base border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.22)] appearance-none cursor-pointer"
+                  >
+                    <option value="">Select</option>
+                    {CRITICALITY.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  {field.value && (
+                    <span className={cn("absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full", CRITICALITY_DOT[field.value])} />
+                  )}
+                </div>
+              )} />
             </FormField>
           </div>
         </div>
@@ -98,13 +101,19 @@ export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
         <SectionCard title="Manufacturer & Model" icon={<Factory size={15} />}>
           <div className="flex flex-col gap-6">
             <FormField label="Manufacturer">
-              <TextInput {...register("manufacturer")} placeholder="e.g. KSB" />
+              <Controller name="manufacturer" control={control} render={({ field }) => (
+                <TextInput {...field} value={field.value ?? ""} placeholder="e.g. KSB" />
+              )} />
             </FormField>
             <FormField label="Model">
-              <TextInput {...register("model")} placeholder="e.g. Etanorm SYT 100-250" />
+              <Controller name="model" control={control} render={({ field }) => (
+                <TextInput {...field} value={field.value ?? ""} placeholder="e.g. Etanorm SYT 100-250" />
+              )} />
             </FormField>
             <FormField label="Serial Number">
-              <TextInput {...register("serial_number")} placeholder="e.g. KSB20240521001" />
+              <Controller name="serial_number" control={control} render={({ field }) => (
+                <TextInput {...field} value={field.value ?? ""} placeholder="e.g. KSB20240521001" />
+              )} />
             </FormField>
           </div>
         </SectionCard>

@@ -23,6 +23,8 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 @router.post("/", response_model=EquipmentOut, status_code=201)
 def create_equipment(data: EquipmentCreate, db: Session = Depends(get_db)):
+    import logging
+    logging.getLogger("uvicorn").info(f"[CREATE_EQUIPMENT] plant_name={repr(data.plant_name)} area={repr(data.area)} machine_name={repr(data.machine_name)} machine_type={repr(data.machine_type)}")
     if data.machine_id:
         existing = crud.get_equipment_by_machine_id(db, data.machine_id)
         if existing:

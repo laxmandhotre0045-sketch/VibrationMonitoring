@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SensorConfigBase(BaseModel):
@@ -57,7 +57,7 @@ class EquipmentBase(BaseModel):
 
     # Asset Identification
     machine_name: str = ""
-    machine_id: str = ""
+    machine_id: Optional[str] = None
     machine_type: str = ""
     machine_criticality: str = ""
     manufacturer: Optional[str] = None
@@ -103,6 +103,11 @@ class EquipmentBase(BaseModel):
     machine_train_configured: Optional[bool] = False
     bearing_database_mapped: Optional[bool] = False
     operating_mode_configured: Optional[bool] = False
+
+    @field_validator("machine_id", mode="before")
+    @classmethod
+    def normalize_machine_id(cls, v):
+        return None if v == "" else v
 
 
 class EquipmentCreate(EquipmentBase):
@@ -169,7 +174,7 @@ class EquipmentListItem(BaseModel):
     area: str
     line: str
     machine_name: str
-    machine_id: str
+    machine_id: Optional[str] = None
     machine_type: str
     machine_criticality: str
     manufacturer: Optional[str] = None

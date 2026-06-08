@@ -14,7 +14,7 @@ const OPERATING_ENVIRONMENTS = [
 ];
 
 export function OperatingProcessTab() {
-  const { register, control } = useFormContext<EquipmentFormData>();
+  const { control } = useFormContext<EquipmentFormData>();
 
   return (
     <div className="flex flex-col gap-11">
@@ -64,11 +64,15 @@ export function OperatingProcessTab() {
               />
             </FormField>
             <FormField label="Normal Operating Load (%)">
-              <TextInput type="number" min="0" max="100" unit="%" {...register("normal_operating_load")} placeholder="e.g. 75" />
+              <Controller name="normal_operating_load" control={control} render={({ field }) => (
+              <TextInput type="number" min="0" max="100" unit="%" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 75" />
+            )} />
             </FormField>
           </div>
           <FormField label="Process Details" className="h-full">
-            <TextareaInput {...register("process_details")} rows={7} placeholder="Process description..." className="h-full" />
+            <Controller name="process_details" control={control} render={({ field }) => (
+              <TextareaInput {...field} value={field.value ?? ""} rows={7} placeholder="Process description..." className="h-full" />
+            )} />
           </FormField>
         </div>
 
@@ -97,13 +101,19 @@ export function OperatingProcessTab() {
             />
           </FormField>
           <FormField label="Installation Date">
-            <TextInput type="date" {...register("installation_date")} />
+            <Controller name="installation_date" control={control} render={({ field }) => (
+              <TextInput type="date" {...field} value={field.value ?? ""} />
+            )} />
           </FormField>
           <FormField label="Last Maintenance Date">
-            <TextInput type="date" {...register("last_maintenance_date")} />
+            <Controller name="last_maintenance_date" control={control} render={({ field }) => (
+              <TextInput type="date" {...field} value={field.value ?? ""} />
+            )} />
           </FormField>
           <FormField label="Maintenance Notes" className="md:col-span-2 lg:col-span-4">
-            <TextareaInput {...register("maintenance_notes")} rows={3} placeholder="Maintenance notes..." />
+            <Controller name="maintenance_notes" control={control} render={({ field }) => (
+              <TextareaInput {...field} value={field.value ?? ""} rows={3} placeholder="Maintenance notes..." />
+            )} />
           </FormField>
         </div>
       </SectionCard>
