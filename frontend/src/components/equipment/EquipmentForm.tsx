@@ -17,6 +17,8 @@ import { OperatingProcessTab } from "./tabs/OperatingProcessTab";
 import { SensorsOrientationTab } from "./tabs/SensorsOrientationTab";
 import { ReviewSaveTab } from "./tabs/ReviewSaveTab";
 import { EquipmentPageShell } from "./EquipmentPageShell";
+import { cardHover } from "@/lib/card-hover";
+import { cn } from "@/lib/utils";
 
 interface EquipmentFormProps {
   initialData?: EquipmentFormData & { id?: string; created_at?: string; updated_at?: string };
@@ -25,12 +27,12 @@ interface EquipmentFormProps {
 
 function FormBreadcrumb({ editId }: { editId?: string }) {
   return (
-    <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+    <nav className="flex items-center gap-2 text-base font-medium text-muted-foreground">
       <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
       <ChevronRight size={14} />
       <Link to="/equipment" className="hover:text-foreground transition-colors">Equipment Master</Link>
       <ChevronRight size={14} />
-      <span className="text-foreground font-medium">{editId ? "Edit" : "New"}</span>
+      <span className="text-foreground font-semibold">{editId ? "Edit" : "New"}</span>
     </nav>
   );
 }
@@ -85,7 +87,7 @@ function FormBody({
             <div style={{ display: activeTab === 5 ? undefined : "none" }}><SensorsOrientationTab /></div>
             <div style={{ display: activeTab === 6 ? undefined : "none" }}><ReviewSaveTab /></div>
 
-            <div className="content-card">
+            <div className={cn("content-card", cardHover.soft)}>
               <div className="form-actions-bar">
                 <Button
                   type="button"

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from app.routers.equipment import router as equipment_router
 from app.routers.lookups import router as lookups_router
+from app.routers.measurements import router as measurements_router
 
 app = FastAPI(
     title="AI Vibration Intelligence Platform",
@@ -20,9 +21,11 @@ app.add_middleware(
 
 app.include_router(equipment_router)
 app.include_router(lookups_router)
+app.include_router(measurements_router)
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(os.getenv("MEASUREMENT_UPLOAD_DIR", "uploads/measurements"), exist_ok=True)
 
 
 @app.get("/health")

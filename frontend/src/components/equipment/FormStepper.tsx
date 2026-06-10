@@ -1,6 +1,7 @@
 import React from "react";
 import { Check } from "lucide-react";
 import { FORM_STEPS } from "@/lib/form-intelligence";
+import { cardHover } from "@/lib/card-hover";
 import { cn } from "@/lib/utils";
 
 interface FormStepperProps {
@@ -17,10 +18,10 @@ export function FormStepper({ activeStep, completedSteps, onStepClick }: FormSte
   );
 
   return (
-    <div className="content-card p-6 sm:p-8">
+    <div className={cn("content-card p-6 sm:p-8", cardHover.soft)}>
       <div className="flex items-center gap-4 mb-6 sm:mb-8">
-        <span className="text-sm text-muted-foreground shrink-0">
-          Step <span className="font-semibold text-[#FF6B00]">{activeStep}</span> of {FORM_STEPS.length}
+        <span className="text-base font-medium text-muted-foreground shrink-0">
+          Step <span className="font-bold text-[#FF6B00]">{activeStep}</span> of {FORM_STEPS.length}
         </span>
         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
           <div
@@ -92,7 +93,7 @@ export function FormStepper({ activeStep, completedSteps, onStepClick }: FormSte
                   </div>
                   <span
                     className={cn(
-                      "text-xs font-semibold text-center leading-tight",
+                      "text-sm font-semibold text-center leading-tight",
                       isActive && "text-[#FF6B00]",
                       isCompleted && !isActive && "text-[#FF6B00]/80",
                       isUpcoming && !isActive && "text-[#FF6B00]/70",

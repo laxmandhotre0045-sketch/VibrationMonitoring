@@ -44,13 +44,13 @@ export function ProgressRing({
             className="transition-all duration-700"
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-signal-dark">
+        <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-signal-dark">
           {value}%
         </span>
       </div>
       <div className="min-w-0">
-        <p className="text-base font-medium text-brand leading-tight">{label}</p>
-        {sublabel && <p className="text-sm text-muted-foreground mt-0.5">{sublabel}</p>}
+        <p className="text-lg font-semibold text-brand leading-tight">{label}</p>
+        {sublabel && <p className="text-helper mt-0.5">{sublabel}</p>}
       </div>
     </div>
   );

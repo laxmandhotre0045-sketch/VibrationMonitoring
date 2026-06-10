@@ -46,14 +46,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.25 }}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg shadow-card-hover text-sm font-medium min-w-72 border bg-white",
+                "flex items-center gap-3 px-4 py-3 rounded-lg shadow-card-hover text-base font-semibold min-w-72 border bg-white",
                 toast.type === "success"
                   ? "text-machine-healthy border-machine-healthy/25"
                   : "text-destructive border-destructive/25"
               )}
             >
               {toast.type === "success" ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-              <span className="flex-1 text-foreground">{toast.message}</span>
+              <span className="flex-1 text-foreground font-medium">{toast.message}</span>
               <button onClick={() => remove(toast.id)} className="p-1 rounded hover:bg-muted transition-colors">
                 <X size={14} className="text-muted-foreground" />
               </button>

@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Cpu,
+  Activity,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +27,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Cpu,
     active: true,
     matchPaths: ["/equipment"],
+  },
+  {
+    path: "/analysis",
+    label: "Vibration Analysis",
+    icon: Activity,
+    active: true,
+    matchPaths: ["/analysis"],
   },
   {
     path: "/settings",

@@ -4,6 +4,7 @@ import { MapPin, Tag, Factory, Upload, X } from "lucide-react";
 import { EquipmentFormData, CRITICALITY_DOT } from "@/types/equipment";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { FormField, TextInput, SelectInput } from "@/components/ui/FormField";
+import { cardHover } from "@/lib/card-hover";
 import { cn } from "@/lib/utils";
 
 const MACHINE_TYPES = [
@@ -132,11 +133,14 @@ export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
             </div>
           ) : (
             <div
-              className="border border-dashed border-border rounded-lg p-8 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-signal-light/50 hover:bg-surface transition-colors"
+              className={cn(
+                "border border-dashed border-border rounded-lg p-8 flex flex-col items-center justify-center gap-2",
+                cardHover.upload
+              )}
               onClick={() => fileRef.current?.click()}
             >
               <Upload size={22} className="text-signal-dark" />
-              <p className="text-base font-medium text-foreground">Upload image</p>
+              <p className="text-lg font-semibold text-foreground">Upload image</p>
             </div>
           )}
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
