@@ -14,7 +14,7 @@ interface FormFieldProps {
 export function FormField({ label, required, error, hint, children, className }: FormFieldProps) {
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <label className="text-base font-medium text-foreground">
+      <label className="text-lg font-semibold text-foreground">
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
       </label>
@@ -22,18 +22,18 @@ export function FormField({ label, required, error, hint, children, className }:
       {hint && !error && (
         <div className="flex items-start gap-2 px-3 py-2.5 bg-warm border border-border border-l-2 border-l-signal-light rounded-r-md">
           <Info size={14} className="text-signal-dark shrink-0 mt-0.5" />
-          <p className="text-sm text-muted-foreground leading-relaxed">{hint}</p>
+          <p className="text-helper">{hint}</p>
         </div>
       )}
-      {error && <p className="text-sm text-destructive font-medium">{error}</p>}
+      {error && <p className="text-base text-destructive font-semibold">{error}</p>}
     </div>
   );
 }
 
 const inputBase = cn(
-  "w-full px-4 py-3 text-base rounded-lg transition-colors",
+  "w-full px-4 py-3 text-base font-normal rounded-lg transition-colors",
   "bg-white text-foreground border border-border",
-  "placeholder:text-muted-foreground",
+  "placeholder:text-placeholder placeholder:font-normal",
   "focus:outline-none focus:border-signal-light focus:ring-2 focus:ring-[rgba(245,166,35,0.22)]",
   "hover:border-border"
 );
@@ -56,7 +56,7 @@ export function TextInput({ unit, error, className, ...props }: TextInputProps) 
         {...props}
       />
       {unit && (
-        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base text-muted-foreground pointer-events-none">
           {unit}
         </span>
       )}
@@ -130,12 +130,12 @@ export function RangeInput({
     <div className="flex items-center gap-4">
       <div className="relative flex-1">
         <input type={type} value={valueMin ?? ""} onChange={(e) => onChangeMin?.(e.target.value)} placeholder="Min" className={inputBase} />
-        {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{unit}</span>}
+        {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base text-muted-foreground">{unit}</span>}
       </div>
       <span className="text-muted-foreground text-base">—</span>
       <div className="relative flex-1">
         <input type={type} value={valueMax ?? ""} onChange={(e) => onChangeMax?.(e.target.value)} placeholder="Max" className={inputBase} />
-        {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{unit}</span>}
+        {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base text-muted-foreground">{unit}</span>}
       </div>
     </div>
   );

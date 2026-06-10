@@ -71,20 +71,20 @@ export function SensorsOrientationTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <SectionCard title="Sensor Mounting & Orientation" icon={<Radio size={16} />}>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-w-0">
               <table className="w-full text-base">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left text-base font-medium text-muted-foreground pb-4 pr-6">Location</th>
-                    <th className="text-left text-base font-medium text-muted-foreground pb-4 pr-6">Mounting Location</th>
-                    <th className="text-left text-base font-medium text-muted-foreground pb-4">Orientation</th>
+                    <th className="text-left text-lg font-semibold text-muted-foreground pb-4 pr-6">Location</th>
+                    <th className="text-left text-lg font-semibold text-muted-foreground pb-4 pr-6">Mounting Location</th>
+                    <th className="text-left text-lg font-semibold text-muted-foreground pb-4">Orientation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {defaultRows.map((row, idx) => (
                     <tr key={row.label} className="py-2">
                       <td className="py-2 pr-4">
-                        <span className="text-base font-medium text-foreground">{row.label}</span>
+                        <span className="text-lg font-semibold text-foreground">{row.label}</span>
                       </td>
                       <td className="py-2 pr-4">
                         <select
@@ -131,7 +131,7 @@ export function SensorsOrientationTab() {
       </div>
 
       {/* Additional Sensors */}
-      <SectionCard title="Additional Sensors" icon={<Radio size={16} />}>
+      <SectionCard scrollBody title="Additional Sensors" icon={<Radio size={16} />}>
         <div className="flex items-center justify-end mb-4">
           <Button type="button" size="sm" icon={<Plus size={14} />} onClick={addSensor}>
             Add Sensor
@@ -145,7 +145,7 @@ export function SensorsOrientationTab() {
             return (
               <div key={field.id} className="border border-border rounded-xl p-4 bg-white relative">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-base font-semibold text-foreground">Sensor {idx + 1}</span>
+                  <span className="text-lg font-semibold text-foreground">Sensor {idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => remove(idx)}
@@ -158,7 +158,7 @@ export function SensorsOrientationTab() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {/* Sensor Type */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-foreground">Sensor Type *</label>
+                    <label className="text-lg font-semibold text-foreground">Sensor Type *</label>
                     <Controller
                       name={`sensors.${idx}.sensor_type`}
                       control={control}
@@ -170,7 +170,7 @@ export function SensorsOrientationTab() {
 
                   {/* Mounting Location */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-foreground">Mounting Location *</label>
+                    <label className="text-lg font-semibold text-foreground">Mounting Location *</label>
                     <Controller
                       name={`sensors.${idx}.mounting_location`}
                       control={control}
@@ -182,7 +182,7 @@ export function SensorsOrientationTab() {
 
                   {/* Orientation */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-foreground">Orientation *</label>
+                    <label className="text-lg font-semibold text-foreground">Orientation *</label>
                     <Controller
                       name={`sensors.${idx}.orientation`}
                       control={control}
@@ -194,7 +194,7 @@ export function SensorsOrientationTab() {
 
                   {/* Mounting Method */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-foreground">Mounting Method</label>
+                    <label className="text-lg font-semibold text-foreground">Mounting Method</label>
                     <Controller
                       name={`sensors.${idx}.mounting_method`}
                       control={control}
@@ -206,7 +206,7 @@ export function SensorsOrientationTab() {
 
                   {/* Sensitivity */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-foreground">Sensitivity</label>
+                    <label className="text-lg font-semibold text-foreground">Sensitivity</label>
                     <div className="flex gap-1">
                       <input
                         type="number"
@@ -223,7 +223,7 @@ export function SensorsOrientationTab() {
                           <select
                             {...f}
                             value={f.value || ""}
-                            className="w-20 px-1 py-1.5 text-xs border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
+                            className="w-20 px-1 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                           >
                             <option value="">Unit</option>
                             {SENSITIVITY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -235,7 +235,7 @@ export function SensorsOrientationTab() {
 
                   {/* Sampling Rate */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-foreground">Sampling Rate</label>
+                    <label className="text-lg font-semibold text-foreground">Sampling Rate</label>
                     <Controller
                       name={`sensors.${idx}.sampling_rate`}
                       control={control}
@@ -252,14 +252,14 @@ export function SensorsOrientationTab() {
                           placeholder="Hz value"
                           className="flex-1 px-2 py-1.5 text-sm border border-brand/30 rounded-lg bg-brand/5 focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                         />
-                        <span className="text-xs text-muted-foreground">Hz</span>
+                        <span className="text-sm text-muted-foreground">Hz</span>
                       </div>
                     )}
                   </div>
 
                   {/* Frequency Range */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-base font-medium text-foreground">Frequency Range</label>
+                    <label className="text-lg font-semibold text-foreground">Frequency Range</label>
                     <Controller
                       name={`sensors.${idx}.frequency_range`}
                       control={control}
@@ -276,7 +276,7 @@ export function SensorsOrientationTab() {
                           placeholder="Min Hz"
                           className="flex-1 px-2 py-1.5 text-sm border border-brand/30 rounded-lg bg-brand/5 focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                         />
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-sm text-muted-foreground">—</span>
                         <input
                           type="number"
                           min="0"
@@ -284,7 +284,7 @@ export function SensorsOrientationTab() {
                           placeholder="Max Hz"
                           className="flex-1 px-2 py-1.5 text-sm border border-brand/30 rounded-lg bg-brand/5 focus:outline-none focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]/30"
                         />
-                        <span className="text-xs text-muted-foreground">Hz</span>
+                        <span className="text-sm text-muted-foreground">Hz</span>
                       </div>
                     )}
                   </div>

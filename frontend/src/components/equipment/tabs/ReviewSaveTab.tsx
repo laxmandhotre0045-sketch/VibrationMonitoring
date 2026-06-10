@@ -5,6 +5,8 @@ import { EquipmentFormData, CRITICALITY_COLORS } from "@/types/equipment";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { SelectInput } from "@/components/ui/FormField";
 import { cn } from "@/lib/utils";
+import { cardSizing } from "@/lib/card-sizing";
+import { cardHover } from "@/lib/card-hover";
 
 const ASSET_STATUS = ["Active", "Inactive", "Under Maintenance", "Decommissioned"];
 
@@ -12,22 +14,32 @@ function ReviewRow({ label, value }: { label: string; value?: string | number | 
   if (!value && value !== 0) return null;
   return (
     <div className="flex items-start gap-4 py-3 border-b border-border last:border-0">
-      <span className="text-base text-muted-foreground w-44 shrink-0">{label}</span>
-      <span className="text-base font-medium text-foreground">{String(value)}</span>
+      <span className="text-lg font-medium text-muted-foreground w-44 shrink-0">{label}</span>
+      <span className="text-lg font-semibold text-foreground">{String(value)}</span>
     </div>
   );
 }
 
-function ReviewSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function ReviewSection({
+  title,
+  icon,
+  children,
+  scrollBody,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  scrollBody?: boolean;
+}) {
   return (
-    <div className="content-card">
+    <div className={cn("content-card card-auto", cardHover.soft, scrollBody && "overflow-hidden")}>
       <div className="px-8 py-5 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-brand">{icon}</span>
-          <span className="text-xl font-semibold text-foreground">{title}</span>
+          <span className="text-section-title">{title}</span>
         </div>
       </div>
-      <div className="px-8 py-6">{children}</div>
+      <div className={cn("px-8 py-6", scrollBody && cardSizing.scrollSm)}>{children}</div>
     </div>
   );
 }
@@ -106,14 +118,14 @@ export function ReviewSaveTab() {
           )}
         </ReviewSection>
 
-        <ReviewSection title="Sensors" icon={<Radio size={14} />}>
+        <ReviewSection title="Sensors" icon={<Radio size={14} />} scrollBody>
           {(data.sensors?.length || 0) === 0 ? (
-            <p className="text-base text-muted-foreground py-2">No additional sensors configured.</p>
+            <p className="text-helper py-2">No additional sensors configured.</p>
           ) : (
             <div className="flex flex-col gap-2">
               {data.sensors?.map((s, i) => (
                 <div key={i} className="flex flex-wrap gap-2 py-2 border-b border-border last:border-0">
-                  <span className="text-base font-medium text-foreground">Sensor {i + 1}:</span>
+                  <span className="text-base font-semibold text-foreground">Sensor {i + 1}:</span>
                   <span className="text-sm bg-surface text-brand px-2.5 py-1 rounded-md border border-border">{s.sensor_type}</span>
                   <span className="text-sm bg-surface text-foreground px-2.5 py-1 rounded-md border border-border">{s.mounting_location}</span>
                   <span className="text-sm bg-surface text-foreground px-2.5 py-1 rounded-md border border-border">{s.orientation}</span>
@@ -127,7 +139,7 @@ export function ReviewSaveTab() {
       <SectionCard title="Asset Configuration" icon={<ClipboardCheck size={16} />}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-base font-medium text-foreground">Asset Status</label>
+            <label className="text-lg font-semibold text-foreground">Asset Status</label>
             <Controller
               name="asset_status"
               control={control}

@@ -20,6 +20,8 @@ import {
   getSensorStatus,
 } from "@/lib/form-intelligence";
 import { cn } from "@/lib/utils";
+import { cardSizing } from "@/lib/card-sizing";
+import { cardHover } from "@/lib/card-hover";
 
 interface AssetIntelligencePanelProps {
   activeStep: number;
@@ -28,7 +30,7 @@ interface AssetIntelligencePanelProps {
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="px-5 py-4 border-b border-border last:border-0">
-      <h4 className="text-[11px] font-bold text-brand uppercase tracking-wider mb-3">{title}</h4>
+      <h4 className="text-overline text-brand mb-3">{title}</h4>
       {children}
     </div>
   );
@@ -52,17 +54,21 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
 
   return (
     <aside className="sticky top-6">
-      <div className="rounded-xl border border-border bg-white shadow-card overflow-hidden">
-        <div className="px-5 py-4 bg-brand text-white">
+      <div className={cn(
+        "rounded-xl border border-border bg-white shadow-card overflow-hidden flex flex-col max-h-[calc(100vh-6rem)]",
+        cardHover.panel
+      )}>
+        <div className="px-5 py-4 bg-brand text-white shrink-0">
           <div className="flex items-center gap-2">
             <Activity size={18} className="text-brand-accent" />
             <div>
-              <h3 className="text-sm font-bold">Asset Intelligence Panel</h3>
-              <p className="text-[11px] text-white/70 mt-0.5">Real-time profile analysis</p>
+              <h3 className="text-base font-bold">Asset Intelligence Panel</h3>
+              <p className="text-sm font-medium text-white/85 mt-0.5">Real-time profile analysis</p>
             </div>
           </div>
         </div>
 
+        <div className={cardSizing.scrollFill}>
         <PanelSection title="AI Readiness Score">
           <div className="flex items-end justify-between mb-2">
             <span className="text-3xl font-bold text-brand-accent-dark">{aiScore}%</span>
@@ -74,7 +80,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
               style={{ width: `${aiScore}%` }}
             />
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-sm font-medium text-muted-foreground mt-2">
             {aiScore >= 70 ? "Ready for vibration intelligence" : "Additional data needed for AI diagnostics"}
           </p>
         </PanelSection>
@@ -82,7 +88,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
         <PanelSection title="Form Completion">
           <div className="flex items-center justify-between mb-2">
             <span className="text-2xl font-bold text-brand">{completion}%</span>
-            <span className="text-xs text-muted-foreground">of profile complete</span>
+            <span className="text-sm font-medium text-muted-foreground">of profile complete</span>
           </div>
           <div className="h-2 bg-border rounded-full overflow-hidden">
             <div
@@ -97,7 +103,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
             <Cpu size={18} className="text-brand shrink-0" />
             <div>
               <p className="text-lg font-bold text-brand">{equipmentCount}</p>
-              <p className="text-xs text-muted-foreground">Registered equipment</p>
+              <p className="text-sm font-medium text-muted-foreground">Registered equipment</p>
             </div>
           </div>
         </PanelSection>
@@ -107,18 +113,18 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
             {data.machine_type ? (
               <>
                 <CheckCircle2 size={16} className="text-machine-healthy" />
-                <span className="text-sm font-semibold text-foreground">{data.machine_type}</span>
+                <span className="text-base font-semibold text-foreground">{data.machine_type}</span>
               </>
             ) : (
               <>
                 <AlertTriangle size={16} className="text-brand-accent" />
-                <span className="text-sm text-muted-foreground">Not selected</span>
+                <span className="text-base font-medium text-muted-foreground">Not selected</span>
               </>
             )}
           </div>
           {data.machine_criticality && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Criticality: <span className="font-medium text-foreground">{data.machine_criticality}</span>
+            <p className="text-sm font-medium text-muted-foreground mt-2">
+              Criticality: <span className="font-semibold text-foreground">{data.machine_criticality}</span>
             </p>
           )}
         </PanelSection>
@@ -130,7 +136,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
               sensorStatus.status === "partial" && "text-brand-accent",
               sensorStatus.status === "empty" && "text-muted-foreground"
             )} />
-            <span className="text-sm text-foreground">{sensorStatus.label}</span>
+            <span className="text-base font-medium text-foreground">{sensorStatus.label}</span>
           </div>
         </PanelSection>
 
@@ -138,13 +144,13 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
           <PanelSection title="Missing Information">
             <ul className="space-y-2">
               {alerts.slice(0, 5).map((alert) => (
-                <li key={alert} className="flex items-start gap-2 text-xs text-foreground/80">
+                <li key={alert} className="flex items-start gap-2 text-sm font-medium text-foreground/90">
                   <AlertTriangle size={13} className="text-brand-accent shrink-0 mt-0.5" />
                   {alert}
                 </li>
               ))}
               {alerts.length > 5 && (
-                <li className="text-xs text-muted-foreground pl-5">+{alerts.length - 5} more items</li>
+                <li className="text-sm font-medium text-muted-foreground pl-5">+{alerts.length - 5} more items</li>
               )}
             </ul>
           </PanelSection>
@@ -153,13 +159,14 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
         <PanelSection title="Recommended Next Actions">
           <ul className="space-y-2.5">
             {actions.map((action, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-foreground/90 leading-relaxed">
+              <li key={i} className="flex items-start gap-2 text-sm font-medium text-foreground leading-relaxed">
                 <Lightbulb size={13} className="text-brand-accent shrink-0 mt-0.5" />
                 {action}
               </li>
             ))}
           </ul>
         </PanelSection>
+        </div>
       </div>
     </aside>
   );

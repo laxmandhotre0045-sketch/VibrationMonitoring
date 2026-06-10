@@ -9,6 +9,8 @@ import {
   getPMReadiness,
 } from "@/lib/form-intelligence";
 import { ProgressRing } from "./industrial/ProgressRing";
+import { cardHover } from "@/lib/card-hover";
+import { cn } from "@/lib/utils";
 
 interface AssetHealthPanelProps {
   data: EquipmentFormData;
@@ -24,10 +26,10 @@ const RING_CONFIG = [
 
 export function AssetHealthPanel({ data }: AssetHealthPanelProps) {
   return (
-    <div className="bg-card border border-border rounded-xl">
+    <div className={cn("bg-card border border-border rounded-xl", cardHover.panel)}>
       <div className="px-8 py-5 border-b border-border flex items-center gap-3">
         <Activity size={20} className="text-signal-dark" />
-        <h3 className="text-xl font-semibold text-brand">Asset Intelligence</h3>
+        <h3 className="text-section-title text-brand">Asset Intelligence</h3>
       </div>
       <div className="p-8 space-y-6">
         {RING_CONFIG.map((ring) => (

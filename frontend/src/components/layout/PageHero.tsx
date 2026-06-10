@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { VibrationIntelligenceBg } from "@/components/brand/VibrationIntelligenceBg";
+import { HeroIntelligenceBg } from "@/components/brand/HeroIntelligenceBg";
 import { cn } from "@/lib/utils";
 
 interface Breadcrumb {
@@ -38,16 +38,16 @@ export function PageHero({
         vibrationBg && "content-card overflow-hidden"
       )}
     >
-      {vibrationBg && <VibrationIntelligenceBg />}
+      {vibrationBg && <HeroIntelligenceBg />}
 
       <div className={cn("relative z-10", vibrationBg && "px-6 lg:px-8 py-6 lg:py-7")}>
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1.5 mb-3 text-sm">
+          <nav className="flex items-center gap-1.5 mb-3 text-base font-medium">
             {breadcrumbs.map((crumb, i) => (
               <React.Fragment key={crumb.label}>
                 {i > 0 && <ChevronRight size={14} className="text-muted-foreground" />}
                 {crumb.href ? (
-                  <Link to={crumb.href} className="text-muted-foreground hover:text-brand transition-colors font-medium">
+                  <Link to={crumb.href} className="text-muted-foreground hover:text-brand transition-colors">
                     {crumb.label}
                   </Link>
                 ) : (
@@ -60,17 +60,17 @@ export function PageHero({
 
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div className="space-y-1">
-            <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-brand">{title}</h1>
+            <h1 className="text-page-title lg:text-5xl">{title}</h1>
             <div className="brand-divider" />
-            <p className="text-base text-muted-foreground max-w-2xl leading-relaxed pt-2">{subtitle}</p>
+            <p className="text-base text-helper max-w-2xl pt-2">{subtitle}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             {equipmentCount !== undefined && (
               <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/90 border border-border shadow-card backdrop-blur-[2px]">
                 <div>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Equipment</p>
-                  <p className="text-xl font-bold text-brand">{equipmentCount.toLocaleString()}</p>
+                  <p className="text-overline">Equipment</p>
+                  <p className="text-kpi-value text-brand">{equipmentCount.toLocaleString()}</p>
                 </div>
               </div>
             )}

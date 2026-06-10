@@ -2,6 +2,8 @@ import React from "react";
 import type { EquipmentFormData } from "@/types/equipment";
 import { SensorPulseRings } from "@/components/brand/SensorPulseRings";
 import { cn } from "@/lib/utils";
+import { cardSizing } from "@/lib/card-sizing";
+import { cardHover } from "@/lib/card-hover";
 
 interface MachineVisualizationPanelProps {
   data: EquipmentFormData;
@@ -119,12 +121,12 @@ export function MachineVisualizationPanel({ data, className }: MachineVisualizat
   const machineType = data.machine_type || "";
 
   return (
-    <div className={cn("content-card rounded-lg", className)}>
+    <div className={cn("content-card card-auto rounded-lg", cardHover.soft, className)}>
       <div className="px-4 py-2.5 border-b border-border">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="text-overline">
           Asset Preview
         </p>
-        <p className="text-sm font-medium text-brand truncate mt-0.5">
+        <p className="text-base font-semibold text-brand truncate mt-0.5">
           {machineType || "No type selected"}
           {data.machine_name && (
             <span className="text-muted-foreground font-normal"> · {data.machine_name}</span>

@@ -22,13 +22,13 @@ export function TopNav() {
           placeholder="Search equipment, plants, alerts..."
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
-          className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-white border border-border text-brand placeholder:text-muted-foreground focus:outline-none focus:border-signal-light focus:ring-2 focus:ring-[rgba(245,166,35,0.22)]"
+          className="w-full pl-10 pr-4 py-2.5 text-base font-normal rounded-lg bg-white border border-border text-brand placeholder:text-placeholder placeholder:font-normal focus:outline-none focus:border-signal-light focus:ring-2 focus:ring-[rgba(245,166,35,0.22)]"
         />
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
         <div className="relative">
-          <button onClick={() => setPlantOpen(!plantOpen)} className={cn("flex items-center gap-2 px-3 py-2 text-sm font-medium text-brand", navBtn)}>
+          <button onClick={() => setPlantOpen(!plantOpen)} className={cn("flex items-center gap-2 px-3 py-2 text-base font-semibold text-brand", navBtn)}>
             <Building2 size={15} className="text-signal-dark" />
             <span className="hidden sm:inline max-w-[140px] truncate">{selectedPlant}</span>
             <ChevronDown size={14} className="text-muted-foreground" />
@@ -49,8 +49,8 @@ export function TopNav() {
                       key={plant}
                       onClick={() => { setSelectedPlant(plant); setPlantOpen(false); }}
                       className={cn(
-                        "w-full text-left px-4 py-2 text-sm transition-colors",
-                        selectedPlant === plant ? "text-brand bg-white font-medium border-l-2 border-l-signal-dark" : "text-brand/80 hover:bg-warm"
+                        "w-full text-left px-4 py-2.5 text-base transition-colors",
+                        selectedPlant === plant ? "text-brand bg-white font-semibold border-l-2 border-l-signal-dark" : "text-brand/90 font-medium hover:bg-warm"
                       )}
                     >
                       {plant}
@@ -65,7 +65,7 @@ export function TopNav() {
         <button className={cn("relative p-2", navBtn)}>
           <Bell size={18} className="text-brand" />
           {notifications > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[9px] font-bold text-white bg-signal-dark rounded-full">
+            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[10px] font-bold text-white bg-signal-dark rounded-full">
               {notifications}
             </span>
           )}

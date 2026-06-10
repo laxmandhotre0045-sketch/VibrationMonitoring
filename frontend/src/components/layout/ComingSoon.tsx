@@ -18,7 +18,7 @@ export function ComingSoon({ title, subtitle, icon: Icon, features = [] }: Comin
     <div>
       <PageHero title={title} subtitle={subtitle} breadcrumbs={[{ label: "Home", href: "/" }, { label: title }]} />
 
-      <GlassCard className="p-10 text-center" hover={false}>
+      <GlassCard className="p-8 text-center">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -29,16 +29,16 @@ export function ComingSoon({ title, subtitle, icon: Icon, features = [] }: Comin
             <Icon size={36} className="text-signal-dark" />
           </div>
 
-          <h2 className="text-xl font-bold text-brand mb-2">Coming Soon</h2>
+          <h2 className="text-2xl text-page-title mb-2">Coming Soon</h2>
           <div className="brand-divider mb-4" />
-          <p className="text-muted-foreground mb-8 leading-relaxed">
+          <p className="text-base text-helper mb-8">
             This module is under development and will be available in an upcoming release.
           </p>
 
           {features.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full mb-8">
               {features.map((feature) => (
-                <div key={feature} className="px-4 py-2.5 rounded-lg bg-warm border border-border text-sm text-brand/80 text-left">
+                <div key={feature} className="px-4 py-2.5 rounded-lg bg-warm border border-border text-base font-medium text-brand/90 text-left">
                   {feature}
                 </div>
               ))}
