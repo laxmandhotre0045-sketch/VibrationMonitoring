@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
+from app.config import settings
 from app.database import SessionLocal
 from app.routers.auth import router as auth_router
 from app.routers.equipment import router as equipment_router
@@ -43,8 +44,8 @@ app.include_router(equipment_router)
 app.include_router(lookups_router)
 app.include_router(measurements_router)
 
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(settings.upload_dir, exist_ok=True)
+os.makedirs(settings.measurement_upload_dir, exist_ok=True)
 
 
 def custom_openapi():

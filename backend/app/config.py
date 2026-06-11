@@ -5,7 +5,9 @@ class Settings(BaseSettings):
     database_url: str
     secret_key: str = "change-in-production"
     upload_dir: str = "uploads"
+    measurement_upload_dir: str = "uploads/measurements"
     max_image_size_mb: int = 10
+    max_pdf_size_mb: int = 50
 
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
