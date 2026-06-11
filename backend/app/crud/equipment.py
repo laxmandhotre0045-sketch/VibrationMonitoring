@@ -86,6 +86,14 @@ def get_sensor_by_id(db: Session, sensor_id: UUID) -> Optional[SensorConfigurati
     return db.query(SensorConfiguration).filter(SensorConfiguration.id == sensor_id).first()
 
 
+def get_sensor_by_device_id(db: Session, device_id: str) -> Optional[SensorConfiguration]:
+    return (
+        db.query(SensorConfiguration)
+        .filter(SensorConfiguration.device_id == device_id)
+        .first()
+    )
+
+
 def create_sensor(db: Session, equipment_id: UUID, data: SensorConfigCreate) -> SensorConfiguration:
     db_sensor = SensorConfiguration(equipment_id=equipment_id, **data.model_dump())
     db.add(db_sensor)

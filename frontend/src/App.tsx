@@ -8,7 +8,6 @@ import { Dashboard } from "@/pages/Dashboard";
 import { EquipmentMasterList } from "@/pages/EquipmentMasterList";
 import { NewEquipmentPage, EditEquipmentPage } from "@/pages/EquipmentMaster";
 import { SettingsPage } from "@/pages/ModulePages";
-import { VibrationAnalysisPage } from "@/pages/VibrationAnalysis";
 
 export default function App() {
   return (
@@ -21,7 +20,6 @@ export default function App() {
               <Route path="/equipment" element={<EquipmentMasterList />} />
               <Route path="/equipment/new" element={<NewEquipmentPage />} />
               <Route path="/equipment/:id/edit" element={<EditEquipmentPage />} />
-              <Route path="/analysis" element={<VibrationAnalysisPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
