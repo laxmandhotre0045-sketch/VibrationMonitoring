@@ -18,6 +18,8 @@ from app.schemas.measurement import (
     PlotSeriesOut,
     SensorDataUploadOut,
 )
+from app.schemas.acquisition import EdgeAcquisitionConfigOut
+from app.services.acquisition_config import build_edge_acquisition_config
 from app.services.pdf_parser import parse_sensor_file
 from app.services.plot_generator import generate_all_plots, generate_plot, save_parsed_data
 
@@ -59,6 +61,69 @@ def update_plot_config(sensor_id: UUID, data: PlotConfigUpdate, db: Session = De
     if not config:
         raise HTTPException(status_code=404, detail="Plot configuration not found for this sensor")
     return config
+
+
+# ── Edge acquisition config (for UDP / acquisition scripts) ─────────────────
+
+def _edge_acquisition_response(db: Session, device_id: str) -> EdgeAcquisitionConfigOut:
+    sensor = crud.get_sensor_by_device_id(db, device_id)
+    if not sensor:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No sensor found with device_id '{device_id}'. "
+            "Set device_id on the sensor via equipment API, then save plot config.",
+        )
+    plot_config = measurement_crud.get_plot_config_by_sensor(db, sensor.id)
+    payload = build_edge_acquisition_config(sensor, plot_config)
+    return EdgeAcquisitionConfigOut(**payload)
+
+
+@router.get(
+    "/acquisition",
+    response_model=EdgeAcquisitionConfigOut,
+    summary="Edge config by device_id query (recommended for MAC addresses)",
+)
+def get_edge_acquisition_query(
+    device_id: str = Query(..., description="Edge device ID / MAC, e.g. 11:AA:BB:CC:DD:EE"),
+    db: Session = Depends(get_db),
+):
+    """
+    **Edge script URL (recommended):**
+    `GET /api/v1/measurements/acquisition?device_id=11:AA:BB:CC:DD:EE`
+
+    Returns Sensovibe-compatible acquisition JSON for UDP acquisition scripts.
+    """
+    return _edge_acquisition_response(db, device_id)
+
+
+@router.get(
+    "/acquisition/by-sensor/{sensor_id}",
+    response_model=EdgeAcquisitionConfigOut,
+    summary="Edge config by platform sensor UUID (testing)",
+)
+def get_edge_acquisition_by_sensor(sensor_id: UUID, db: Session = Depends(get_db)):
+    """Build edge JSON from sensor UUID — useful before device_id is assigned."""
+    sensor = crud.get_sensor_by_id(db, sensor_id)
+    if not sensor:
+        raise HTTPException(status_code=404, detail="Sensor not found")
+    plot_config = measurement_crud.get_plot_config_by_sensor(db, sensor.id)
+    payload = build_edge_acquisition_config(sensor, plot_config)
+    return EdgeAcquisitionConfigOut(**payload)
+
+
+@router.get(
+    "/acquisition/{device_id}",
+    response_model=EdgeAcquisitionConfigOut,
+    summary="Edge config by device_id path",
+)
+def get_edge_acquisition_path(device_id: str, db: Session = Depends(get_db)):
+    """
+    **Edge script URL:**
+    `GET /api/v1/measurements/acquisition/{device_id}`
+
+    Note: if device_id contains `:`, prefer the query version above.
+    """
+    return _edge_acquisition_response(db, device_id)
 
 
 # ── Sensor data upload (CSV or PDF) ───────────────────────────────────────────

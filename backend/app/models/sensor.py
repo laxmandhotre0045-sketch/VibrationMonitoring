@@ -24,6 +24,7 @@ class SensorConfiguration(Base):
     frequency_range_custom_min = Column(Integer, nullable=True)
     frequency_range_custom_max = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
+    device_id = Column(String(64), nullable=True, unique=True, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

@@ -19,6 +19,11 @@ class SensorConfigBase(BaseModel):
     frequency_range_custom_min: Optional[int] = None
     frequency_range_custom_max: Optional[int] = None
     is_active: bool = True
+    device_id: Optional[str] = Field(
+        default=None,
+        max_length=64,
+        description="Edge device identifier (MAC-style), e.g. 11:AA:BB:CC:DD:EE",
+    )
 
 
 class SensorConfigCreate(SensorConfigBase):
@@ -38,6 +43,7 @@ class SensorConfigUpdate(BaseModel):
     frequency_range_custom_min: Optional[int] = None
     frequency_range_custom_max: Optional[int] = None
     is_active: Optional[bool] = None
+    device_id: Optional[str] = Field(default=None, max_length=64)
 
 
 class SensorConfigOut(SensorConfigBase):
