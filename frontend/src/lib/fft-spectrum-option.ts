@@ -7,6 +7,7 @@ import {
   baseAxisStyle,
   baseTooltip,
   CHART_GRID,
+  CHART_TOOLBOX_OFF,
   CHART_X_AXIS_DATA_ZOOM,
   ECHARTS_BRAND,
   fixedYAxisConfig,
@@ -121,6 +122,7 @@ export function buildFftSpectrumOption(plot: PlotSeries): EChartsOption {
         ].join("<br/>");
       },
     },
+    toolbox: CHART_TOOLBOX_OFF,
     dataZoom: CHART_X_AXIS_DATA_ZOOM,
     xAxis: {
       type: "value",

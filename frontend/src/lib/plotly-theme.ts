@@ -38,6 +38,8 @@ export function createPlotLayout(
     height?: number;
     yRange?: [number, number];
     shapes?: Partial<Shape>[];
+    xTickFormat?: string;
+    xTickSuffix?: string;
   }
 ): Partial<Layout> {
   const layout: Partial<Layout> = {
@@ -58,6 +60,8 @@ export function createPlotLayout(
       title: { text: xLabel, standoff: 8 },
       autorange: true,
       fixedrange: false,
+      ...(options?.xTickFormat ? { tickformat: options.xTickFormat } : {}),
+      ...(options?.xTickSuffix ? { ticksuffix: options.xTickSuffix } : {}),
     },
     yaxis: {
       ...baseAxis,
@@ -77,8 +81,7 @@ export const PLOTLY_CONFIG: Partial<Config> = {
   responsive: true,
   displaylogo: false,
   scrollZoom: "x",
-  displayModeBar: true,
-  modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d", "zoom2d"],
+  displayModeBar: false,
   toImageButtonOptions: {
     format: "png",
     filename: "sensovibe-diagnostic-plot",

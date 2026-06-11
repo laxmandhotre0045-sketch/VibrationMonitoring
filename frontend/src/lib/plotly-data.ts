@@ -3,8 +3,10 @@ import type { PlotSeries } from "@/types/measurements";
 import { computeYAxisBounds, expandBoundsForThresholds } from "./chart-bounds";
 import { getPlotThresholds, thresholdValues } from "./chart-thresholds";
 import { PLOTLY_BRAND, PLOTLY_TRACE } from "./plotly-theme";
+import { formatTimeMs } from "./waveform-time-axis";
 
 const MAX_POINTS = 2000;
+const WAVEFORM_MAX_POINTS = 8192;
 
 /** Downsample for smooth Plotly interaction — does not alter backend calculations. */
 export function downsampleSeries(
@@ -29,13 +31,20 @@ function isSpectrumPlot(plot: PlotSeries): boolean {
   return plot.plot_type === "fft_spectrum" || plot.plot_type === "envelope_spectrum";
 }
 
+function downsampleForDisplay(plot: PlotSeries): { x: number[]; y: number[] } {
+  const maxPoints = plot.plot_type === "time_waveform" ? WAVEFORM_MAX_POINTS : MAX_POINTS;
+  return downsampleSeries(plot.x, plot.y, maxPoints);
+}
+
 export function plotSeriesToTrace(plot: PlotSeries): Data {
-  const { x, y } = downsampleSeries(plot.x, plot.y);
+  const { x, y } = downsampleForDisplay(plot);
   const orbit = isOrbitPlot(plot);
   const spectrum = isSpectrumPlot(plot);
   const timeWaveform = plot.plot_type === "time_waveform";
 
-  const hover = `${plot.x_label}: %{x:.4f}<br>${plot.y_label}: %{y:.4f}<extra></extra>`;
+  const hover = timeWaveform
+    ? `Time: %{x:.3f} ms<br>${plot.y_label}: %{y:.4f}<extra></extra>`
+    : `${plot.x_label}: %{x:.4f}<br>${plot.y_label}: %{y:.4f}<extra></extra>`;
 
   if (spectrum) {
     return {
@@ -64,11 +73,21 @@ export function plotSeriesToTrace(plot: PlotSeries): Data {
 
 export function plotSeriesLayoutOptions(plot: PlotSeries): {
   yRange: [number, number] | undefined;
+  xTickFormat?: string;
+  xTickSuffix?: string;
 } {
   const thresholds = getPlotThresholds(plot);
   const yRange = expandBoundsForThresholds(
     computeYAxisBounds(plot.y),
     thresholdValues(thresholds)
   );
-  return { yRange };
+
+  const timeWaveform = plot.plot_type === "time_waveform";
+
+  return {
+    yRange,
+    xTickFormat: timeWaveform ? ".2f" : undefined,
+    xTickSuffix: timeWaveform ? " ms" : undefined,
+  };
 }
+

@@ -49,7 +49,12 @@ export function ChartToolbar({
   className,
 }: ChartToolbarProps) {
   return (
-    <div className={cn("flex items-center gap-1 shrink-0", className)}>
+    <div
+      className={cn(
+        "relative z-10 flex items-center gap-1 shrink-0 rounded-lg bg-white/95",
+        className
+      )}
+    >
       {onToggleFullscreen && (
         <ActionButton
           onClick={onToggleFullscreen}

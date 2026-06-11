@@ -16,9 +16,14 @@ export const ECHARTS_BRAND = {
 export const CHART_GRID = {
   left: 56,
   right: 24,
-  top: 20,
-  bottom: 56,
+  top: 28,
+  bottom: 64,
   containLabel: false,
+} as const;
+
+/** Custom ChartToolbar handles export/zoom — hide default ECharts toolbox. */
+export const CHART_TOOLBOX_OFF = {
+  show: false,
 } as const;
 
 /** X-axis zoom/pan only — no Y-axis dataZoom */
@@ -99,6 +104,8 @@ export function formatFrequencyHz(value: number): string {
   if (abs >= 1) return `${value.toFixed(3)} Hz`;
   return `${value.toFixed(4)} Hz`;
 }
+
+export { formatTimeMs } from "./waveform-time-axis";
 
 export function formatMagnitude(value: number): string {
   if (!Number.isFinite(value)) return "—";

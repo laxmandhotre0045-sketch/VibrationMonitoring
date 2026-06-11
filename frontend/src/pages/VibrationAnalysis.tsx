@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, Settings2, BarChart3, type LucideIcon } from "lucide-react";
 import { listEquipment, getEquipment } from "@/api/equipment";
@@ -10,13 +10,17 @@ import {
   getAllPlots,
 } from "@/api/measurements";
 import { DiagnosticChart } from "@/components/analysis/DiagnosticChart";
+import { PlotSelector } from "@/components/analysis/PlotSelector";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { FormField, TextInput } from "@/components/ui/FormField";
 import { PageHero } from "@/components/layout/PageHero";
-import { PLOT_TYPES, type PlotConfigInput } from "@/types/measurements";
+import { PLOT_TYPES, type PlotConfigInput, type PlotSeries, type PlotType } from "@/types/measurements";
 import type { EquipmentOut } from "@/types/equipment";
 import { cn } from "@/lib/utils";
+
+/** Single-chart workspace height — tuned for focused analysis readability. */
+const DIAGNOSTIC_CHART_HEIGHT = 600;
 
 const selectClass = cn(
   "w-full px-4 py-3 text-base font-normal rounded-lg transition-colors appearance-none cursor-pointer",
@@ -53,6 +57,7 @@ export function VibrationAnalysisPage() {
   const [selectedUploadId, setSelectedUploadId] = useState("");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMsg, setStatusMsg] = useState("");
+  const [activePlotType, setActivePlotType] = useState<PlotType>("time_waveform");
 
   const { data: equipmentList } = useQuery({
     queryKey: ["equipment-list-analysis"],
@@ -137,6 +142,28 @@ export function VibrationAnalysisPage() {
   });
 
   const sensors = (equipment as EquipmentOut | undefined)?.sensors ?? [];
+
+  const plotsByType = useMemo(() => {
+    const map = new Map<PlotType, PlotSeries>();
+    for (const plot of plotsData?.plots ?? []) {
+      map.set(plot.plot_type, plot);
+    }
+    return map;
+  }, [plotsData]);
+
+  const availablePlotTypes = useMemo(
+    () => PLOT_TYPES.filter((type) => plotsByType.has(type)),
+    [plotsByType]
+  );
+
+  const activePlot = plotsByType.get(activePlotType);
+
+  useEffect(() => {
+    if (availablePlotTypes.length === 0) return;
+    if (!availablePlotTypes.includes(activePlotType)) {
+      setActivePlotType(availablePlotTypes[0]);
+    }
+  }, [availablePlotTypes, activePlotType]);
 
   return (
     <div className="space-y-8">
@@ -303,7 +330,7 @@ export function VibrationAnalysisPage() {
             <span className="w-10 h-10 rounded-lg bg-[#FFA500]/10 orange-gradient-border flex items-center justify-center text-[#FFA500] shrink-0">
               <BarChart3 size={15} />
             </span>
-            <h2 className="text-section-title">3. Diagnostic Plots (5)</h2>
+            <h2 className="text-section-title">3. Diagnostic Plots</h2>
           </div>
           {selectedUploadId && (
             <div className="flex flex-wrap items-center gap-2">
@@ -327,11 +354,14 @@ export function VibrationAnalysisPage() {
           )}
         </div>
 
-        {selectedUploadId && (
-          <p className="text-helper mb-4">
-            Showing all 5 plots for <span className="font-semibold text-foreground">ch{activeChannel}</span>.
-            Click ch0–ch{channelCount - 1} to switch.
-          </p>
+        {selectedUploadId && plotsData && plotsData.plots.length > 0 && (
+          <div className="mb-5">
+            <PlotSelector
+              value={activePlotType}
+              onChange={setActivePlotType}
+              availableTypes={availablePlotTypes}
+            />
+          </div>
         )}
         {plotsLoading && <p className="text-helper">Generating plots...</p>}
         {plotsError && (
@@ -349,11 +379,14 @@ export function VibrationAnalysisPage() {
             No plots returned. Check plot configuration and active channel.
           </p>
         )}
-        {plotsData && plotsData.plots.length > 0 && (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {plotsData.plots.map((plot) => (
-              <DiagnosticChart key={plot.plot_type} plot={plot} />
-            ))}
+        {activePlot && (
+          <div className="w-full">
+            <DiagnosticChart
+              key={`${activePlot.plot_type}-${activePlot.channel}-${selectedUploadId}`}
+              plot={activePlot}
+              height={DIAGNOSTIC_CHART_HEIGHT}
+              samplingRateHz={samplingRate}
+            />
           </div>
         )}
       </GlassCard>
