@@ -1,6 +1,5 @@
-import type { Layout } from "plotly.js";
 import type { PlotSeries } from "@/types/measurements";
-import { PLOTLY_BRAND } from "./plotly-theme";
+import { ECHARTS_BRAND } from "./echarts-theme";
 
 export interface PlotThresholds {
   warning?: number;
@@ -25,35 +24,46 @@ export function thresholdValues(thresholds: PlotThresholds): number[] {
   );
 }
 
-/** Horizontal threshold lines at fixed Y values; span the visible plot width during X zoom. */
-export function createThresholdShapes(thresholds: PlotThresholds): Partial<Layout["shapes"][number]>[] {
-  const shapes: Partial<Layout["shapes"][number]>[] = [];
+type ThresholdMarkLineDatum = {
+  yAxis: number;
+  name: string;
+  lineStyle: { color: string; type: "dashed" | "dotted"; width: number };
+  label: { show: boolean };
+};
+
+/** Horizontal threshold markLines for ECharts — fixed Y during X zoom. */
+export function buildEchartsThresholdMarkLines(
+  thresholds: PlotThresholds
+): ThresholdMarkLineDatum[] {
+  const data: ThresholdMarkLineDatum[] = [];
 
   if (thresholds.warning !== undefined) {
-    shapes.push({
-      type: "line",
-      xref: "paper",
-      x0: 0,
-      x1: 1,
-      yref: "y",
-      y0: thresholds.warning,
-      y1: thresholds.warning,
-      line: { color: PLOTLY_BRAND.amber, width: 1.5, dash: "dash" },
+    data.push({
+      yAxis: thresholds.warning,
+      name: "Warning",
+      lineStyle: { color: ECHARTS_BRAND.amber, type: "dashed", width: 1.5 },
+      label: { show: false },
     });
   }
 
   if (thresholds.danger !== undefined) {
-    shapes.push({
-      type: "line",
-      xref: "paper",
-      x0: 0,
-      x1: 1,
-      yref: "y",
-      y0: thresholds.danger,
-      y1: thresholds.danger,
-      line: { color: PLOTLY_BRAND.orange, width: 1.5, dash: "dot" },
+    data.push({
+      yAxis: thresholds.danger,
+      name: "Danger",
+      lineStyle: { color: ECHARTS_BRAND.orange, type: "dotted", width: 1.5 },
+      label: { show: false },
     });
   }
 
-  return shapes;
+  return data;
+}
+
+export function echartsThresholdMarkLineConfig(thresholds: PlotThresholds) {
+  const data = buildEchartsThresholdMarkLines(thresholds);
+  if (data.length === 0) return undefined;
+  return {
+    symbol: ["none", "none"],
+    silent: true,
+    data,
+  };
 }

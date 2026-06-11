@@ -48,3 +48,19 @@ export function expandBoundsForThresholds(
   const pad = span * 0.04;
   return [min - pad, max + pad];
 }
+
+/** Symmetric orbit bounds from X and Y orbit coordinates. */
+export function computeOrbitAxisBounds(x: number[], y: number[]): [number, number] | undefined {
+  const xBounds = computeYAxisBounds(x);
+  const yBounds = computeYAxisBounds(y);
+  if (!xBounds || !yBounds) return undefined;
+
+  const limit = Math.max(
+    Math.abs(xBounds[0]),
+    Math.abs(xBounds[1]),
+    Math.abs(yBounds[0]),
+    Math.abs(yBounds[1])
+  );
+  const pad = limit * 0.08;
+  return [-(limit + pad), limit + pad];
+}
