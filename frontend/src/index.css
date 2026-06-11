@@ -645,4 +645,14 @@
     border-color: #e2e8f0;
     box-shadow: none;
   }
+
+  .diagnostic-chart-shell:fullscreen {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background: #ffffff;
+    padding: 1.25rem 1.5rem;
+  }
 }
