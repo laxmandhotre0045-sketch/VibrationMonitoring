@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { sensoVibeLogo, sensoVibeMark } from "@/images";
 import { NAV_ITEMS } from "./nav-config";
 import { useLayout } from "@/contexts/LayoutContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_WIDTH = 320;
@@ -13,7 +14,10 @@ const TAGLINE = "AI Powered Vibration Intelligence";
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useLayout();
+  const { hasRole } = useAuth();
   const location = useLocation();
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasRole(item.roles));
 
   const isItemActive = (path: string, matchPaths?: string[]) => {
     if (matchPaths) return matchPaths.some((p) => location.pathname.startsWith(p));
@@ -81,7 +85,7 @@ export function Sidebar() {
             Modules
           </p>
         )}
-        {NAV_ITEMS.map((item) => {
+        {visibleNavItems.map((item) => {
           const routeActive = isItemActive(item.path, item.matchPaths);
           const Icon = item.icon;
 

@@ -1,17 +1,23 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, ChevronDown, Building2 } from "lucide-react";
+import { Search, Bell, ChevronDown, Building2, LogOut, User } from "lucide-react";
 import { useLayout } from "@/contexts/LayoutContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { PLANTS } from "./nav-config";
+import { primaryRole, roleLabel } from "@/lib/role-access";
 import { cn } from "@/lib/utils";
 
 const navBtn = "bg-white border border-border hover:border-signal-light transition-colors rounded-lg";
 
 export function TopNav() {
   const { selectedPlant, setSelectedPlant } = useLayout();
+  const { user, roles, logout } = useAuth();
   const [searchFocused, setSearchFocused] = useState(false);
   const [plantOpen, setPlantOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
   const [notifications] = useState(3);
+
+  const badge = roleLabel(primaryRole(roles));
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-6 py-3 bg-warm border-b border-border shadow-nav">
@@ -70,6 +76,55 @@ export function TopNav() {
             </span>
           )}
         </button>
+
+        <div className="relative">
+          <button
+            onClick={() => setUserOpen(!userOpen)}
+            className={cn("flex items-center gap-2.5 px-3 py-2 text-base font-semibold text-brand", navBtn)}
+          >
+            <div className="w-7 h-7 rounded-full bg-brand/8 border border-border flex items-center justify-center shrink-0">
+              <User size={14} className="text-brand" />
+            </div>
+            <div className="hidden sm:flex flex-col items-start leading-tight">
+              <span className="text-sm font-semibold text-brand max-w-[120px] truncate">
+                {user?.full_name ?? "User"}
+              </span>
+              <span className="text-[10px] font-bold tracking-wide text-signal-dark uppercase">
+                {badge}
+              </span>
+            </div>
+            <ChevronDown size={14} className="text-muted-foreground hidden sm:block" />
+          </button>
+          <AnimatePresence>
+            {userOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setUserOpen(false)} />
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-1 w-64 z-20 py-2 rounded-lg bg-white border border-border shadow-card-hover"
+                >
+                  <div className="px-4 py-2.5 border-b border-border">
+                    <p className="text-sm font-semibold text-brand truncate">{user?.full_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                    <span className="inline-block mt-2 text-xs font-bold tracking-wide px-2 py-0.5 rounded-md bg-white text-brand border border-signal-light/50 uppercase">
+                      {badge}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => { setUserOpen(false); logout(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-base font-medium text-brand/90 hover:bg-warm hover:text-destructive transition-colors"
+                  >
+                    <LogOut size={16} />
+                    Sign Out
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </header>
   );
