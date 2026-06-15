@@ -21,7 +21,8 @@ from app.schemas.measurement import (
 from app.schemas.acquisition import EdgeAcquisitionConfigOut
 from app.services.acquisition_config import build_edge_acquisition_config
 from app.services.pdf_parser import parse_sensor_file
-from app.services.plot_generator import generate_all_plots, generate_plot, save_parsed_data
+from app.services.plot_generator import save_parsed_data
+from app.services.plot_storage import get_or_load_all_plots, get_or_load_single_plot, persist_all_plot_results
 
 router = APIRouter(prefix="/api/v1/measurements", tags=["Measurements"])
 
@@ -178,6 +179,12 @@ async def upload_sensor_data(
         upload = measurement_crud.mark_upload_parsed(
             db, upload.id, parsed_json_path, parsed["sample_count"]
         )
+        cfg = _resolve_config(db, upload, upload.channel_count)
+        try:
+            persist_all_plot_results(db, upload, parsed_json_path, cfg)
+            upload = measurement_crud.mark_upload_plots_ready(db, upload.id)
+        except Exception as plot_err:
+            upload = measurement_crud.mark_upload_plots_failed(db, upload.id, str(plot_err))
     except Exception as e:
         measurement_crud.mark_upload_failed(db, upload.id, str(e))
         raise HTTPException(status_code=422, detail=f"PDF parsing failed: {e}")
@@ -225,16 +232,10 @@ def get_all_plots(
     cfg = _resolve_config(db, upload, upload.channel_count)
     if channel is not None:
         cfg = {**cfg, "active_channel": channel}
-    plots = generate_all_plots(upload_id, upload.sensor_id, upload.parsed_data_path, cfg)
-    from app.services.plot_generator import resolve_active_channel, load_parsed_data
-    parsed = load_parsed_data(upload.parsed_data_path)
-    resolved = resolve_active_channel(parsed, int(cfg["active_channel"]))
-    return AllPlotsOut(
-        upload_id=upload_id,
-        sensor_id=upload.sensor_id,
-        channel=resolved,
-        plots=plots,
-    )
+    try:
+        return get_or_load_all_plots(db, upload, cfg, channel=channel)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.get("/uploads/{upload_id}/plots/{plot_type}", response_model=PlotSeriesOut)
@@ -256,11 +257,8 @@ def get_single_plot(
     cfg = _resolve_config(db, upload, upload.channel_count)
     if channel is not None:
         cfg = {**cfg, "active_channel": channel}
-    from app.services.plot_generator import load_parsed_data
-
-    parsed = load_parsed_data(upload.parsed_data_path)
     try:
-        return generate_plot(parsed, plot_type, int(cfg["active_channel"]), cfg)
+        return get_or_load_single_plot(db, upload, cfg, plot_type, channel=channel)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 

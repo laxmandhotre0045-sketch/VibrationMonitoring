@@ -3,7 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
 
-from app.models.measurement import PlotConfiguration, SensorDataUpload
+from app.models.measurement import PlotConfiguration, PlotResult, SensorDataUpload
 from app.schemas.measurement import PlotConfigCreate, PlotConfigUpdate, PLOT_TYPES
 
 
@@ -135,3 +135,61 @@ def default_config_dict(channel_count: int = 1) -> dict:
         "data_type": "acceleration",
         "enabled_plots": list(PLOT_TYPES),
     }
+
+
+def delete_plot_results(
+    db: Session,
+    upload_id: UUID,
+    config_fingerprint: str | None = None,
+) -> int:
+    query = db.query(PlotResult).filter(PlotResult.upload_id == upload_id)
+    if config_fingerprint is not None:
+        query = query.filter(PlotResult.config_fingerprint == config_fingerprint)
+    count = query.count()
+    query.delete(synchronize_session=False)
+    db.commit()
+    return count
+
+
+def get_plot_results(
+    db: Session,
+    upload_id: UUID,
+    config_fingerprint: str,
+    channel: int | None = None,
+    plot_type: str | None = None,
+) -> List[PlotResult]:
+    query = db.query(PlotResult).filter(
+        PlotResult.upload_id == upload_id,
+        PlotResult.config_fingerprint == config_fingerprint,
+        PlotResult.status == "ready",
+    )
+    if channel is not None:
+        query = query.filter(PlotResult.channel == channel)
+    if plot_type is not None:
+        query = query.filter(PlotResult.plot_type == plot_type)
+    return query.order_by(PlotResult.channel, PlotResult.plot_type).all()
+
+
+def mark_upload_plots_ready(db: Session, upload_id: UUID) -> Optional[SensorDataUpload]:
+    upload = get_upload_by_id(db, upload_id)
+    if not upload:
+        return None
+    upload.plots_status = "ready"
+    upload.plots_error = None
+    upload.plots_computed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(upload)
+    return upload
+
+
+def mark_upload_plots_failed(
+    db: Session, upload_id: UUID, error: str
+) -> Optional[SensorDataUpload]:
+    upload = get_upload_by_id(db, upload_id)
+    if not upload:
+        return None
+    upload.plots_status = "failed"
+    upload.plots_error = error
+    db.commit()
+    db.refresh(upload)
+    return upload

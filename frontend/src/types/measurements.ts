@@ -48,6 +48,9 @@ export interface SensorDataUpload {
   sample_count: number | null;
   parse_status: string;
   parse_error: string | null;
+  plots_status: string;
+  plots_error: string | null;
+  plots_computed_at: string | null;
   created_at: string;
   parsed_at: string | null;
 }

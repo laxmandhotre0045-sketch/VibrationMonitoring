@@ -102,6 +102,9 @@ class SensorDataUploadOut(BaseModel):
     sample_count: Optional[int]
     parse_status: str
     parse_error: Optional[str]
+    plots_status: str = "pending"
+    plots_error: Optional[str] = None
+    plots_computed_at: Optional[datetime] = None
     created_at: datetime
     parsed_at: Optional[datetime]
 
@@ -123,4 +126,5 @@ class AllPlotsOut(BaseModel):
     upload_id: UUID
     sensor_id: UUID
     channel: int
+    available_channels: List[int] = Field(default_factory=list)
     plots: List[PlotSeriesOut]
