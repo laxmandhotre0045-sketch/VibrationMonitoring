@@ -12,6 +12,7 @@ export interface NavItem {
   icon: LucideIcon;
   active: boolean;
   matchPaths?: string[];
+  roles: string[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -20,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Dashboard",
     icon: LayoutDashboard,
     active: false,
+    roles: ["super_admin", "plant_admin", "engineer", "operator", "viewer"],
   },
   {
     path: "/equipment",
@@ -27,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Cpu,
     active: true,
     matchPaths: ["/equipment"],
+    roles: ["super_admin", "plant_admin", "engineer", "operator", "viewer"],
   },
   {
     path: "/analysis",
@@ -34,12 +37,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Activity,
     active: true,
     matchPaths: ["/analysis"],
+    roles: ["super_admin", "plant_admin", "engineer", "operator", "viewer"],
   },
   {
     path: "/settings",
     label: "Settings",
     icon: Settings,
     active: false,
+    roles: ["super_admin", "plant_admin"],
   },
 ];
 
