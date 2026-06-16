@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app import crud
+from app.crud import baseline as baseline_crud
 from app.crud import measurement as measurement_crud
 from app.schemas.measurement import (
     PLOT_TYPES,
@@ -178,6 +179,18 @@ async def upload_sensor_data(
         save_parsed_data(parsed_json_path, parsed)
         upload = measurement_crud.mark_upload_parsed(
             db, upload.id, parsed_json_path, parsed["sample_count"]
+        )
+        file_format = "csv" if filename.lower().endswith(".csv") else "pdf"
+        baseline_crud.save_upload_data(
+            db,
+            upload_id=upload.id,
+            sensor_id=sensor_id,
+            original_filename=filename,
+            file_format=file_format,
+            file_content=content,
+            parsed_data=parsed,
+            channel_count=channel_count,
+            sample_count=parsed["sample_count"],
         )
         cfg = _resolve_config(db, upload, upload.channel_count)
         try:

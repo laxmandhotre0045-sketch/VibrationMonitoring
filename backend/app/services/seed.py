@@ -29,6 +29,6 @@ def seed_super_admin(db: Session) -> None:
         password_hash=hash_password(password),
         full_name=settings.initial_admin_name,
         role_names=["super_admin"],
-        must_change_password=True,
+        must_change_password=False,
     )
     logger.info("Seeded super admin user: %s", email)

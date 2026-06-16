@@ -1,7 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, Settings2, BarChart3, type LucideIcon } from "lucide-react";
+import { Upload, Settings2, BarChart3, Bookmark, type LucideIcon } from "lucide-react";
 import { listEquipment, getEquipment } from "@/api/equipment";
+import {
+  createBaselineFromUpload,
+  getBaselinePlots,
+  getPrimaryBaseline,
+  listBaselines,
+} from "@/api/baselines";
 import {
   getPlotConfig,
   savePlotConfig,
@@ -11,6 +17,7 @@ import {
 } from "@/api/measurements";
 import { DiagnosticChart } from "@/components/analysis/DiagnosticChart";
 import { PlotSelector } from "@/components/analysis/PlotSelector";
+import { SaveBaselineModal } from "@/components/analysis/SaveBaselineModal";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { FormField, TextInput } from "@/components/ui/FormField";
@@ -19,7 +26,8 @@ import { PLOT_TYPES, type PlotConfigInput, type PlotSeries, type PlotType } from
 import type { EquipmentOut } from "@/types/equipment";
 import { cn } from "@/lib/utils";
 
-/** Single-chart workspace height — tuned for focused analysis readability. */
+type PlotSource = "upload" | "baseline";
+
 const DIAGNOSTIC_CHART_HEIGHT = 600;
 
 const selectClass = cn(
@@ -46,6 +54,10 @@ function CardHeader({
   );
 }
 
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString();
+}
+
 export function VibrationAnalysisPage() {
   const queryClient = useQueryClient();
   const [equipmentId, setEquipmentId] = useState("");
@@ -55,9 +67,13 @@ export function VibrationAnalysisPage() {
   const [samplingRate, setSamplingRate] = useState(25600);
   const [fftLines, setFftLines] = useState(1600);
   const [selectedUploadId, setSelectedUploadId] = useState("");
+  const [selectedBaselineId, setSelectedBaselineId] = useState("");
+  const [plotSource, setPlotSource] = useState<PlotSource>("upload");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMsg, setStatusMsg] = useState("");
   const [activePlotType, setActivePlotType] = useState<PlotType>("time_waveform");
+  const [baselineModalOpen, setBaselineModalOpen] = useState(false);
+  const [showAllBaselines, setShowAllBaselines] = useState(false);
 
   const { data: equipmentList } = useQuery({
     queryKey: ["equipment-list-analysis"],
@@ -83,15 +99,39 @@ export function VibrationAnalysisPage() {
     enabled: !!sensorId,
   });
 
+  const { data: primaryBaseline } = useQuery({
+    queryKey: ["primary-baseline", sensorId],
+    queryFn: () => getPrimaryBaseline(sensorId),
+    enabled: !!sensorId,
+  });
+
+  const { data: baselineList } = useQuery({
+    queryKey: ["baseline-list", sensorId],
+    queryFn: () => listBaselines(sensorId),
+    enabled: !!sensorId,
+  });
+
+  const selectedUpload = uploads?.find((u) => u.id === selectedUploadId);
+  const plotChannelCount =
+    plotSource === "baseline"
+      ? baselineList?.items.find((b) => b.id === selectedBaselineId)?.channel_count ?? channelCount
+      : selectedUpload?.channel_count ?? channelCount;
+
+  const plotsEnabled =
+    plotSource === "upload" ? !!selectedUploadId : !!selectedBaselineId;
+
   const {
     data: plotsData,
     isLoading: plotsLoading,
     error: plotsError,
     refetch: refetchPlots,
   } = useQuery({
-    queryKey: ["plots", selectedUploadId, activeChannel],
-    queryFn: () => getAllPlots(selectedUploadId, activeChannel),
-    enabled: !!selectedUploadId,
+    queryKey: ["plots", plotSource, selectedUploadId, selectedBaselineId, activeChannel],
+    queryFn: () =>
+      plotSource === "baseline"
+        ? getBaselinePlots(selectedBaselineId, activeChannel)
+        : getAllPlots(selectedUploadId, activeChannel),
+    enabled: plotsEnabled,
     retry: 1,
   });
 
@@ -103,6 +143,12 @@ export function VibrationAnalysisPage() {
       setFftLines(plotConfig.fft_lines);
     }
   }, [plotConfig]);
+
+  useEffect(() => {
+    if (activeChannel >= plotChannelCount) {
+      setActiveChannel(Math.max(0, plotChannelCount - 1));
+    }
+  }, [activeChannel, plotChannelCount]);
 
   const saveConfigMutation = useMutation({
     mutationFn: async () => {
@@ -131,13 +177,35 @@ export function VibrationAnalysisPage() {
     onSuccess: (upload) => {
       queryClient.invalidateQueries({ queryKey: ["sensor-uploads", sensorId] });
       setSelectedUploadId(upload.id);
-      queryClient.invalidateQueries({ queryKey: ["plots", upload.id] });
+      setPlotSource("upload");
+      setActiveChannel(0);
+      queryClient.invalidateQueries({ queryKey: ["plots", "upload", upload.id] });
       setStatusMsg(`Data uploaded and parsed (${upload.sample_count ?? 0} samples). Loading plots...`);
       setPdfFile(null);
       setTimeout(() => refetchPlots(), 100);
     },
     onError: (err: { response?: { data?: { detail?: string } } }) => {
       setStatusMsg(err.response?.data?.detail || "Upload failed.");
+    },
+  });
+
+  const saveBaselineMutation = useMutation({
+    mutationFn: (payload: { name: string; description: string; setAsPrimary: boolean }) =>
+      createBaselineFromUpload(selectedUploadId, {
+        name: payload.name,
+        description: payload.description || null,
+        set_as_primary: payload.setAsPrimary,
+        labels: [],
+      }),
+    onSuccess: (baseline) => {
+      queryClient.invalidateQueries({ queryKey: ["baseline-list", sensorId] });
+      queryClient.invalidateQueries({ queryKey: ["primary-baseline", sensorId] });
+      setBaselineModalOpen(false);
+      setStatusMsg(`Baseline saved: "${baseline.name}" (${baseline.sample_count} samples).`);
+    },
+    onError: (err: { response?: { data?: { detail?: string } } }) => {
+      const detail = err.response?.data?.detail;
+      setStatusMsg(typeof detail === "string" ? detail : "Failed to save baseline.");
     },
   });
 
@@ -157,6 +225,9 @@ export function VibrationAnalysisPage() {
   );
 
   const activePlot = plotsByType.get(activePlotType);
+  const baselineDefaultName = selectedUpload
+    ? `Baseline ${formatDateTime(selectedUpload.created_at)}`
+    : "New baseline";
 
   useEffect(() => {
     if (availablePlotTypes.length === 0) return;
@@ -182,6 +253,14 @@ export function VibrationAnalysisPage() {
           <p className="text-base text-foreground">{statusMsg}</p>
         </div>
       )}
+
+      <SaveBaselineModal
+        open={baselineModalOpen}
+        defaultName={baselineDefaultName}
+        isSaving={saveBaselineMutation.isPending}
+        onClose={() => setBaselineModalOpen(false)}
+        onSave={(payload) => saveBaselineMutation.mutate(payload)}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
         <GlassCard className="p-6" delay={0.05}>
@@ -220,6 +299,48 @@ export function VibrationAnalysisPage() {
                 ))}
               </select>
             </FormField>
+
+            {sensorId && (
+              <div className="rounded-lg border border-border bg-surface/60 px-4 py-3 space-y-2">
+                <p className="text-sm font-semibold text-brand flex items-center gap-2">
+                  <Bookmark size={14} className="text-signal-dark" />
+                  Primary baseline
+                </p>
+                {primaryBaseline ? (
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold">{primaryBaseline.name}</span>
+                    {" · "}
+                    {formatDateTime(primaryBaseline.created_at)}
+                    {" · "}
+                    {primaryBaseline.sample_count} samples
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No primary baseline set for this sensor.</p>
+                )}
+                {baselineList && baselineList.total > 0 && (
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-signal-dark hover:underline"
+                    onClick={() => setShowAllBaselines((v) => !v)}
+                  >
+                    {showAllBaselines ? "Hide" : "View"} all baselines ({baselineList.total})
+                  </button>
+                )}
+                {showAllBaselines && baselineList && baselineList.items.length > 0 && (
+                  <ul className="mt-2 max-h-36 overflow-y-auto space-y-1 text-sm text-muted-foreground">
+                    {baselineList.items.map((b) => (
+                      <li key={b.id} className="flex items-center gap-2">
+                        {b.is_primary && (
+                          <span className="text-xs font-semibold text-signal-dark uppercase">Primary</span>
+                        )}
+                        <span>{b.name}</span>
+                        <span>· {formatDateTime(b.created_at)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <FormField label="Channel Count">
@@ -309,16 +430,31 @@ export function VibrationAnalysisPage() {
                 <select
                   className={selectClass}
                   value={selectedUploadId}
-                  onChange={(e) => setSelectedUploadId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedUploadId(e.target.value);
+                    setPlotSource("upload");
+                    setActiveChannel(0);
+                  }}
                 >
                   <option value="">Select upload...</option>
                   {uploads.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {new Date(u.created_at).toLocaleString()} — {u.sample_count ?? 0} samples ({u.parse_status})
+                      {formatDateTime(u.created_at)} — {u.sample_count ?? 0} samples ({u.parse_status})
                     </option>
                   ))}
                 </select>
               </FormField>
+            )}
+
+            {selectedUploadId && selectedUpload?.parse_status === "parsed" && (
+              <Button
+                variant="secondary"
+                icon={<Bookmark size={16} />}
+                onClick={() => setBaselineModalOpen(true)}
+                disabled={saveBaselineMutation.isPending}
+              >
+                Save as baseline
+              </Button>
             )}
           </div>
         </GlassCard>
@@ -332,29 +468,69 @@ export function VibrationAnalysisPage() {
             </span>
             <h2 className="text-section-title">3. Diagnostic Plots</h2>
           </div>
-          {selectedUploadId && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-base font-semibold text-muted-foreground">View channel:</span>
-              {Array.from({ length: channelCount }, (_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setActiveChannel(i)}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
-                    activeChannel === i
-                      ? "bg-cta text-cta-foreground"
-                      : "border border-border bg-white text-muted-foreground hover:bg-surface"
-                  )}
+          <div className="flex flex-wrap items-center gap-3">
+            {sensorId && baselineList && baselineList.total > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-muted-foreground">Source:</span>
+                <select
+                  className={cn(selectClass, "w-auto min-w-[140px] py-2 text-sm")}
+                  value={plotSource}
+                  onChange={(e) => {
+                    const next = e.target.value as PlotSource;
+                    setPlotSource(next);
+                    setActiveChannel(0);
+                    if (next === "baseline" && !selectedBaselineId && baselineList.items[0]) {
+                      setSelectedBaselineId(baselineList.items[0].id);
+                    }
+                  }}
                 >
-                  ch{i}
-                </button>
-              ))}
-            </div>
-          )}
+                  <option value="upload">Current upload</option>
+                  <option value="baseline">Saved baseline</option>
+                </select>
+                {plotSource === "baseline" && (
+                  <select
+                    className={cn(selectClass, "w-auto min-w-[180px] py-2 text-sm")}
+                    value={selectedBaselineId}
+                    onChange={(e) => {
+                      setSelectedBaselineId(e.target.value);
+                      setActiveChannel(0);
+                    }}
+                  >
+                    <option value="">Select baseline...</option>
+                    {baselineList.items.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                        {b.is_primary ? " (primary)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+            {plotsEnabled && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-base font-semibold text-muted-foreground">View channel:</span>
+                {Array.from({ length: plotChannelCount }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setActiveChannel(i)}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
+                      activeChannel === i
+                        ? "bg-cta text-cta-foreground"
+                        : "border border-border bg-white text-muted-foreground hover:bg-surface"
+                    )}
+                  >
+                    ch{i}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {selectedUploadId && plotsData && plotsData.plots.length > 0 && (
+        {plotsEnabled && plotsData && plotsData.plots.length > 0 && (
           <div className="mb-5">
             <PlotSelector
               value={activePlotType}
@@ -363,26 +539,28 @@ export function VibrationAnalysisPage() {
             />
           </div>
         )}
-        {plotsLoading && <p className="text-helper">Generating plots...</p>}
+        {plotsLoading && <p className="text-helper">Loading plots...</p>}
         {plotsError && (
           <p className="text-base text-destructive font-semibold">
             Failed to load plots:{" "}
             {(plotsError as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-              "Unknown error. Set Active Channel to 0–7 (ch0 = first channel)."}
+              "Try another channel or re-upload the file."}
           </p>
         )}
-        {!selectedUploadId && !plotsLoading && (
-          <p className="text-helper">Upload a file or select a previous upload to view plots.</p>
+        {!plotsEnabled && !plotsLoading && (
+          <p className="text-helper">
+            Upload a file, select a previous upload, or choose a saved baseline to view plots.
+          </p>
         )}
-        {plotsData && plotsData.plots.length === 0 && (
+        {plotsEnabled && plotsData && plotsData.plots.length === 0 && !plotsLoading && (
           <p className="text-base font-semibold text-signal-dark">
-            No plots returned. Check plot configuration and active channel.
+            No plots returned. Try channel ch0 or check plot configuration.
           </p>
         )}
         {activePlot && (
           <div className="w-full">
             <DiagnosticChart
-              key={`${activePlot.plot_type}-${activePlot.channel}-${selectedUploadId}`}
+              key={`${activePlot.plot_type}-${activePlot.channel}-${plotSource}-${selectedUploadId}-${selectedBaselineId}`}
               plot={activePlot}
               height={DIAGNOSTIC_CHART_HEIGHT}
               samplingRateHz={samplingRate}

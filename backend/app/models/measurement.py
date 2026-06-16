@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Text, Boolean, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -97,3 +97,100 @@ class PlotResult(Base):
     status = Column(String(20), nullable=False, default="ready")
 
     upload = relationship("SensorDataUpload", back_populates="plot_results")
+
+
+class MeasurementUploadData(Base):
+    """Full uploaded file bytes + parsed channel data stored in PostgreSQL."""
+    __tablename__ = "measurement_upload_data"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    upload_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_data_uploads.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    original_filename = Column(String(255), nullable=False)
+    file_format = Column(String(10), nullable=False)
+    file_content = Column(LargeBinary, nullable=False)
+    parsed_data = Column(JSONB, nullable=False)
+    channel_count = Column(Integer, nullable=False)
+    sample_count = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    upload = relationship("SensorDataUpload", backref="upload_data", uselist=False)
+
+
+class SensorBaseline(Base):
+    """Historical baseline records — all rows kept (append-only) for RAG / learning."""
+    __tablename__ = "sensor_baselines"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    source_upload_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_data_uploads.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    labels = Column(JSONB, nullable=False, default=list)
+    original_filename = Column(String(255), nullable=False)
+    file_format = Column(String(10), nullable=False)
+    file_content = Column(LargeBinary, nullable=False)
+    parsed_data = Column(JSONB, nullable=False)
+    channel_count = Column(Integer, nullable=False)
+    sample_count = Column(Integer, nullable=False)
+    sampling_rate_hz = Column(Numeric(12, 4), nullable=False)
+    is_primary = Column(Boolean, nullable=False, default=False)
+    captured_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    plot_results = relationship("BaselinePlotResult", back_populates="baseline", cascade="all, delete-orphan")
+
+
+class BaselinePlotResult(Base):
+    """Stored computed plot series for a baseline record."""
+    __tablename__ = "baseline_plot_results"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    baseline_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_baselines.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    plot_type = Column(String(40), nullable=False)
+    channel = Column(Integer, nullable=False)
+    title = Column(String(120), nullable=False)
+    x_label = Column(String(80), nullable=False)
+    y_label = Column(String(80), nullable=False)
+    x_data = Column(JSONB, nullable=False)
+    y_data = Column(JSONB, nullable=False)
+    metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
+    point_count = Column(Integer, nullable=False)
+    sampling_rate_hz = Column(Numeric(12, 4), nullable=False)
+    fft_lines = Column(Integer, nullable=True)
+    frequency_max_hz = Column(Numeric(12, 4), nullable=True)
+    config_fingerprint = Column(String(64), nullable=False)
+    computed_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String(20), nullable=False, default="ready")
+
+    baseline = relationship("SensorBaseline", back_populates="plot_results")
