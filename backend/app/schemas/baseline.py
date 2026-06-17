@@ -40,6 +40,7 @@ class BaselineOut(BaseModel):
     is_primary: bool
     captured_at: Optional[datetime]
     created_at: datetime
+    plot_count: int = 0
     plots_status: str = "unknown"
 
     model_config = {"from_attributes": True}

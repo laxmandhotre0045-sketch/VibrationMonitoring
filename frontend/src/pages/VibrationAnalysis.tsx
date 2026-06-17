@@ -313,6 +313,9 @@ export function VibrationAnalysisPage() {
                     {formatDateTime(primaryBaseline.created_at)}
                     {" · "}
                     {primaryBaseline.sample_count} samples
+                    {primaryBaseline.plot_count > 0 && (
+                      <> · {primaryBaseline.plot_count} plots stored</>
+                    )}
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">No primary baseline set for this sensor.</p>

@@ -25,7 +25,14 @@ from app.services.plot_storage import compute_config_fingerprint
 router = APIRouter(prefix="/api/v1/baselines", tags=["Baselines"])
 
 
-def _baseline_out(baseline, plots_status: str = "ready") -> BaselineOut:
+def _baseline_out(baseline, *, plot_count: int = 0) -> BaselineOut:
+    expected = baseline.channel_count * 5
+    if plot_count >= expected and expected > 0:
+        plots_status = "ready"
+    elif plot_count > 0:
+        plots_status = "partial"
+    else:
+        plots_status = "pending"
     return BaselineOut(
         id=baseline.id,
         sensor_id=baseline.sensor_id,
@@ -41,6 +48,7 @@ def _baseline_out(baseline, plots_status: str = "ready") -> BaselineOut:
         is_primary=baseline.is_primary,
         captured_at=baseline.captured_at,
         created_at=baseline.created_at,
+        plot_count=plot_count,
         plots_status=plots_status,
     )
 
@@ -64,7 +72,10 @@ def list_baselines(sensor_id: UUID = Query(...), db: Session = Depends(get_db)):
         sensor_id=sensor_id,
         total=len(items),
         primary_baseline_id=primary.id if primary else None,
-        items=[_baseline_out(b) for b in items],
+        items=[
+            _baseline_out(b, plot_count=baseline_crud.count_baseline_plot_results(db, b.id))
+            for b in items
+        ],
     )
 
 
@@ -74,7 +85,7 @@ def get_primary_baseline(sensor_id: UUID = Query(...), db: Session = Depends(get
     baseline = baseline_crud.get_primary_baseline(db, sensor_id)
     if not baseline:
         raise HTTPException(status_code=404, detail="No primary baseline set for this sensor")
-    return _baseline_out(baseline)
+    return _baseline_out(baseline, plot_count=baseline_crud.count_baseline_plot_results(db, baseline.id))
 
 
 @router.get("/{baseline_id}", response_model=BaselineOut)
@@ -82,7 +93,7 @@ def get_baseline(baseline_id: UUID, db: Session = Depends(get_db)):
     baseline = baseline_crud.get_baseline_by_id(db, baseline_id)
     if not baseline:
         raise HTTPException(status_code=404, detail="Baseline not found")
-    return _baseline_out(baseline)
+    return _baseline_out(baseline, plot_count=baseline_crud.count_baseline_plot_results(db, baseline.id))
 
 
 @router.patch("/{baseline_id}/primary", response_model=BaselineOut)
@@ -95,7 +106,7 @@ def set_primary_baseline(
     baseline = baseline_crud.set_baseline_primary(db, baseline_id, data.is_primary)
     if not baseline:
         raise HTTPException(status_code=404, detail="Baseline not found")
-    return _baseline_out(baseline)
+    return _baseline_out(baseline, plot_count=baseline_crud.count_baseline_plot_results(db, baseline.id))
 
 
 @router.post("/upload", response_model=BaselineOut, status_code=201)
@@ -151,7 +162,7 @@ async def upload_baseline(
         persist_baseline_plot_results(db, baseline, parsed, cfg)
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Baseline plot compute failed: {e}")
-    return _baseline_out(baseline)
+    return _baseline_out(baseline, plot_count=baseline_crud.count_baseline_plot_results(db, baseline.id))
 
 
 @router.post("/from-upload/{upload_id}", response_model=BaselineOut, status_code=201)
@@ -194,7 +205,7 @@ def create_baseline_from_upload(
         persist_baseline_plot_results(db, baseline, upload_data.parsed_data, cfg)
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Baseline plot compute failed: {e}")
-    return _baseline_out(baseline)
+    return _baseline_out(baseline, plot_count=baseline_crud.count_baseline_plot_results(db, baseline.id))
 
 
 @router.get("/{baseline_id}/plots", response_model=AllPlotsOut)

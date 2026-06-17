@@ -13,6 +13,7 @@ export interface Baseline {
   is_primary: boolean;
   captured_at: string | null;
   created_at: string;
+  plot_count: number;
   plots_status: string;
 }
 

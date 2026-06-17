@@ -144,6 +144,14 @@ def delete_baseline_plot_results(
     return count
 
 
+def count_baseline_plot_results(db: Session, baseline_id: UUID) -> int:
+    return (
+        db.query(BaselinePlotResult)
+        .filter(BaselinePlotResult.baseline_id == baseline_id, BaselinePlotResult.status == "ready")
+        .count()
+    )
+
+
 def get_baseline_plot_results(
     db: Session,
     baseline_id: UUID,
