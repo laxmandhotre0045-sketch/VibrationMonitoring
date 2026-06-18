@@ -1,6 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-router = APIRouter(prefix="/api/v1/lookups", tags=["Lookups"])
+from app.dependencies.auth import get_current_user
+
+router = APIRouter(
+    prefix="/api/v1/lookups",
+    tags=["Lookups"],
+    dependencies=[Depends(get_current_user)],
+)
 
 LOOKUPS = {
     "machine-types": [

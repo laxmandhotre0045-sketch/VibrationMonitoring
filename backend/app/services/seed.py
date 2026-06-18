@@ -12,6 +12,15 @@ logger = logging.getLogger("uvicorn")
 def seed_super_admin(db: Session) -> None:
     """Create initial super_admin from env if none exists."""
     if user_crud.super_admin_exists(db):
+        email = settings.initial_admin_email
+        if email:
+            user = user_crud.get_user_by_email(db, email)
+            if user and user.must_change_password:
+                user.must_change_password = False
+                db.commit()
+                logger.info(
+                    "Cleared must_change_password for seeded admin (legacy flag): %s", email
+                )
         logger.info("Super admin already exists — skipping seed")
         return
 

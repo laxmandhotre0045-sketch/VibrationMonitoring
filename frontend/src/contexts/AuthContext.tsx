@@ -25,7 +25,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<UserMeResponse>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  hasRole: (role: string | string[]) => boolean;
+  hasRole: (role: string | readonly string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const hasRole = useCallback(
-    (role: string | string[]) => {
+    (role: string | readonly string[]) => {
       const required = Array.isArray(role) ? role : [role];
       return hasAnyRole(roles, required);
     },

@@ -25,13 +25,14 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     return pwd_context.verify(plain_password, password_hash)
 
 
-def create_access_token(user_id: UUID) -> tuple[str, int]:
+def create_access_token(user_id: UUID, roles: list[str] | None = None) -> tuple[str, int]:
     expires_minutes = settings.jwt_access_expire_minutes
     expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
     payload = {
         "sub": str(user_id),
         "exp": expire,
         "type": TOKEN_TYPE_ACCESS,
+        "roles": roles or [],
     }
     token = jwt.encode(payload, settings.effective_jwt_secret, algorithm=settings.jwt_algorithm)
     return token, expires_minutes * 60
@@ -84,13 +85,17 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
 
 
 def user_to_me_dict(user: User) -> dict[str, Any]:
+    if user.role:
+        roles = [user.role]
+    else:
+        roles = [r.name for r in user.roles] or ["user"]
     return {
         "id": user.id,
         "email": user.email,
         "full_name": user.full_name,
         "is_active": user.is_active,
         "must_change_password": user.must_change_password,
-        "roles": [r.name for r in user.roles],
+        "roles": roles,
         "plants": [],
         "last_login_at": user.last_login_at,
     }

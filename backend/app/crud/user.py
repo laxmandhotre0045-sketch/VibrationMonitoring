@@ -5,6 +5,18 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.user import Role, User, UserRole, RefreshToken
 
+SUPPORTED_ROLES = ["super_admin", "admin", "user"]
+WRITE_ROLES = {"super_admin", "admin"}
+
+
+def primary_role(role_names: List[str]) -> str:
+    normalized = [name.lower() for name in role_names if isinstance(name, str)]
+    if "super_admin" in normalized:
+        return "super_admin"
+    if "admin" in normalized or "plant_admin" in normalized or "engineer" in normalized:
+        return "admin"
+    return "user"
+
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return (
@@ -44,6 +56,7 @@ def create_user(
         email=email.lower(),
         password_hash=password_hash,
         full_name=full_name,
+        role=primary_role(role_names),
         must_change_password=must_change_password,
     )
     db.add(user)

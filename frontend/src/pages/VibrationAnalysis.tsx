@@ -22,6 +22,8 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { FormField, TextInput } from "@/components/ui/FormField";
 import { PageHero } from "@/components/layout/PageHero";
+import { useAuth } from "@/contexts/AuthContext";
+import { WRITE_ROLES } from "@/lib/role-access";
 import { PLOT_TYPES, type PlotConfigInput, type PlotSeries, type PlotType } from "@/types/measurements";
 import type { EquipmentOut } from "@/types/equipment";
 import { cn } from "@/lib/utils";
@@ -74,6 +76,9 @@ export function VibrationAnalysisPage() {
   const [activePlotType, setActivePlotType] = useState<PlotType>("time_waveform");
   const [baselineModalOpen, setBaselineModalOpen] = useState(false);
   const [showAllBaselines, setShowAllBaselines] = useState(false);
+
+  const { hasRole } = useAuth();
+  const canWrite = hasRole(WRITE_ROLES);
 
   const { data: equipmentList } = useQuery({
     queryKey: ["equipment-list-analysis"],
@@ -386,10 +391,15 @@ export function VibrationAnalysisPage() {
 
             <Button
               onClick={() => saveConfigMutation.mutate()}
-              disabled={!sensorId || saveConfigMutation.isPending}
+              disabled={!sensorId || saveConfigMutation.isPending || !canWrite}
             >
               Save Plot Configuration
             </Button>
+            {!canWrite && (
+              <p className="text-sm text-muted-foreground">
+                Read-only users cannot save plot configuration.
+              </p>
+            )}
             {plotConfig && (
               <p className="text-helper text-machine-healthy font-medium">
                 Configuration exists for this sensor.
@@ -414,16 +424,21 @@ export function VibrationAnalysisPage() {
                   "file:text-base file:font-medium file:text-foreground",
                   "file:cursor-pointer hover:file:bg-warm"
                 )}
-                disabled={!sensorId}
+                disabled={!sensorId || !canWrite}
                 onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
               />
             </FormField>
             <Button
               onClick={() => uploadMutation.mutate()}
-              disabled={!sensorId || !pdfFile || uploadMutation.isPending}
+              disabled={!sensorId || !pdfFile || uploadMutation.isPending || !canWrite}
             >
               Upload Data File
             </Button>
+            {!canWrite && (
+              <p className="text-sm text-muted-foreground">
+                Read-only users cannot upload sensor data or save baselines.
+              </p>
+            )}
 
             {uploads && uploads.length > 0 && (
               <FormField label="Previous uploads">
@@ -446,7 +461,7 @@ export function VibrationAnalysisPage() {
               </FormField>
             )}
 
-            {selectedUploadId && selectedUpload?.parse_status === "parsed" && (
+            {selectedUploadId && selectedUpload?.parse_status === "parsed" && canWrite && (
               <Button
                 variant="secondary"
                 icon={<Bookmark size={16} />}

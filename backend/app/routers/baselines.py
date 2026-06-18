@@ -10,6 +10,7 @@ from app.config import settings
 from app.crud import baseline as baseline_crud
 from app.crud import measurement as measurement_crud
 from app.database import get_db
+from app.dependencies.auth import get_current_user, require_write_access
 from app.schemas.baseline import (
     BaselineCreateFromUpload,
     BaselineListOut,
@@ -22,7 +23,11 @@ from app.services.pdf_parser import parse_sensor_file
 from app.services.plot_generator import save_parsed_data
 from app.services.plot_storage import compute_config_fingerprint
 
-router = APIRouter(prefix="/api/v1/baselines", tags=["Baselines"])
+router = APIRouter(
+    prefix="/api/v1/baselines",
+    tags=["Baselines"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _baseline_out(baseline, plots_status: str = "ready") -> BaselineOut:
@@ -85,7 +90,11 @@ def get_baseline(baseline_id: UUID, db: Session = Depends(get_db)):
     return _baseline_out(baseline)
 
 
-@router.patch("/{baseline_id}/primary", response_model=BaselineOut)
+@router.patch(
+    "/{baseline_id}/primary",
+    response_model=BaselineOut,
+    dependencies=[Depends(require_write_access)],
+)
 def set_primary_baseline(
     baseline_id: UUID,
     data: BaselineSetPrimary,
@@ -98,7 +107,12 @@ def set_primary_baseline(
     return _baseline_out(baseline)
 
 
-@router.post("/upload", response_model=BaselineOut, status_code=201)
+@router.post(
+    "/upload",
+    response_model=BaselineOut,
+    status_code=201,
+    dependencies=[Depends(require_write_access)],
+)
 async def upload_baseline(
     sensor_id: UUID = Form(...),
     channel_count: int = Form(..., ge=1, le=32),
@@ -154,7 +168,12 @@ async def upload_baseline(
     return _baseline_out(baseline)
 
 
-@router.post("/from-upload/{upload_id}", response_model=BaselineOut, status_code=201)
+@router.post(
+    "/from-upload/{upload_id}",
+    response_model=BaselineOut,
+    status_code=201,
+    dependencies=[Depends(require_write_access)],
+)
 def create_baseline_from_upload(
     upload_id: UUID,
     data: BaselineCreateFromUpload,
