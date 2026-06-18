@@ -41,3 +41,44 @@ def seed_super_admin(db: Session) -> None:
         must_change_password=False,
     )
     logger.info("Seeded super admin user: %s", email)
+
+
+def _seed_user_if_missing(
+    db: Session,
+    *,
+    email: str,
+    password: str,
+    full_name: str,
+    role_names: list[str],
+) -> None:
+    if not email or not password:
+        return
+    if user_crud.get_user_by_email(db, email):
+        return
+    user_crud.create_user(
+        db=db,
+        email=email,
+        password_hash=hash_password(password),
+        full_name=full_name,
+        role_names=role_names,
+        must_change_password=False,
+    )
+    logger.info("Seeded %s user: %s", role_names[0], email)
+
+
+def seed_role_users(db: Session) -> None:
+    """Seed admin and read-only user accounts from .env for RBAC testing."""
+    _seed_user_if_missing(
+        db,
+        email=settings.seed_admin_email,
+        password=settings.seed_admin_password,
+        full_name=settings.seed_admin_name,
+        role_names=["admin"],
+    )
+    _seed_user_if_missing(
+        db,
+        email=settings.seed_user_email,
+        password=settings.seed_user_password,
+        full_name=settings.seed_user_name,
+        role_names=["user"],
+    )

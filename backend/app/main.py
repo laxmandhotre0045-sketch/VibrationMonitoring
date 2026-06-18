@@ -12,7 +12,7 @@ from app.routers.baselines import router as baselines_router
 from app.routers.equipment import router as equipment_router
 from app.routers.lookups import router as lookups_router
 from app.routers.measurements import router as measurements_router
-from app.services.seed import seed_super_admin
+from app.services.seed import seed_role_users, seed_super_admin
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_super_admin(db)
+        seed_role_users(db)
     finally:
         db.close()
     yield
@@ -27,7 +28,30 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AI Vibration Intelligence Platform",
-    description="Stage 1 — Equipment Master Data API with Authentication",
+    description="""
+Stage 1 — Equipment Master Data API with Authentication
+
+## How to log in (Swagger)
+
+1. Expand **Authentication** → **POST /api/v1/auth/login**
+2. Click **Try it out**
+3. Use one of the test accounts below
+4. Click **Execute** and copy `access_token` from the response
+5. Click the green **Authorize** button (top right)
+6. Paste: `Bearer <access_token>` or only the token (Swagger adds Bearer)
+
+Alternative: use **POST /api/v1/auth/token** with `username` = email and `password`.
+
+## Test accounts (dev)
+
+| Role | Email | Password | Access |
+|------|-------|----------|--------|
+| super_admin | admin@vibration.com | Admin@2024 | Full read + write |
+| admin | plantadmin@vibration.com | PlantAdmin@2024 | Read + write |
+| user | viewer@vibration.com | Viewer@2024 | Read only (GET) |
+
+Protected APIs return **401** without a token and **403** for write actions when logged in as `user`.
+""",
     version="1.1.0",
     lifespan=lifespan,
 )

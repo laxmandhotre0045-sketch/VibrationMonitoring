@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     initial_admin_password: str = ""
     initial_admin_name: str = "Platform Administrator"
 
+    seed_admin_email: str = ""
+    seed_admin_password: str = ""
+    seed_admin_name: str = "Plant Administrator"
+
+    seed_user_email: str = ""
+    seed_user_password: str = ""
+    seed_user_name: str = "Read Only User"
+
     @property
     def effective_jwt_secret(self) -> str:
         return self.jwt_secret or self.secret_key
