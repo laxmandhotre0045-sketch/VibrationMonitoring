@@ -10,6 +10,20 @@ from app.database import get_db
 from app.models.user import User
 from app.services.auth_service import decode_access_token
 
+WRITE_ROLES = {"super_admin", "admin"}
+
+
+def _user_role(user: User) -> str:
+    if getattr(user, "role", None):
+        return user.role
+    normalized = [role.name.lower() for role in user.roles if isinstance(role.name, str)]
+    if "super_admin" in normalized:
+        return "super_admin"
+    if "admin" in normalized or "plant_admin" in normalized or "engineer" in normalized:
+        return "admin"
+    return "user"
+
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -42,3 +56,12 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def require_write_access(current_user: User = Depends(get_current_user)) -> User:
+    if _user_role(current_user) not in WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+    return current_user

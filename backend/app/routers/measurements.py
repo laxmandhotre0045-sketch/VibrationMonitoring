@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app import crud
+from app.dependencies.auth import get_current_user, require_write_access
 from app.crud import baseline as baseline_crud
 from app.crud import measurement as measurement_crud
 from app.schemas.measurement import (
@@ -25,7 +26,11 @@ from app.services.pdf_parser import parse_sensor_file
 from app.services.plot_generator import save_parsed_data
 from app.services.plot_storage import get_or_load_all_plots, get_or_load_single_plot, persist_all_plot_results
 
-router = APIRouter(prefix="/api/v1/measurements", tags=["Measurements"])
+router = APIRouter(
+    prefix="/api/v1/measurements",
+    tags=["Measurements"],
+    dependencies=[Depends(get_current_user)],
+)
 
 ALLOWED_UPLOAD_TYPES = {
     "application/pdf",
@@ -37,7 +42,11 @@ ALLOWED_UPLOAD_TYPES = {
 
 # ── Plot configuration (configure API) ───────────────────────────────────────
 
-@router.post("/configure", response_model=PlotConfigOut)
+@router.post(
+    "/configure",
+    response_model=PlotConfigOut,
+    dependencies=[Depends(require_write_access)],
+)
 def configure_plots(data: PlotConfigCreate, db: Session = Depends(get_db)):
     """Create or update plot configuration (upsert) for a sensor."""
     sensor = crud.get_sensor_by_id(db, data.sensor_id)
@@ -54,7 +63,11 @@ def get_plot_config(sensor_id: UUID, db: Session = Depends(get_db)):
     return config
 
 
-@router.put("/configure/{sensor_id}", response_model=PlotConfigOut)
+@router.put(
+    "/configure/{sensor_id}",
+    response_model=PlotConfigOut,
+    dependencies=[Depends(require_write_access)],
+)
 def update_plot_config(sensor_id: UUID, data: PlotConfigUpdate, db: Session = Depends(get_db)):
     sensor = crud.get_sensor_by_id(db, sensor_id)
     if not sensor:
@@ -137,7 +150,12 @@ def _allowed_upload(filename: str, content_type: str) -> bool:
     return content_type in ALLOWED_UPLOAD_TYPES
 
 
-@router.post("/upload", response_model=SensorDataUploadOut, status_code=201)
+@router.post(
+    "/upload",
+    response_model=SensorDataUploadOut,
+    status_code=201,
+    dependencies=[Depends(require_write_access)],
+)
 async def upload_sensor_data(
     sensor_id: UUID = Form(...),
     channel_count: int = Form(..., ge=1, le=32),

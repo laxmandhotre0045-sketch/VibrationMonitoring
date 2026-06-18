@@ -16,6 +16,8 @@ import { listEquipment, deleteEquipment } from "@/api/equipment";
 import { CRITICALITY_COLORS, CRITICALITY_DOT, ASSET_STATUS_COLORS } from "@/types/equipment";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { WRITE_ROLES } from "@/lib/role-access";
 import { emptyEquipment } from "@/images";
 import { PageHero } from "@/components/layout/PageHero";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -56,6 +58,9 @@ export function EquipmentMasterList() {
         machine_criticality: filterCriticality || undefined,
       }),
   });
+
+  const { hasRole } = useAuth();
+  const canWrite = hasRole(WRITE_ROLES);
 
   const deleteMutation = useMutation({
     mutationFn: deleteEquipment,
@@ -101,13 +106,15 @@ export function EquipmentMasterList() {
         ]}
         equipmentCount={stats.total}
         actions={
-          <Button
-            size="lg"
-            icon={<Plus size={18} />}
-            onClick={() => navigate("/equipment/new")}
-          >
-            Add Equipment
-          </Button>
+          canWrite ? (
+            <Button
+              size="lg"
+              icon={<Plus size={18} />}
+              onClick={() => navigate("/equipment/new")}
+            >
+              Add Equipment
+            </Button>
+          ) : undefined
         }
       />
 
@@ -221,11 +228,13 @@ export function EquipmentMasterList() {
             <p className="text-helper mt-1">
               Add your first equipment to begin AI readiness configuration.
             </p>
-            <div className="mt-6">
-              <Button icon={<Plus size={16} />} onClick={() => navigate("/equipment/new")}>
-                Add Equipment
-              </Button>
-            </div>
+            {canWrite && (
+              <div className="mt-6">
+                <Button icon={<Plus size={16} />} onClick={() => navigate("/equipment/new")}>
+                  Add Equipment
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className={cardSizing.scroll}>
@@ -312,22 +321,26 @@ export function EquipmentMasterList() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => navigate(`/equipment/${item.id}/edit`)}
-                            className="p-2 text-muted-foreground hover:text-signal-deep hover:bg-warm rounded-xl transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 size={15} />
-                          </motion.button>
-                          <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => handleDelete(item.id, item.machine_name)}
-                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </motion.button>
+                          {canWrite && (
+                            <>
+                              <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => navigate(`/equipment/${item.id}/edit`)}
+                                className="p-2 text-muted-foreground hover:text-signal-deep hover:bg-warm rounded-xl transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 size={15} />
+                              </motion.button>
+                              <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleDelete(item.id, item.machine_name)}
+                                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={15} />
+                              </motion.button>
+                            </>
+                          )}
                           <button className="p-2 text-muted-foreground hover:text-foreground rounded-xl transition-colors">
                             <MoreHorizontal size={15} />
                           </button>

@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 def _issue_tokens(db: Session, user: User) -> TokenResponse:
     user_crud.update_last_login(db, user)
-    access_token, expires_in = create_access_token(user.id)
+    access_token, expires_in = create_access_token(user.id, roles=[user.role])
     refresh_token = create_refresh_token(db, user.id)
     return TokenResponse(
         access_token=access_token,

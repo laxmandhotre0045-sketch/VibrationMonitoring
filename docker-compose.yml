@@ -36,13 +36,22 @@ services:
       context: ./backend
     container_name: vibration_platform_backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SECRET_KEY: ${SECRET_KEY}
       UPLOAD_DIR: /app/uploads
+      JWT_SECRET: ${JWT_SECRET}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
       INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME}
+      SEED_USER_EMAIL: ${SEED_USER_EMAIL}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD}
+      SEED_USER_NAME: ${SEED_USER_NAME}
     ports:
       - "8000:8000"
     volumes:

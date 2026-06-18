@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  roles?: string[];
+  roles?: readonly string[];
 }
 
 export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
