@@ -100,11 +100,30 @@ def custom_openapi():
         },
         "description": "Swagger Authorize: username = email, password = your password",
     }
+
+    def _norm(path: str) -> str:
+        return path.rstrip("/") or "/"
+
+    # Endpoints that do not require a Bearer token in Swagger
+    public_post_paths = {
+        _norm("/api/v1/auth/login"),
+        _norm("/api/v1/auth/token"),
+        _norm("/api/v1/auth/refresh"),
+        _norm("/api/v1/auth/logout"),
+    }
+
     for path, methods in openapi_schema.get("paths", {}).items():
-        if path.endswith("/me"):
-            for method in methods.values():
-                if isinstance(method, dict):
-                    method["security"] = [{"BearerAuth": []}]
+        if _norm(path) == "/health":
+            continue
+        if not path.startswith("/api/v1/"):
+            continue
+        for method_name, operation in methods.items():
+            if not isinstance(operation, dict):
+                continue
+            if method_name.lower() == "post" and _norm(path) in public_post_paths:
+                continue
+            operation["security"] = [{"BearerAuth": []}]
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 

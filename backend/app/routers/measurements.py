@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -14,6 +15,7 @@ from app.crud import measurement as measurement_crud
 from app.schemas.measurement import (
     PLOT_TYPES,
     AllPlotsOut,
+    PaginatedUploadListOut,
     PlotConfigCreate,
     PlotConfigOut,
     PlotConfigUpdate,
@@ -38,6 +40,12 @@ ALLOWED_UPLOAD_TYPES = {
     "application/csv",
     "text/plain",
 }
+
+
+def _to_upload_out(upload, *, has_stored_data: bool = False) -> SensorDataUploadOut:
+    return SensorDataUploadOut.model_validate(upload).model_copy(
+        update={"has_stored_data": has_stored_data}
+    )
 
 
 # ── Plot configuration (configure API) ───────────────────────────────────────
@@ -188,7 +196,13 @@ async def upload_sensor_data(
         f.write(content)
 
     upload = measurement_crud.create_upload_record(
-        db, sensor_id, channel_count, file_path, upload_id=upload_id
+        db,
+        sensor_id,
+        channel_count,
+        file_path,
+        upload_id=upload_id,
+        original_filename=filename,
+        source="manual",
     )
 
     parsed_json_path = os.path.join(settings.measurement_upload_dir, f"{upload.id}.json")
@@ -220,15 +234,46 @@ async def upload_sensor_data(
         measurement_crud.mark_upload_failed(db, upload.id, str(e))
         raise HTTPException(status_code=422, detail=f"PDF parsing failed: {e}")
 
-    return upload
+    db.refresh(upload)
+    return _to_upload_out(upload, has_stored_data=True)
 
 
-@router.get("/uploads", response_model=list[SensorDataUploadOut])
-def list_uploads(sensor_id: UUID = Query(...), db: Session = Depends(get_db)):
+@router.get("/uploads", response_model=PaginatedUploadListOut)
+def list_uploads(
+    sensor_id: UUID = Query(..., description="Sensor UUID"),
+    from_date: date | None = Query(None, description="Include uploads on or after this date (UTC)"),
+    to_date: date | None = Query(None, description="Include uploads on or before this date (UTC)"),
+    parse_status: str | None = Query(None, description="Filter by parse_status, e.g. parsed"),
+    plots_status: str | None = Query(None, description="Filter by plots_status, e.g. ready"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """List uploads for a sensor, optionally filtered by date range and status."""
+    if from_date is not None and to_date is not None and from_date > to_date:
+        raise HTTPException(status_code=400, detail="from_date must be on or before to_date")
+
     sensor = crud.get_sensor_by_id(db, sensor_id)
     if not sensor:
         raise HTTPException(status_code=404, detail="Sensor not found")
-    return measurement_crud.list_uploads_by_sensor(db, sensor_id)
+
+    items, total = measurement_crud.list_uploads_by_sensor(
+        db,
+        sensor_id,
+        from_date=from_date,
+        to_date=to_date,
+        parse_status=parse_status,
+        plots_status=plots_status,
+        page=page,
+        page_size=page_size,
+    )
+    stored_ids = measurement_crud.get_stored_upload_ids(db, [u.id for u in items])
+    return PaginatedUploadListOut(
+        items=[_to_upload_out(u, has_stored_data=u.id in stored_ids) for u in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/uploads/{upload_id}", response_model=SensorDataUploadOut)
@@ -236,7 +281,8 @@ def get_upload(upload_id: UUID, db: Session = Depends(get_db)):
     upload = measurement_crud.get_upload_by_id(db, upload_id)
     if not upload:
         raise HTTPException(status_code=404, detail="Upload not found")
-    return upload
+    stored_ids = measurement_crud.get_stored_upload_ids(db, [upload.id])
+    return _to_upload_out(upload, has_stored_data=upload.id in stored_ids)
 
 
 # ── Plot generation ───────────────────────────────────────────────────────────

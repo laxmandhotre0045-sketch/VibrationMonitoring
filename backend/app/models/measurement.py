@@ -54,6 +54,8 @@ class SensorDataUpload(Base):
     plots_status = Column(String(20), nullable=False, default="pending")
     plots_error = Column(Text, nullable=True)
     plots_computed_at = Column(DateTime, nullable=True)
+    original_filename = Column(String(255), nullable=True)
+    source = Column(String(20), nullable=False, default="manual")
 
     created_at = Column(DateTime, default=datetime.utcnow)
     parsed_at = Column(DateTime, nullable=True)

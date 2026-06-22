@@ -1,9 +1,9 @@
-from datetime import datetime
-from typing import List, Optional
+from datetime import date, datetime, time
+from typing import List, Optional, Set, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
 
-from app.models.measurement import PlotConfiguration, PlotResult, SensorDataUpload
+from app.models.measurement import MeasurementUploadData, PlotConfiguration, PlotResult, SensorDataUpload
 from app.schemas.measurement import PlotConfigCreate, PlotConfigUpdate, PLOT_TYPES
 
 
@@ -54,13 +54,18 @@ def create_upload_record(
     channel_count: int,
     pdf_path: str,
     upload_id: UUID | None = None,
+    original_filename: str | None = None,
+    source: str = "manual",
 ) -> SensorDataUpload:
     kwargs: dict = {
         "sensor_id": sensor_id,
         "channel_count": channel_count,
         "pdf_path": pdf_path,
         "parse_status": "pending",
+        "source": source,
     }
+    if original_filename is not None:
+        kwargs["original_filename"] = original_filename
     if upload_id is not None:
         kwargs["id"] = upload_id
     upload = SensorDataUpload(**kwargs)
@@ -104,13 +109,55 @@ def get_upload_by_id(db: Session, upload_id: UUID) -> Optional[SensorDataUpload]
     return db.query(SensorDataUpload).filter(SensorDataUpload.id == upload_id).first()
 
 
-def list_uploads_by_sensor(db: Session, sensor_id: UUID) -> List[SensorDataUpload]:
-    return (
-        db.query(SensorDataUpload)
-        .filter(SensorDataUpload.sensor_id == sensor_id)
-        .order_by(SensorDataUpload.created_at.desc())
+def _date_start(d: date) -> datetime:
+    return datetime.combine(d, time.min)
+
+
+def _date_end(d: date) -> datetime:
+    return datetime.combine(d, time.max)
+
+
+def get_stored_upload_ids(db: Session, upload_ids: List[UUID]) -> Set[UUID]:
+    if not upload_ids:
+        return set()
+    rows = (
+        db.query(MeasurementUploadData.upload_id)
+        .filter(MeasurementUploadData.upload_id.in_(upload_ids))
         .all()
     )
+    return {row[0] for row in rows}
+
+
+def list_uploads_by_sensor(
+    db: Session,
+    sensor_id: UUID,
+    *,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    parse_status: str | None = None,
+    plots_status: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> Tuple[List[SensorDataUpload], int]:
+    query = db.query(SensorDataUpload).filter(SensorDataUpload.sensor_id == sensor_id)
+
+    if from_date is not None:
+        query = query.filter(SensorDataUpload.created_at >= _date_start(from_date))
+    if to_date is not None:
+        query = query.filter(SensorDataUpload.created_at <= _date_end(to_date))
+    if parse_status is not None:
+        query = query.filter(SensorDataUpload.parse_status == parse_status)
+    if plots_status is not None:
+        query = query.filter(SensorDataUpload.plots_status == plots_status)
+
+    total = query.count()
+    items = (
+        query.order_by(SensorDataUpload.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return items, total
 
 
 def config_to_dict(config: PlotConfiguration) -> dict:

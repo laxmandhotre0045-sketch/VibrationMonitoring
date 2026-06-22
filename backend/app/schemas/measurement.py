@@ -98,6 +98,8 @@ class PlotConfigOut(PlotConfigBase):
 class SensorDataUploadOut(BaseModel):
     id: UUID
     sensor_id: UUID
+    original_filename: Optional[str] = None
+    source: str = "manual"
     channel_count: int
     sample_count: Optional[int]
     parse_status: str
@@ -107,8 +109,16 @@ class SensorDataUploadOut(BaseModel):
     plots_computed_at: Optional[datetime] = None
     created_at: datetime
     parsed_at: Optional[datetime]
+    has_stored_data: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedUploadListOut(BaseModel):
+    items: List[SensorDataUploadOut]
+    total: int
+    page: int
+    page_size: int
 
 
 class PlotSeriesOut(BaseModel):
