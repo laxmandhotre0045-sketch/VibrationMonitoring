@@ -44,6 +44,7 @@ export interface PlotConfigInput {
 export interface SensorDataUpload {
   id: string;
   sensor_id: string;
+  original_filename?: string | null;
   channel_count: number;
   sample_count: number | null;
   parse_status: string;

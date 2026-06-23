@@ -14,6 +14,7 @@ interface PlotSelectorProps {
   /** Plot types returned by the API; others render disabled. */
   availableTypes?: PlotType[];
   className?: string;
+  compact?: boolean;
 }
 
 function buildOptions(availableTypes?: PlotType[]): PlotSelectorOption[] {
@@ -32,6 +33,7 @@ export function PlotSelector({
   onChange,
   availableTypes,
   className,
+  compact = false,
 }: PlotSelectorProps) {
   const options = buildOptions(availableTypes);
 
@@ -41,7 +43,7 @@ export function PlotSelector({
       role="tablist"
       aria-label="Diagnostic plot type"
     >
-      <div className="inline-flex min-w-full gap-1 rounded-lg border border-border bg-warm p-1 sm:flex-wrap sm:min-w-0">
+      <div className={cn("inline-flex min-w-full gap-0.5 rounded-md border border-border bg-warm p-0.5 sm:flex-wrap sm:min-w-0", compact && "p-0.5")}>
         {options.map((option) => {
           const isActive = value === option.type;
 
@@ -54,7 +56,8 @@ export function PlotSelector({
               disabled={option.disabled}
               onClick={() => onChange(option.type)}
               className={cn(
-                "shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition-colors whitespace-nowrap",
+                "shrink-0 rounded-md font-semibold whitespace-nowrap transition-colors",
+                compact ? "px-2.5 py-1.5 text-sm" : "px-3 py-2 text-sm",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(245,166,35,0.22)]",
                 isActive
                   ? "bg-cta text-cta-foreground shadow-sm"

@@ -62,9 +62,27 @@ export async function uploadSensorPdf(
   return res.data;
 }
 
-export async function listUploads(sensorId: string): Promise<SensorDataUpload[]> {
-  const res = await api.get("/api/v1/measurements/uploads", { params: { sensor_id: sensorId } });
-  return res.data;
+export async function listUploads(
+  sensorId: string,
+  filters?: { fromDate?: string; toDate?: string; pageSize?: number }
+): Promise<{ items: SensorDataUpload[]; total: number }> {
+  const res = await api.get("/api/v1/measurements/uploads", {
+    params: {
+      sensor_id: sensorId,
+      from_date: filters?.fromDate,
+      to_date: filters?.toDate,
+      page: 1,
+      page_size: filters?.pageSize ?? 200,
+    },
+  });
+  const data = res.data;
+  if (Array.isArray(data)) {
+    return { items: data, total: data.length };
+  }
+  return {
+    items: data.items ?? [],
+    total: typeof data.total === "number" ? data.total : (data.items ?? []).length,
+  };
 }
 
 export async function getAllPlots(uploadId: string, channel?: number): Promise<AllPlotsResponse> {

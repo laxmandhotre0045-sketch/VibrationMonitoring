@@ -9,12 +9,20 @@ interface FormFieldProps {
   hint?: string;
   children: React.ReactNode;
   className?: string;
+  /** Compact industrial dashboard label + spacing */
+  compact?: boolean;
 }
 
-export function FormField({ label, required, error, hint, children, className }: FormFieldProps) {
+export function FormField({ label, required, error, hint, children, className, compact }: FormFieldProps) {
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <label className="text-lg font-semibold text-foreground">
+    <div className={cn("flex flex-col", compact ? "gap-1" : "gap-2", className)}>
+      <label
+        className={cn(
+          compact
+            ? "text-sm font-semibold uppercase tracking-wide text-muted-foreground"
+            : "text-lg font-semibold text-foreground"
+        )}
+      >
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
       </label>
