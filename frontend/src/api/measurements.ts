@@ -6,6 +6,11 @@ import type {
   PlotSeries,
   SensorDataUpload,
 } from "@/types/measurements";
+import type { FeatureCompareResponse, UploadFeaturesResponse } from "@/types/features";
+import {
+  normalizeFeatureCompareResponse,
+  normalizeUploadFeaturesResponse,
+} from "@/lib/feature-api-normalize";
 
 /** Create or update plot config (backend upserts on POST). */
 export async function configurePlots(data: PlotConfigInput): Promise<PlotConfig> {
@@ -106,4 +111,32 @@ export async function getSinglePlot(
 export async function getPlotTypes(): Promise<string[]> {
   const res = await api.get("/api/v1/measurements/plot-types");
   return res.data.plot_types;
+}
+
+export async function getUploadFeatures(
+  uploadId: string,
+  channel?: number
+): Promise<UploadFeaturesResponse> {
+  const res = await api.get(`/api/v1/measurements/uploads/${uploadId}/features`, {
+    params: channel !== undefined ? { channel } : undefined,
+  });
+  return normalizeUploadFeaturesResponse(res.data, { uploadId, channel: channel ?? 0 });
+}
+
+export async function compareUploadFeatures(
+  uploadId: string,
+  baselineId: string,
+  channel?: number
+): Promise<FeatureCompareResponse> {
+  const res = await api.get(`/api/v1/measurements/uploads/${uploadId}/features/compare`, {
+    params: {
+      baseline_id: baselineId,
+      ...(channel !== undefined ? { channel } : {}),
+    },
+  });
+  return normalizeFeatureCompareResponse(res.data, {
+    uploadId,
+    channel: channel ?? 0,
+    baselineId,
+  });
 }

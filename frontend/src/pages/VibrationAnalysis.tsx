@@ -18,7 +18,7 @@ import {
 import { CaptureTimelineSection } from "@/components/analysis/CaptureTimelineSection";
 import { AnalysisSectionHeader } from "@/components/analysis/AnalysisSectionHeader";
 import { AnalysisWorkspace } from "@/components/analysis/workspace/AnalysisWorkspace";
-import { BaselineSelectionPanel } from "@/components/analysis/workspace/BaselineSelectionPanel";
+import { BaselineManagementPanel } from "@/components/analysis/baseline/BaselineManagementPanel";
 import { SelectedCapturePanel } from "@/components/analysis/workspace/SelectedCapturePanel";
 import { StatusHealthTab } from "@/components/analysis/health/StatusHealthTab";
 import { TrendAnalysisTab } from "@/components/analysis/workspace/TrendAnalysisTab";
@@ -64,7 +64,6 @@ export function VibrationAnalysisPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [activePlotType, setActivePlotType] = useState<PlotType>("time_waveform");
   const [baselineModalOpen, setBaselineModalOpen] = useState(false);
-  const [showAllBaselines, setShowAllBaselines] = useState(false);
   const [selectedUploadMeta, setSelectedUploadMeta] = useState<SensorDataUpload | null>(null);
   const [timelineRefreshKey, setTimelineRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<AnalysisTabId>("detailed");
@@ -102,7 +101,12 @@ export function VibrationAnalysisPage() {
     enabled: !!sensorId,
   });
 
-  const { data: baselineList } = useQuery({
+  const {
+    data: baselineList,
+    isLoading: baselineListLoading,
+    error: baselineListError,
+    refetch: refetchBaselineList,
+  } = useQuery({
     queryKey: ["baseline-list", sensorId],
     queryFn: () => listBaselines(sensorId),
     enabled: !!sensorId,
@@ -231,12 +235,11 @@ export function VibrationAnalysisPage() {
     queryClient.invalidateQueries({ queryKey: ["plots", "upload", uploadId] });
   };
 
-  const handlePlotSourceChange = (next: PlotSource) => {
-    setPlotSource(next);
+  const handleLoadBaseline = (baseline: { id: string }) => {
+    setPlotSource("baseline");
+    setSelectedBaselineId(baseline.id);
     setActiveChannel(0);
-    if (next === "baseline" && !selectedBaselineId && baselineList?.items[0]) {
-      setSelectedBaselineId(baselineList.items[0].id);
-    }
+    queryClient.invalidateQueries({ queryKey: ["plots", "baseline", baseline.id] });
   };
 
   return (
@@ -306,25 +309,17 @@ export function VibrationAnalysisPage() {
         </div>
       </GlassCard>
 
-      <BaselineSelectionPanel
+      <BaselineManagementPanel
         sensorId={sensorId}
-        primaryBaseline={primaryBaseline}
         baselineList={baselineList}
-        showAllBaselines={showAllBaselines}
-        onToggleAllBaselines={() => setShowAllBaselines((v) => !v)}
-        plotSource={plotSource}
-        onPlotSourceChange={handlePlotSourceChange}
+        isLoading={baselineListLoading}
+        error={baselineListError}
+        onRetry={() => void refetchBaselineList()}
         selectedBaselineId={selectedBaselineId}
-        onBaselineIdChange={(id) => {
-          setSelectedBaselineId(id);
-          setActiveChannel(0);
-        }}
-        channelCount={channelCount}
-        onChannelCountChange={setChannelCount}
-        onActiveChannelClamp={(maxChannel) => {
-          if (activeChannel > maxChannel) setActiveChannel(maxChannel);
-        }}
+        loadedBaselineId={plotSource === "baseline" ? selectedBaselineId : ""}
+        onLoadBaseline={handleLoadBaseline}
         formatDateTime={formatDateTime}
+        canWrite={canWrite}
       />
 
       <GlassCard className={analysisCardPad} delay={0.08}>
@@ -379,6 +374,8 @@ export function VibrationAnalysisPage() {
             sensorId={sensorId}
             selectedUploadId={selectedUploadId}
             samplingRateHz={samplingRate}
+            primaryBaseline={primaryBaseline}
+            baselineList={baselineList?.items}
           />
         </div>
         <div hidden={activeTab !== "trend"}>
