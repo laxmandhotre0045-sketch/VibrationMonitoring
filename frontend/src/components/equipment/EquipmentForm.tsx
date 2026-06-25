@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { equipmentSchema, EquipmentFormData } from "@/types/equipment";
 import { createEquipment, updateEquipment, uploadEquipmentImage } from "@/api/equipment";
@@ -18,6 +17,8 @@ import { OperatingProcessTab } from "./tabs/OperatingProcessTab";
 import { SensorsOrientationTab } from "./tabs/SensorsOrientationTab";
 import { ReviewSaveTab } from "./tabs/ReviewSaveTab";
 import { EquipmentPageShell } from "./EquipmentPageShell";
+import { cardHover } from "@/lib/card-hover";
+import { cn } from "@/lib/utils";
 
 interface EquipmentFormProps {
   initialData?: EquipmentFormData & { id?: string; created_at?: string; updated_at?: string };
@@ -26,12 +27,12 @@ interface EquipmentFormProps {
 
 function FormBreadcrumb({ editId }: { editId?: string }) {
   return (
-    <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+    <nav className="flex items-center gap-2 text-base font-medium text-muted-foreground">
       <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
       <ChevronRight size={14} />
       <Link to="/equipment" className="hover:text-foreground transition-colors">Equipment Master</Link>
       <ChevronRight size={14} />
-      <span className="text-foreground font-medium">{editId ? "Edit" : "New"}</span>
+      <span className="text-foreground font-semibold">{editId ? "Edit" : "New"}</span>
     </nav>
   );
 }
@@ -78,21 +79,15 @@ function FormBody({
           />
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-11">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.15 }}
-            >
-              {activeTab === 1 && <BasicDetailsTab onImageSelect={setPendingImage} />}
-              {activeTab === 2 && <MechanicalDetailsTab />}
-              {activeTab === 3 && <RotatingComponentsTab />}
-              {activeTab === 4 && <OperatingProcessTab />}
-              {activeTab === 5 && <SensorsOrientationTab />}
-              {activeTab === 6 && <ReviewSaveTab />}
-            </motion.div>
+            {/* Keep all tabs mounted so uncontrolled inputs never lose their values */}
+            <div style={{ display: activeTab === 1 ? undefined : "none" }}><BasicDetailsTab onImageSelect={setPendingImage} /></div>
+            <div style={{ display: activeTab === 2 ? undefined : "none" }}><MechanicalDetailsTab /></div>
+            <div style={{ display: activeTab === 3 ? undefined : "none" }}><RotatingComponentsTab /></div>
+            <div style={{ display: activeTab === 4 ? undefined : "none" }}><OperatingProcessTab /></div>
+            <div style={{ display: activeTab === 5 ? undefined : "none" }}><SensorsOrientationTab /></div>
+            <div style={{ display: activeTab === 6 ? undefined : "none" }}><ReviewSaveTab /></div>
 
-            <div className="content-card">
+            <div className={cn("content-card", cardHover.soft)}>
               <div className="form-actions-bar">
                 <Button
                   type="button"
@@ -150,7 +145,7 @@ export function EquipmentForm({ initialData, editId }: EquipmentFormProps) {
     resolver: zodResolver(equipmentSchema),
     defaultValues: initialData || {
       plant_name: "", area: "", line: "",
-      machine_name: "", machine_id: "", machine_type: "", machine_criticality: "",
+      machine_name: "", machine_id: null, machine_type: "", machine_criticality: "",
       sensors: [],
       asset_status: "Active",
       machine_train_configured: false,

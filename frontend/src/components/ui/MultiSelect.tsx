@@ -35,15 +35,15 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
     <div ref={ref} className="relative">
       <div
         className={cn(
-          "min-h-[38px] w-full px-3 py-1.5 text-sm border rounded-lg bg-white cursor-pointer flex flex-wrap gap-1 items-center",
+          "min-h-[38px] w-full px-3 py-1.5 text-base border rounded-lg bg-white cursor-pointer flex flex-wrap gap-1 items-center",
           error ? "border-destructive/50" : "border-border hover:border-signal-light/60",
           open && "border-signal-light ring-2 ring-[rgba(245,166,35,0.22)]"
         )}
         onClick={() => setOpen(!open)}
       >
-        {value.length === 0 && <span className="text-muted-foreground py-0.5">{placeholder}</span>}
+        {value.length === 0 && <span className="text-placeholder font-normal py-0.5">{placeholder}</span>}
         {value.map((v) => (
-          <span key={v} className="flex items-center gap-1 bg-warm text-brand text-xs px-2 py-0.5 rounded-md border border-signal-light/40">
+          <span key={v} className="flex items-center gap-1 bg-warm text-brand text-sm font-medium px-2 py-0.5 rounded-md border border-signal-light/40">
             {v}
             <X size={10} className="cursor-pointer hover:text-brand-accent" onClick={(e) => remove(v, e)} />
           </span>
@@ -57,7 +57,7 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
             <div
               key={opt}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-background transition-colors",
+                "flex items-center gap-2 px-3 py-2 text-base cursor-pointer hover:bg-background transition-colors",
                 value.includes(opt) && "bg-warm text-brand font-medium border-l-2 border-l-signal-dark"
               )}
               onClick={() => toggle(opt)}

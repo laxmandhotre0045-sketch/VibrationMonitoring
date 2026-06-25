@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { sensoVibeLogo, sensoVibeMark } from "@/images";
 import { NAV_ITEMS } from "./nav-config";
 import { useLayout } from "@/contexts/LayoutContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_WIDTH = 320;
@@ -13,7 +14,10 @@ const TAGLINE = "AI Powered Vibration Intelligence";
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useLayout();
+  const { hasRole } = useAuth();
   const location = useLocation();
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasRole(item.roles));
 
   const isItemActive = (path: string, matchPaths?: string[]) => {
     if (matchPaths) return matchPaths.some((p) => location.pathname.startsWith(p));
@@ -62,11 +66,11 @@ export function Sidebar() {
                   alt="SensoVibe"
                   className="block h-[60px] w-auto max-w-[252px] object-contain object-left"
                 />
-                <span className="mt-[13px] -ml-[3px] text-[7px] font-bold text-brand leading-none shrink-0">
+                <span className="mt-[13px] -ml-[3px] text-[8px] font-bold text-brand leading-none shrink-0">
                   TM
                 </span>
               </div>
-              <p className="mt-1.5 text-[11px] font-medium text-brand/50 tracking-wide leading-snug">
+              <p className="mt-1.5 text-sm font-medium text-brand/70 tracking-wide leading-snug">
                 {TAGLINE}
               </p>
             </motion.div>
@@ -77,11 +81,11 @@ export function Sidebar() {
 
       <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-thin">
         {!sidebarCollapsed && (
-          <p className="px-3 mb-2 text-[11px] font-semibold text-[#FFA500]/70 uppercase tracking-widest">
+          <p className="px-3 mb-2 text-overline text-[#FFA500]/85">
             Modules
           </p>
         )}
-        {NAV_ITEMS.map((item) => {
+        {visibleNavItems.map((item) => {
           const routeActive = isItemActive(item.path, item.matchPaths);
           const Icon = item.icon;
 
@@ -106,14 +110,14 @@ export function Sidebar() {
                   <div className="flex-1 min-w-0">
                     <p
                       className={cn(
-                        "text-base truncate leading-tight",
-                        routeActive ? "font-semibold text-[#FFA500]" : "font-medium"
+                        "text-lg truncate leading-tight",
+                        routeActive ? "font-semibold text-[#FFA500]" : "font-semibold text-brand/85"
                       )}
                     >
                       {item.label}
                     </p>
                     {!item.active && (
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <p className="text-sm font-medium text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Clock size={10} /> Coming Soon
                       </p>
                     )}
@@ -125,10 +129,10 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="px-3 py-3 border-t border-[#FFA500]/20 shrink-0">
+      <div className="px-3 py-3 orange-gradient-border-top shrink-0">
         <button
           onClick={toggleSidebar}
-          className="w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-brand/60 hover:text-[#FFA500] hover:bg-[rgba(255,165,0,0.08)] transition-all duration-200 text-sm font-medium"
+          className="w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-brand/75 hover:text-[#FFA500] hover:bg-[rgba(255,165,0,0.08)] transition-all duration-200 text-base font-semibold"
         >
           {sidebarCollapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /> Collapse</>}
         </button>

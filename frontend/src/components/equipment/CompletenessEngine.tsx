@@ -3,6 +3,7 @@ import { BarChart3 } from "lucide-react";
 import type { EquipmentFormData } from "@/types/equipment";
 import { COMPLETENESS_SECTIONS } from "@/lib/industrial-metadata";
 import { getStepCompletion } from "@/lib/form-intelligence";
+import { cardHover } from "@/lib/card-hover";
 import { cn } from "@/lib/utils";
 
 interface CompletenessEngineProps {
@@ -11,10 +12,10 @@ interface CompletenessEngineProps {
 
 export function CompletenessEngine({ data }: CompletenessEngineProps) {
   return (
-    <div className="bg-card border border-border rounded-xl">
+    <div className={cn("bg-card border border-border rounded-xl", cardHover.panel)}>
       <div className="px-8 py-5 border-b border-border flex items-center gap-3">
         <BarChart3 size={20} className="text-signal-dark" />
-        <h3 className="text-xl font-semibold text-brand">Configuration Completeness</h3>
+        <h3 className="text-section-title text-brand">Configuration Completeness</h3>
       </div>
       <div className="p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {COMPLETENESS_SECTIONS.map((section) => {
@@ -22,10 +23,10 @@ export function CompletenessEngine({ data }: CompletenessEngineProps) {
           return (
             <div key={section.key} className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-base font-medium text-brand truncate">{section.label}</span>
+                <span className="text-lg font-semibold text-brand truncate">{section.label}</span>
                 <span
                   className={cn(
-                    "text-base font-semibold shrink-0 tabular-nums",
+                    "text-lg font-bold shrink-0 tabular-nums",
                     pct >= 80 ? "text-signal-dark" : pct >= 50 ? "text-signal-light" : "text-muted-foreground"
                   )}
                 >
@@ -41,7 +42,7 @@ export function CompletenessEngine({ data }: CompletenessEngineProps) {
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-helper">
                 {pct >= 100 ? "Complete" : pct > 0 ? "In Progress" : "Not Started"}
               </p>
             </div>

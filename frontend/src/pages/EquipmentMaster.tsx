@@ -14,7 +14,7 @@ function LoadingState() {
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         className="w-10 h-10 rounded-lg border-2 border-brand border-t-transparent"
       />
-      <p className="text-sm text-muted-foreground">Loading equipment data...</p>
+      <p className="text-helper">Loading equipment data...</p>
     </div>
   );
 }
@@ -22,8 +22,8 @@ function LoadingState() {
 function ErrorState() {
   return (
     <div className="flex flex-col items-center justify-center py-32 gap-3">
-      <p className="text-destructive font-semibold">Failed to load equipment.</p>
-      <p className="text-sm text-muted-foreground">Please try again.</p>
+      <p className="text-destructive font-bold">Failed to load equipment.</p>
+      <p className="text-helper">Please try again.</p>
     </div>
   );
 }

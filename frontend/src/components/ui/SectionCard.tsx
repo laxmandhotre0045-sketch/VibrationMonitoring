@@ -1,5 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import { cardSizing } from "@/lib/card-sizing";
+import { cardHover } from "@/lib/card-hover";
 
 interface SectionCardProps {
   title: string;
@@ -8,27 +10,61 @@ interface SectionCardProps {
   children: React.ReactNode;
   className?: string;
   delay?: number;
+  /** Equal-height mode — only for intentional KPI-style rows. @see CARD_SIZING.md */
+  equalHeight?: boolean;
+  /** Internal scroll for long/dynamic content. @see CARD_SIZING.md */
+  scrollBody?: boolean;
+  /** Subtle hover feedback. Default: true */
+  hover?: boolean;
+  /** Pointer cursor — only when section is clickable. Default: false */
+  interactive?: boolean;
 }
 
-export function SectionCard({ title, description, icon, children, className }: SectionCardProps) {
+/** Form/content section card — auto height, passive hover by default. */
+export function SectionCard({
+  title,
+  description,
+  icon,
+  children,
+  className,
+  equalHeight = false,
+  scrollBody = false,
+  hover = true,
+  interactive = false,
+}: SectionCardProps) {
   return (
-    <div className={cn("content-card", className)}>
-      <div className="px-8 pt-8 pb-0">
+    <div
+      className={cn(
+        "content-card card-auto",
+        hover && (interactive ? cardHover.interactive : cardHover.soft),
+        equalHeight && cardSizing.equal,
+        className
+      )}
+    >
+      <div className="px-8 pt-8 pb-0 shrink-0">
         <div className="flex items-center gap-3">
           {icon && (
-            <span className="w-10 h-10 rounded-lg bg-[#FFA500]/10 border border-[#FFA500]/30 flex items-center justify-center text-[#FFA500] shrink-0">
+            <span className="w-10 h-10 rounded-lg bg-[#FFA500]/10 orange-gradient-border flex items-center justify-center text-[#FFA500] shrink-0">
               {icon}
             </span>
           )}
           <div className="min-w-0">
-            <h3 className="text-xl font-semibold text-foreground tracking-tight">{title}</h3>
+            <h3 className="text-section-title">{title}</h3>
             {description && (
-              <p className="text-base text-muted-foreground mt-1 leading-relaxed">{description}</p>
+              <p className="text-base text-helper mt-1">{description}</p>
             )}
           </div>
         </div>
       </div>
-      <div className="p-8">{children}</div>
+      <div
+        className={cn(
+          "p-8",
+          equalHeight && "flex-1 min-h-0",
+          scrollBody && cardSizing.scrollSm
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

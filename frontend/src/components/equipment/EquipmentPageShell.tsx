@@ -1,16 +1,10 @@
 import React from "react";
-import { VibrationIntelligenceBg } from "@/components/brand/VibrationIntelligenceBg";
 
 interface EquipmentPageShellProps {
   children: React.ReactNode;
 }
 
-/** Equipment Master pages — vibration-intelligence page canvas behind content */
+/** Equipment Master pages — content shell (no decorative page background). */
 export function EquipmentPageShell({ children }: EquipmentPageShellProps) {
-  return (
-    <div className="relative">
-      <VibrationIntelligenceBg variant="page" className="absolute inset-0 -z-10 min-h-full" />
-      <div className="relative">{children}</div>
-    </div>
-  );
+  return <div className="relative">{children}</div>;
 }

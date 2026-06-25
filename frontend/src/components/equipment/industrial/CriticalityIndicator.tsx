@@ -15,10 +15,10 @@ export function CriticalityIndicator({ level }: CriticalityIndicatorProps) {
     <div className={cn("mt-4 p-4 rounded-lg border", cfg.bg, cfg.border)}>
       <div className="flex items-center gap-2.5 mb-2">
         <Shield size={16} className={cfg.color} />
-        <span className={cn("text-sm font-bold tracking-wide", cfg.color)}>{cfg.label}</span>
-        <span className="text-sm text-muted-foreground">· Reliability Impact</span>
+        <span className={cn("text-base font-bold tracking-wide", cfg.color)}>{cfg.label}</span>
+        <span className="text-base font-medium text-muted-foreground">· Reliability Impact</span>
       </div>
-      <p className="text-base text-foreground/80 leading-relaxed">{cfg.impact}</p>
+      <p className="text-base font-normal text-foreground leading-relaxed">{cfg.impact}</p>
     </div>
   );
 }

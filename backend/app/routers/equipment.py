@@ -8,21 +8,33 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.config import settings
 from app import crud
+from app.dependencies.auth import get_current_user, require_write_access
 from app.schemas.equipment import (
     EquipmentCreate, EquipmentUpdate, EquipmentOut,
     PaginatedEquipment, AIReadinessOut,
     SensorConfigCreate, SensorConfigUpdate, SensorConfigOut,
 )
 
-router = APIRouter(prefix="/api/v1/equipment", tags=["Equipment"])
+router = APIRouter(
+    prefix="/api/v1/equipment",
+    tags=["Equipment"],
+    dependencies=[Depends(get_current_user)],
+)
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
 # ── Equipment CRUD ──────────────────────────────────────────────────────────
 
-@router.post("/", response_model=EquipmentOut, status_code=201)
+@router.post(
+    "/",
+    response_model=EquipmentOut,
+    status_code=201,
+    dependencies=[Depends(require_write_access)],
+)
 def create_equipment(data: EquipmentCreate, db: Session = Depends(get_db)):
+    import logging
+    logging.getLogger("uvicorn").info(f"[CREATE_EQUIPMENT] plant_name={repr(data.plant_name)} area={repr(data.area)} machine_name={repr(data.machine_name)} machine_type={repr(data.machine_type)}")
     if data.machine_id:
         existing = crud.get_equipment_by_machine_id(db, data.machine_id)
         if existing:
@@ -51,7 +63,11 @@ def get_equipment(equipment_id: UUID, db: Session = Depends(get_db)):
     return equipment
 
 
-@router.put("/{equipment_id}", response_model=EquipmentOut)
+@router.put(
+    "/{equipment_id}",
+    response_model=EquipmentOut,
+    dependencies=[Depends(require_write_access)],
+)
 def update_equipment(equipment_id: UUID, data: EquipmentUpdate, db: Session = Depends(get_db)):
     equipment = crud.update_equipment(db, equipment_id, data)
     if not equipment:
@@ -59,7 +75,11 @@ def update_equipment(equipment_id: UUID, data: EquipmentUpdate, db: Session = De
     return equipment
 
 
-@router.patch("/{equipment_id}", response_model=EquipmentOut)
+@router.patch(
+    "/{equipment_id}",
+    response_model=EquipmentOut,
+    dependencies=[Depends(require_write_access)],
+)
 def patch_equipment(equipment_id: UUID, data: EquipmentUpdate, db: Session = Depends(get_db)):
     equipment = crud.update_equipment(db, equipment_id, data)
     if not equipment:
@@ -67,7 +87,11 @@ def patch_equipment(equipment_id: UUID, data: EquipmentUpdate, db: Session = Dep
     return equipment
 
 
-@router.delete("/{equipment_id}", status_code=204)
+@router.delete(
+    "/{equipment_id}",
+    status_code=204,
+    dependencies=[Depends(require_write_access)],
+)
 def delete_equipment(equipment_id: UUID, db: Session = Depends(get_db)):
     success = crud.delete_equipment(db, equipment_id)
     if not success:
@@ -76,7 +100,11 @@ def delete_equipment(equipment_id: UUID, db: Session = Depends(get_db)):
 
 # ── Image Upload ─────────────────────────────────────────────────────────────
 
-@router.post("/{equipment_id}/image", response_model=EquipmentOut)
+@router.post(
+    "/{equipment_id}/image",
+    response_model=EquipmentOut,
+    dependencies=[Depends(require_write_access)],
+)
 async def upload_image(equipment_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db)):
     equipment = crud.get_equipment_by_id(db, equipment_id)
     if not equipment:
@@ -105,7 +133,11 @@ def get_image(equipment_id: UUID, db: Session = Depends(get_db)):
     return FileResponse(equipment.equipment_image_path)
 
 
-@router.delete("/{equipment_id}/image", status_code=204)
+@router.delete(
+    "/{equipment_id}/image",
+    status_code=204,
+    dependencies=[Depends(require_write_access)],
+)
 def delete_image(equipment_id: UUID, db: Session = Depends(get_db)):
     equipment = crud.get_equipment_by_id(db, equipment_id)
     if not equipment:
@@ -124,14 +156,23 @@ def list_sensors(equipment_id: UUID, db: Session = Depends(get_db)):
     return crud.get_sensors_by_equipment(db, equipment_id)
 
 
-@router.post("/{equipment_id}/sensors", response_model=SensorConfigOut, status_code=201)
+@router.post(
+    "/{equipment_id}/sensors",
+    response_model=SensorConfigOut,
+    status_code=201,
+    dependencies=[Depends(require_write_access)],
+)
 def add_sensor(equipment_id: UUID, data: SensorConfigCreate, db: Session = Depends(get_db)):
     if not crud.get_equipment_by_id(db, equipment_id):
         raise HTTPException(status_code=404, detail="Equipment not found")
     return crud.create_sensor(db, equipment_id, data)
 
 
-@router.put("/{equipment_id}/sensors/{sensor_id}", response_model=SensorConfigOut)
+@router.put(
+    "/{equipment_id}/sensors/{sensor_id}",
+    response_model=SensorConfigOut,
+    dependencies=[Depends(require_write_access)],
+)
 def update_sensor(equipment_id: UUID, sensor_id: UUID, data: SensorConfigUpdate, db: Session = Depends(get_db)):
     sensor = crud.update_sensor(db, sensor_id, data)
     if not sensor:
@@ -139,7 +180,11 @@ def update_sensor(equipment_id: UUID, sensor_id: UUID, data: SensorConfigUpdate,
     return sensor
 
 
-@router.delete("/{equipment_id}/sensors/{sensor_id}", status_code=204)
+@router.delete(
+    "/{equipment_id}/sensors/{sensor_id}",
+    status_code=204,
+    dependencies=[Depends(require_write_access)],
+)
 def delete_sensor(equipment_id: UUID, sensor_id: UUID, db: Session = Depends(get_db)):
     if not crud.delete_sensor(db, sensor_id):
         raise HTTPException(status_code=404, detail="Sensor not found")

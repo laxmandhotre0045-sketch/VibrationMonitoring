@@ -5,7 +5,7 @@
 docker-compose up -d
 ```
 - PostgreSQL runs on port 5432
-- pgAdmin runs on http://localhost:5050 (admin@vibration.local / admin2024)
+- pgAdmin runs on http://localhost:5050 (admin@vibration.com / admin2024)
 
 ## Step 2 — Start Backend
 Open a terminal in the `backend/` folder:

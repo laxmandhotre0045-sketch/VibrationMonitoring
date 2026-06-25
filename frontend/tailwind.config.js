@@ -28,6 +28,8 @@ export default {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
+        "helper-foreground": "hsl(var(--helper-foreground))",
+        placeholder: "hsl(var(--placeholder-foreground))",
         surface: "hsl(var(--surface))",
         accent: {
           DEFAULT: "hsl(var(--accent))",
@@ -84,6 +86,18 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        xs: ["0.875rem", { lineHeight: "1.25rem" }],
+        sm: ["1rem", { lineHeight: "1.5rem" }],
+        base: ["1.125rem", { lineHeight: "1.75rem" }],
+        lg: ["1.25rem", { lineHeight: "1.875rem" }],
+        xl: ["1.375rem", { lineHeight: "2rem" }],
+        "2xl": ["1.75rem", { lineHeight: "2.125rem" }],
+        "3xl": ["2.125rem", { lineHeight: "2.5rem" }],
+        "4xl": ["2.5rem", { lineHeight: "2.75rem" }],
+        "5xl": ["3rem", { lineHeight: "1.15" }],
+        overline: ["0.875rem", { lineHeight: "1.25rem", letterSpacing: "0.05em", fontWeight: "600" }],
       },
       boxShadow: {
         card: "0 1px 3px rgba(21, 54, 109, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)",

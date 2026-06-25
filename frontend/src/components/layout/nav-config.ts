@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Cpu,
+  Activity,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -11,6 +12,7 @@ export interface NavItem {
   icon: LucideIcon;
   active: boolean;
   matchPaths?: string[];
+  roles: string[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -19,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Dashboard",
     icon: LayoutDashboard,
     active: false,
+    roles: ["super_admin", "admin", "user"],
   },
   {
     path: "/equipment",
@@ -26,12 +29,22 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Cpu,
     active: true,
     matchPaths: ["/equipment"],
+    roles: ["super_admin", "admin", "user"],
+  },
+  {
+    path: "/analysis",
+    label: "Vibration Analysis",
+    icon: Activity,
+    active: true,
+    matchPaths: ["/analysis"],
+    roles: ["super_admin", "admin", "user"],
   },
   {
     path: "/settings",
     label: "Settings",
     icon: Settings,
     active: false,
+    roles: ["super_admin", "admin"],
   },
 ];
 

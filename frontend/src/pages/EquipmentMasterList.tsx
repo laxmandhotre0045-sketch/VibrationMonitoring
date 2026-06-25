@@ -16,11 +16,15 @@ import { listEquipment, deleteEquipment } from "@/api/equipment";
 import { CRITICALITY_COLORS, CRITICALITY_DOT, ASSET_STATUS_COLORS } from "@/types/equipment";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { WRITE_ROLES } from "@/lib/role-access";
 import { emptyEquipment } from "@/images";
 import { PageHero } from "@/components/layout/PageHero";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { EquipmentPageShell } from "@/components/equipment/EquipmentPageShell";
+import { cardSizing } from "@/lib/card-sizing";
+import { cardHover } from "@/lib/card-hover";
 
 const MACHINE_TYPES = [
   "", "Motor", "Pump", "Fan", "Blower", "Compressor", "Gearbox",
@@ -54,6 +58,9 @@ export function EquipmentMasterList() {
         machine_criticality: filterCriticality || undefined,
       }),
   });
+
+  const { hasRole } = useAuth();
+  const canWrite = hasRole(WRITE_ROLES);
 
   const deleteMutation = useMutation({
     mutationFn: deleteEquipment,
@@ -99,29 +106,31 @@ export function EquipmentMasterList() {
         ]}
         equipmentCount={stats.total}
         actions={
-          <Button
-            size="lg"
-            icon={<Plus size={18} />}
-            onClick={() => navigate("/equipment/new")}
-          >
-            Add Equipment
-          </Button>
+          canWrite ? (
+            <Button
+              size="lg"
+              icon={<Plus size={18} />}
+              onClick={() => navigate("/equipment/new")}
+            >
+              Add Equipment
+            </Button>
+          ) : undefined
         }
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8", cardSizing.gridEqual)}>
         {STAT_CONFIG.map((stat, i) => (
-          <GlassCard key={stat.key} delay={0.05 + i * 0.06} className="p-5">
-            <div className="flex items-center gap-4">
+          <GlassCard key={stat.key} equalHeight delay={0.05 + i * 0.06} className="p-5">
+            <div className={cn(cardSizing.kpiBody, "gap-4")}>
               <div className={cn("w-11 h-11 rounded-lg flex items-center justify-center", stat.iconBg)}>
                 <Cpu size={18} className={stat.iconColor} />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-kpi-value">
                   {stats[stat.key]}
                 </p>
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="text-base font-medium text-muted-foreground">
                   {stat.label}
                 </p>
               </div>
@@ -143,9 +152,9 @@ export function EquipmentMasterList() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, ID, or plant..."
               className={cn(
-                "w-full pl-11 pr-4 py-2.5 text-sm rounded-lg transition-all",
+                "w-full pl-11 pr-4 py-2.5 text-base font-normal rounded-lg transition-all",
                 "bg-white border border-border text-foreground",
-                "placeholder:text-muted-foreground focus:outline-none",
+                "placeholder:text-placeholder placeholder:font-normal focus:outline-none",
                 "focus:border-brand-accent focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]"
               )}
             />
@@ -156,7 +165,7 @@ export function EquipmentMasterList() {
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className={cn(
-                "px-4 py-2.5 text-sm rounded-lg cursor-pointer transition-all",
+                "px-4 py-2.5 text-base font-normal rounded-lg cursor-pointer transition-all",
                 "bg-white border border-border text-foreground",
                 "focus:outline-none focus:border-brand-accent focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]"
               )}
@@ -172,7 +181,7 @@ export function EquipmentMasterList() {
               value={filterCriticality}
               onChange={(e) => setFilterCriticality(e.target.value)}
               className={cn(
-                "px-4 py-2.5 text-sm rounded-lg cursor-pointer transition-all",
+                "px-4 py-2.5 text-base font-normal rounded-lg cursor-pointer transition-all",
                 "bg-white border border-border text-foreground",
                 "focus:outline-none focus:border-brand-accent focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]"
               )}
@@ -189,44 +198,46 @@ export function EquipmentMasterList() {
       </GlassCard>
 
       {/* Equipment Table */}
-      <GlassCard className="overflow-hidden" hover={false} delay={0.35}>
+      <GlassCard className="overflow-hidden" delay={0.35}>
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className={cn(cardSizing.stateCenter, "gap-4")}>
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               className="w-10 h-10 rounded-lg border-2 border-signal-light border-t-transparent"
             />
-            <p className="text-sm text-muted-foreground">Loading equipment registry...</p>
+            <p className="text-helper">Loading equipment registry...</p>
           </div>
         ) : isError ? (
-          <div className="text-center py-24">
-            <p className="font-semibold text-destructive">Failed to load equipment.</p>
-            <p className="text-sm text-muted-foreground mt-2">
+          <div className={cn(cardSizing.stateCenter, "text-center")}>
+            <p className="font-bold text-destructive">Failed to load equipment.</p>
+            <p className="text-helper mt-2">
               Make sure the backend is running on port 8000.
             </p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-24">
+          <div className={cn(cardSizing.stateCenter, "text-center")}>
             <img
               src={emptyEquipment}
               alt=""
               className="w-24 h-24 mx-auto mb-4 opacity-80"
             />
-            <p className="font-semibold text-foreground">
+            <p className="font-semibold text-foreground text-lg">
               No equipment found.
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-helper mt-1">
               Add your first equipment to begin AI readiness configuration.
             </p>
-            <div className="mt-6">
-              <Button icon={<Plus size={16} />} onClick={() => navigate("/equipment/new")}>
-                Add Equipment
-              </Button>
-            </div>
+            {canWrite && (
+              <div className="mt-6">
+                <Button icon={<Plus size={16} />} onClick={() => navigate("/equipment/new")}>
+                  Add Equipment
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className={cardSizing.scroll}>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
@@ -234,7 +245,7 @@ export function EquipmentMasterList() {
                     (h) => (
                       <th
                         key={h}
-                        className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-5 py-4 whitespace-nowrap"
+                        className="text-left text-table-header px-5 py-4 whitespace-nowrap"
                       >
                         {h}
                       </th>
@@ -258,33 +269,33 @@ export function EquipmentMasterList() {
                             <Cpu size={16} className="text-brand" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-foreground">
+                            <p className="text-base font-semibold text-foreground">
                               {item.machine_name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                               {item.manufacturer || "—"}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-xs font-mono px-2.5 py-1 rounded-xl bg-white text-foreground border border-border">
+                        <span className="text-sm font-mono px-2.5 py-1 rounded-xl bg-white text-foreground border border-border">
                           {item.machine_id}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-sm text-foreground/90">
+                      <td className="px-5 py-4 text-base text-foreground/90">
                         {item.machine_type}
                       </td>
                       <td className="px-5 py-4">
-                        <p className="text-sm text-foreground/90">
+                        <p className="text-base text-foreground/90">
                           {item.plant_name}
                         </p>
-                        <p className="text-xs text-muted-foreground">{item.area}</p>
+                        <p className="text-sm text-muted-foreground">{item.area}</p>
                       </td>
                       <td className="px-5 py-4">
                         <span
                           className={cn(
-                            "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border",
+                            "inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-full border",
                             CRITICALITY_COLORS[item.machine_criticality]
                           )}
                         >
@@ -300,7 +311,7 @@ export function EquipmentMasterList() {
                       <td className="px-5 py-4">
                         <span
                           className={cn(
-                            "text-xs px-3 py-1.5 rounded-full font-semibold",
+                            "text-sm px-3 py-1.5 rounded-full font-semibold",
                             ASSET_STATUS_COLORS[item.asset_status || "Active"] ||
                               ASSET_STATUS_COLORS.Active
                           )}
@@ -310,22 +321,26 @@ export function EquipmentMasterList() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => navigate(`/equipment/${item.id}/edit`)}
-                            className="p-2 text-muted-foreground hover:text-signal-deep hover:bg-warm rounded-xl transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 size={15} />
-                          </motion.button>
-                          <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => handleDelete(item.id, item.machine_name)}
-                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </motion.button>
+                          {canWrite && (
+                            <>
+                              <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => navigate(`/equipment/${item.id}/edit`)}
+                                className="p-2 text-muted-foreground hover:text-signal-deep hover:bg-warm rounded-xl transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 size={15} />
+                              </motion.button>
+                              <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleDelete(item.id, item.machine_name)}
+                                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={15} />
+                              </motion.button>
+                            </>
+                          )}
                           <button className="p-2 text-muted-foreground hover:text-foreground rounded-xl transition-colors">
                             <MoreHorizontal size={15} />
                           </button>
@@ -347,7 +362,7 @@ export function EquipmentMasterList() {
           animate={{ opacity: 1 }}
           className="flex items-center justify-between mt-6"
         >
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Showing {Math.min((page - 1) * 20 + 1, data.total)}–
             {Math.min(page * 20, data.total)} of {data.total}
           </p>
@@ -377,10 +392,13 @@ export function EquipmentMasterList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="mt-8 flex items-center gap-3 px-5 py-4 rounded-lg bg-brand-accent/5 border border-brand-accent/20"
+        className={cn(
+          "mt-8 flex items-center gap-3 px-5 py-4 rounded-lg bg-brand-accent/5 orange-gradient-border-subtle",
+          cardHover.passive
+        )}
       >
         <Activity size={18} className="text-brand-accent-dark shrink-0" />
-        <p className="text-sm text-muted-foreground">
+        <p className="text-helper">
           <span className="font-semibold text-foreground">
             AI Tip:
           </span>{" "}

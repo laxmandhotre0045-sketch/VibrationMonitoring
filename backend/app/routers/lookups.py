@@ -1,6 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-router = APIRouter(prefix="/api/v1/lookups", tags=["Lookups"])
+from app.dependencies.auth import get_current_user
+
+router = APIRouter(
+    prefix="/api/v1/lookups",
+    tags=["Lookups"],
+    dependencies=[Depends(get_current_user)],
+)
 
 LOOKUPS = {
     "machine-types": [
@@ -58,6 +64,11 @@ LOOKUPS = {
 }
 
 
+@router.get("/")
+def get_all_lookups():
+    return LOOKUPS
+
+
 @router.get("/{lookup_name}")
 def get_lookup(lookup_name: str):
     values = LOOKUPS.get(lookup_name)
@@ -65,8 +76,3 @@ def get_lookup(lookup_name: str):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Lookup '{lookup_name}' not found")
     return {"lookup": lookup_name, "values": values}
-
-
-@router.get("/")
-def get_all_lookups():
-    return LOOKUPS
