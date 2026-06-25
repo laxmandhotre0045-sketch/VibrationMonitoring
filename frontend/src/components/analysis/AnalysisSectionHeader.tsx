@@ -1,6 +1,7 @@
 import React from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { analysisSectionIconBoxClass, analysisSectionIconSize } from "./analysis-layout";
 
 interface AnalysisSectionHeaderProps {
   icon: LucideIcon;
@@ -22,11 +23,11 @@ export function AnalysisSectionHeader({
         className
       )}
     >
-      <span className="w-8 h-8 rounded-md bg-[#FFA500]/10 orange-gradient-border flex items-center justify-center text-[#FFA500] shrink-0">
-        <Icon size={14} aria-hidden />
+      <span className={analysisSectionIconBoxClass}>
+        <Icon size={analysisSectionIconSize} strokeWidth={2} aria-hidden />
       </span>
       <div className="min-w-0">
-        <h2 className="text-lg font-bold text-foreground leading-tight">{title}</h2>
+        <h2 className="text-base font-bold text-foreground leading-tight">{title}</h2>
         {subtitle && (
           <p className="text-sm text-muted-foreground mt-0.5 leading-snug">{subtitle}</p>
         )}

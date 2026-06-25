@@ -23,6 +23,11 @@ export const analysisKpiLabelClass =
 
 export const analysisKpiValueClass = "mt-1 text-base font-bold text-foreground leading-tight";
 
+export const analysisSectionIconBoxClass =
+  "w-12 h-12 rounded-lg bg-[#FFA500]/10 orange-gradient-border flex items-center justify-center text-[#FFA500] shrink-0";
+
+export const analysisSectionIconSize = 26;
+
 export const analysisChannelBtnClass = cn(
   "rounded-md px-2.5 py-1.5 text-sm font-semibold transition-colors",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,107,0,0.45)]"

@@ -20,6 +20,7 @@ interface AnalysisSummaryPanelProps {
   canWrite: boolean;
   onSaveBaseline?: () => void;
   saveBaselineDisabled?: boolean;
+  showCaptureSummary?: boolean;
   className?: string;
 }
 
@@ -42,6 +43,7 @@ export function AnalysisSummaryPanel({
   canWrite,
   onSaveBaseline,
   saveBaselineDisabled,
+  showCaptureSummary = true,
   className,
 }: AnalysisSummaryPanelProps) {
   if (!selectedUpload) {
@@ -52,7 +54,7 @@ export function AnalysisSummaryPanel({
           className
         )}
       >
-        <BarChart2 size={18} className="mx-auto mb-1.5 text-muted-foreground" aria-hidden />
+        <BarChart2 size={28} className="mx-auto mb-1.5 text-muted-foreground" aria-hidden />
         <p className="text-sm text-muted-foreground">
           Select a capture on the timeline to view analysis details.
         </p>
@@ -62,22 +64,26 @@ export function AnalysisSummaryPanel({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="rounded-md border border-border border-l-2 border-l-signal-light bg-white px-3 py-2">
-        <p className={analysisKpiLabelClass}>Selected Capture</p>
-        <p className="text-sm font-medium text-foreground mt-1 leading-snug" title={formatCaptureSelection(selectedUpload)}>
-          {formatCaptureSelection(selectedUpload)}
-        </p>
-      </div>
+      {showCaptureSummary && (
+        <>
+          <div className="rounded-md border border-border border-l-2 border-l-signal-light bg-white px-3 py-2">
+            <p className={analysisKpiLabelClass}>Selected Capture</p>
+            <p className="text-sm font-medium text-foreground mt-1 leading-snug" title={formatCaptureSelection(selectedUpload)}>
+              {formatCaptureSelection(selectedUpload)}
+            </p>
+          </div>
 
-      <div className={cn("grid grid-cols-2 sm:grid-cols-4", analysisGridGap)}>
-        <MetricCard
-          label="Samples"
-          value={selectedUpload.sample_count?.toLocaleString() ?? "—"}
-        />
-        <MetricCard label="Channels" value={String(selectedUpload.channel_count)} />
-        <MetricCard label="Parse Status" value={selectedUpload.parse_status} />
-        <MetricCard label="Plots Status" value={selectedUpload.plots_status} />
-      </div>
+          <div className={cn("grid grid-cols-2 sm:grid-cols-4", analysisGridGap)}>
+            <MetricCard
+              label="Samples"
+              value={selectedUpload.sample_count?.toLocaleString() ?? "—"}
+            />
+            <MetricCard label="Channels" value={String(selectedUpload.channel_count)} />
+            <MetricCard label="Parse Status" value={selectedUpload.parse_status} />
+            <MetricCard label="Plots Status" value={selectedUpload.plots_status} />
+          </div>
+        </>
+      )}
 
       <div>
         <p className={cn(analysisKpiLabelClass, "mb-1.5")}>View Channel</p>

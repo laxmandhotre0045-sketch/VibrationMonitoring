@@ -98,27 +98,33 @@ export function Sidebar() {
                 )}
               >
                 {routeActive && <span className="signal-nav-rail" aria-hidden />}
-                <Icon
-                  size={21}
-                  strokeWidth={routeActive ? 2.25 : 2}
+                <span
                   className={cn(
-                    "shrink-0 transition-colors duration-200",
-                    routeActive ? "text-[#FFA500]" : "text-brand/55 group-hover:text-brand"
+                    "flex items-center justify-center w-11 h-11 rounded-lg shrink-0 transition-colors duration-200",
+                    routeActive
+                      ? "bg-[#FFA500]/15 text-[#FFA500]"
+                      : "bg-brand/[0.06] text-brand/55 group-hover:bg-[rgba(255,165,0,0.1)] group-hover:text-brand"
                   )}
-                />
+                >
+                  <Icon
+                    size={26}
+                    strokeWidth={routeActive ? 2.25 : 2}
+                    aria-hidden
+                  />
+                </span>
                 {!sidebarCollapsed && (
                   <div className="flex-1 min-w-0">
                     <p
                       className={cn(
-                        "text-lg truncate leading-tight",
+                        "text-base truncate leading-tight",
                         routeActive ? "font-semibold text-[#FFA500]" : "font-semibold text-brand/85"
                       )}
                     >
                       {item.label}
                     </p>
                     {!item.active && (
-                      <p className="text-sm font-medium text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock size={10} /> Coming Soon
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock size={13} aria-hidden /> Coming Soon
                       </p>
                     )}
                   </div>
@@ -132,9 +138,9 @@ export function Sidebar() {
       <div className="px-3 py-3 orange-gradient-border-top shrink-0">
         <button
           onClick={toggleSidebar}
-          className="w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-brand/75 hover:text-[#FFA500] hover:bg-[rgba(255,165,0,0.08)] transition-all duration-200 text-base font-semibold"
+          className="w-full flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-lg text-brand/75 hover:text-[#FFA500] hover:bg-[rgba(255,165,0,0.08)] transition-all duration-200 text-sm font-semibold"
         >
-          {sidebarCollapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /> Collapse</>}
+          {sidebarCollapsed ? <ChevronRight size={22} /> : <><ChevronLeft size={22} /> Collapse</>}
         </button>
       </div>
     </motion.aside>

@@ -23,7 +23,7 @@ export function CaptureTimelineSection({
     <GlassCard className={analysisCardPad} delay={0.12}>
       <AnalysisSectionHeader
         icon={Activity}
-        title="3. Capture Timeline"
+        title="Capture Timeline"
         subtitle="Browse uploads by date range and select a capture for analysis."
       />
       <CaptureTimelinePanel
