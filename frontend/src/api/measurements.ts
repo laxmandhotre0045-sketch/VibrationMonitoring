@@ -6,6 +6,7 @@ import type {
   PlotSeries,
   SensorDataUpload,
 } from "@/types/measurements";
+import type { UploadFactorTrendsResponse } from "@/types/factor-trends";
 import type { FeatureCompareResponse, UploadFeaturesResponse } from "@/types/features";
 import {
   normalizeFeatureCompareResponse,
@@ -113,12 +114,24 @@ export async function getPlotTypes(): Promise<string[]> {
   return res.data.plot_types;
 }
 
+export async function getUploadFactorTrends(
+  uploadId: string,
+  channel: number
+): Promise<UploadFactorTrendsResponse> {
+  const res = await api.get(`/api/v1/measurements/uploads/${uploadId}/factor-trends`, {
+    params: { channel },
+    timeout: 120_000,
+  });
+  return res.data;
+}
+
 export async function getUploadFeatures(
   uploadId: string,
   channel?: number
 ): Promise<UploadFeaturesResponse> {
   const res = await api.get(`/api/v1/measurements/uploads/${uploadId}/features`, {
     params: channel !== undefined ? { channel } : undefined,
+    timeout: 120_000,
   });
   return normalizeUploadFeaturesResponse(res.data, { uploadId, channel: channel ?? 0 });
 }

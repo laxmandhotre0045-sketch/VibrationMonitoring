@@ -1,113 +1,92 @@
-import React, { useState } from "react";
-import { TrendingUp } from "lucide-react";
-import { CompactDateRangeBar } from "@/components/analysis/CompactDateRangeBar";
+import React from "react";
 import { HealthChannelSelector } from "@/components/analysis/health/HealthChannelSelector";
 import { HealthMetricCard } from "@/components/analysis/health/HealthMetricCard";
 import { analysisBodyStack, analysisGridGap } from "@/components/analysis/analysis-layout";
-import { useHistoricalTrendData } from "@/hooks/useHistoricalTrendData";
+import { useUploadFactorTrends } from "@/hooks/useUploadFactorTrends";
 import { cn } from "@/lib/utils";
 
 interface TrendAnalysisTabProps {
-  sensorId: string;
-  samplingRateHz: number;
-  primaryBaselineId?: string | null;
+  selectedUploadId: string;
+  channel: number;
+  channelCount: number;
+  onChannelChange: (channel: number) => void;
 }
 
 export function TrendAnalysisTab({
-  sensorId,
-  samplingRateHz,
-  primaryBaselineId,
+  selectedUploadId,
+  channel,
+  channelCount,
+  onChannelChange,
 }: TrendAnalysisTabProps) {
-  const [trendChannel, setTrendChannel] = useState(0);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [compareBaseline, setCompareBaseline] = useState(false);
-  const [compareHistorical, setCompareHistorical] = useState(true);
+  const enabled = !!selectedUploadId;
 
-  const enabled = !!sensorId;
+  const { trendMetrics, isLoading, isError, error, featuresStatus, refetch, isFetching, isPending, hasTrendData } =
+    useUploadFactorTrends({
+      uploadId: selectedUploadId,
+      channel,
+      enabled,
+    });
 
-  const { range, uploads, trendMetrics, isLoading } = useHistoricalTrendData({
-    sensorId,
-    channel: trendChannel,
-    samplingRateHz,
-    fromDate: fromDate || undefined,
-    toDate: toDate || undefined,
-    primaryBaselineId,
-    compareBaseline,
-    enabled,
-  });
-
-  const effectiveFrom = fromDate || range.fromDate;
-  const effectiveTo = toDate || range.toDate;
+  const isComputing =
+    enabled &&
+    !hasTrendData &&
+    (isPending || isLoading || isFetching || featuresStatus === "computing");
 
   return (
     <div className={analysisBodyStack}>
       <p className="text-sm text-muted-foreground">
-        Analyze how machine conditions change over time using historical captures in the selected range.
+        Factor trends for the selected capture — 10 features computed on upload (segment trends within
+        the file). Values are in scaled engineering units from CSV.
       </p>
 
       <HealthChannelSelector
-        value={trendChannel}
-        onChange={setTrendChannel}
+        value={channel}
+        onChange={onChannelChange}
+        channelCount={channelCount}
         disabled={!enabled}
       />
-
-      <CompactDateRangeBar
-        fromDate={effectiveFrom}
-        toDate={effectiveTo}
-        onFromChange={setFromDate}
-        onToChange={setToDate}
-        disabled={!enabled}
-      />
-
-      <div className="flex flex-wrap items-center gap-4 rounded-md border border-border bg-surface/50 px-3 py-2">
-        <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            className="rounded border-border"
-            checked={compareHistorical}
-            onChange={(e) => setCompareHistorical(e.target.checked)}
-            disabled={!enabled}
-          />
-          <TrendingUp size={14} className="text-signal-dark" aria-hidden />
-          Historical Comparison
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            className="rounded border-border"
-            checked={compareBaseline}
-            onChange={(e) => setCompareBaseline(e.target.checked)}
-            disabled={!enabled || !primaryBaselineId}
-          />
-          Baseline Comparison
-          {!primaryBaselineId && (
-            <span className="text-xs text-muted-foreground">(no primary baseline)</span>
-          )}
-        </label>
-      </div>
 
       {!enabled && (
-        <p className="text-sm text-muted-foreground">Select a sensor to load historical trends.</p>
-      )}
-
-      {enabled && isLoading && (
-        <p className="text-sm text-muted-foreground">Loading historical trend data…</p>
-      )}
-
-      {enabled && !isLoading && uploads.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No captures found in the selected date range.
+          Select a capture on the timeline to view factor trends.
         </p>
       )}
 
-      {enabled && !isLoading && compareHistorical && uploads.length > 0 && (
+      {enabled && isComputing && (
+        <p className="text-sm text-muted-foreground">
+          Computing factor trends for this capture (first load may take a few seconds)…
+        </p>
+      )}
+
+      {enabled && isError && (
+        <p className="text-sm text-destructive font-semibold">
+          {(error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+            "Failed to load factor trends. Re-upload the file if features were not computed."}
+        </p>
+      )}
+
+      {enabled && !isComputing && !isError && !hasTrendData && featuresStatus === "failed" && (
+        <p className="text-sm text-destructive font-semibold">
+          Feature computation failed for this capture. Re-upload the file to try again.
+        </p>
+      )}
+
+      {enabled && !isComputing && !isError && !hasTrendData && featuresStatus !== "ready" && featuresStatus !== "failed" && (
+        <p className="text-sm text-signal-dark font-medium">
+          Computing features… (status: {featuresStatus})
+        </p>
+      )}
+
+      {enabled && !isComputing && !isError && hasTrendData && (
         <div className={cn("grid grid-cols-1 md:grid-cols-2", analysisGridGap)}>
           {trendMetrics.map((metric) => (
             <HealthMetricCard
-              key={`trend-${trendChannel}-${metric.key}`}
+              key={`factor-trend-${channel}-${metric.key}`}
               metric={metric}
-              channelLabel={`CH-${trendChannel + 1}`}
+              channelLabel={`CH-${channel + 1}`}
+              onRefresh={() => refetch()}
+              isRefreshing={isFetching}
+              trendFooterLabel="Factor trend"
             />
           ))}
         </div>

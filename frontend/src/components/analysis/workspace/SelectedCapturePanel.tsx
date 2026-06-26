@@ -59,6 +59,10 @@ export function SelectedCapturePanel({ selectedUpload }: SelectedCapturePanelPro
             <MetricCard label="Channels" value={String(selectedUpload.channel_count)} />
             <MetricCard label="Parse Status" value={selectedUpload.parse_status} />
             <MetricCard label="Plots Status" value={selectedUpload.plots_status} />
+            <MetricCard
+              label="Features Status"
+              value={selectedUpload.features_status ?? "pending"}
+            />
           </div>
         </div>
       )}

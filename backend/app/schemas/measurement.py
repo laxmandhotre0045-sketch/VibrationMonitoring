@@ -107,6 +107,9 @@ class SensorDataUploadOut(BaseModel):
     plots_status: str = "pending"
     plots_error: Optional[str] = None
     plots_computed_at: Optional[datetime] = None
+    features_status: str = "pending"
+    features_error: Optional[str] = None
+    features_computed_at: Optional[datetime] = None
     created_at: datetime
     parsed_at: Optional[datetime]
     has_stored_data: bool = False

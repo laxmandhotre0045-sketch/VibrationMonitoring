@@ -26,7 +26,24 @@ from app.schemas.acquisition import EdgeAcquisitionConfigOut
 from app.services.acquisition_config import build_edge_acquisition_config
 from app.services.pdf_parser import parse_sensor_file
 from app.services.plot_generator import save_parsed_data
+from app.crud import feature as feature_crud
+from app.schemas.feature import (
+    ChannelFeatureOut,
+    ChannelHealthOverviewOut,
+    FactorTrendSeriesOut,
+    FeatureCompareItemOut,
+    FeatureCompareOut,
+    FeaturesSummaryOut,
+    UploadFactorTrendsOut,
+    UploadFeaturesOut,
+)
+from app.services.feature_storage import (
+    ensure_upload_features_ready,
+    features_summary_from_rows,
+    persist_upload_features_and_trends,
+)
 from app.services.plot_storage import get_or_load_all_plots, get_or_load_single_plot, persist_all_plot_results
+from app.services.threshold_evaluator import status_to_health_level
 
 router = APIRouter(
     prefix="/api/v1/measurements",
@@ -230,6 +247,11 @@ async def upload_sensor_data(
             upload = measurement_crud.mark_upload_plots_ready(db, upload.id)
         except Exception as plot_err:
             upload = measurement_crud.mark_upload_plots_failed(db, upload.id, str(plot_err))
+        try:
+            persist_upload_features_and_trends(db, upload, parsed, float(cfg["sampling_rate_hz"]))
+            upload = feature_crud.mark_upload_features_ready(db, upload.id)
+        except Exception as feat_err:
+            upload = feature_crud.mark_upload_features_failed(db, upload.id, str(feat_err))
     except Exception as e:
         measurement_crud.mark_upload_failed(db, upload.id, str(e))
         raise HTTPException(status_code=422, detail=f"PDF parsing failed: {e}")
@@ -343,3 +365,206 @@ def get_single_plot(
 @router.get("/plot-types")
 def list_plot_types():
     return {"plot_types": PLOT_TYPES}
+
+
+def _feature_rows_to_out(rows, definitions: dict) -> list[ChannelFeatureOut]:
+    return [
+        ChannelFeatureOut(
+            channel=r.channel,
+            feature_code=r.feature_code,
+            feature_name=definitions.get(r.feature_code),
+            value=float(r.value),
+            unit=r.unit,
+            status=r.status,
+            metadata=r.metadata_ or {},
+            computed_at=r.computed_at,
+        )
+        for r in rows
+    ]
+
+
+def _channel_health_overview(rows, definitions: dict) -> ChannelHealthOverviewOut:
+    if not rows:
+        return ChannelHealthOverviewOut(health_state="Unknown", feature_count=0)
+    statuses = [r.status for r in rows]
+    if "critical" in statuses:
+        state = "Critical"
+    elif "warning" in statuses:
+        state = "Warning"
+    elif all(s == "normal" for s in statuses):
+        state = "Normal"
+    else:
+        state = status_to_health_level(statuses[0])
+    return ChannelHealthOverviewOut(
+        health_state=state,
+        feature_count=len(rows),
+        computed_at=rows[0].computed_at,
+    )
+
+
+def _summary_from_rows(rows) -> FeaturesSummaryOut:
+    s = features_summary_from_rows(rows)
+    return FeaturesSummaryOut(**s)
+
+
+@router.get("/uploads/{upload_id}/features", response_model=UploadFeaturesOut)
+def get_upload_features(
+    upload_id: UUID,
+    channel: int | None = Query(None, ge=0, le=31),
+    db: Session = Depends(get_db),
+):
+    upload = measurement_crud.get_upload_by_id(db, upload_id)
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+    if upload.parse_status != "parsed":
+        raise HTTPException(status_code=422, detail=f"Upload not parsed: {upload.parse_error or upload.parse_status}")
+
+    cfg = _resolve_config(db, upload, upload.channel_count)
+    try:
+        upload = ensure_upload_features_ready(db, upload, float(cfg["sampling_rate_hz"]))
+    except Exception as exc:
+        feature_crud.mark_upload_features_failed(db, upload.id, str(exc))
+        raise HTTPException(status_code=422, detail=f"Feature compute failed: {exc}")
+
+    definitions = {d.code: d.name for d in feature_crud.get_feature_definitions(db)}
+    rows = feature_crud.get_measurement_features(db, upload_id, channel=channel)
+    channel_rows = rows if channel is not None else rows
+    return UploadFeaturesOut(
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        channel=channel,
+        features_status=upload.features_status,
+        features_error=upload.features_error,
+        features_computed_at=upload.features_computed_at,
+        items=_feature_rows_to_out(channel_rows, definitions),
+        summary=_summary_from_rows(channel_rows),
+        channel_overview=_channel_health_overview(channel_rows, definitions),
+    )
+
+
+@router.get("/uploads/{upload_id}/factor-trends", response_model=UploadFactorTrendsOut)
+def get_upload_factor_trends(
+    upload_id: UUID,
+    channel: int = Query(0, ge=0, le=31),
+    db: Session = Depends(get_db),
+):
+    upload = measurement_crud.get_upload_by_id(db, upload_id)
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+    if upload.parse_status != "parsed":
+        raise HTTPException(status_code=422, detail=f"Upload not parsed: {upload.parse_error or upload.parse_status}")
+
+    cfg = _resolve_config(db, upload, upload.channel_count)
+    try:
+        upload = ensure_upload_features_ready(db, upload, float(cfg["sampling_rate_hz"]))
+    except Exception as exc:
+        feature_crud.mark_upload_features_failed(db, upload.id, str(exc))
+        raise HTTPException(status_code=422, detail=f"Feature compute failed: {exc}")
+
+    definitions = feature_crud.get_definition_map(db)
+    scalar_rows = {
+        r.feature_code: r
+        for r in feature_crud.get_measurement_features(db, upload_id, channel=channel)
+    }
+    trend_rows = feature_crud.get_measurement_feature_trends(db, upload_id, channel)
+
+    by_code: dict[str, dict] = {}
+    for row in trend_rows:
+        bucket = by_code.setdefault(row.feature_code, {"trend_x": [], "trend_y": []})
+        bucket["trend_x"].append(float(row.time_s))
+        bucket["trend_y"].append(float(row.value))
+
+    factors: list[FactorTrendSeriesOut] = []
+    for code, scalar in scalar_rows.items():
+        defn = definitions.get(code)
+        series = by_code.get(code, {"trend_x": [], "trend_y": []})
+        factors.append(
+            FactorTrendSeriesOut(
+                feature_code=code,
+                feature_name=defn.name if defn else code,
+                unit=scalar.unit,
+                value=float(scalar.value),
+                status=scalar.status,
+                trend_x=series["trend_x"],
+                trend_y=series["trend_y"],
+            )
+        )
+
+    factors.sort(
+        key=lambda f: (
+            definitions[f.feature_code].sort_order
+            if f.feature_code in definitions
+            else 999
+        )
+    )
+
+    return UploadFactorTrendsOut(
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        channel=channel,
+        features_status=upload.features_status,
+        sampling_rate_hz=float(cfg["sampling_rate_hz"]),
+        factors=factors,
+    )
+
+
+@router.get("/uploads/{upload_id}/features/compare", response_model=FeatureCompareOut)
+def compare_upload_features(
+    upload_id: UUID,
+    baseline_id: UUID | None = Query(None),
+    channel: int | None = Query(None, ge=0, le=31),
+    db: Session = Depends(get_db),
+):
+    upload = measurement_crud.get_upload_by_id(db, upload_id)
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    cfg = _resolve_config(db, upload, upload.channel_count)
+    if upload.parse_status == "parsed":
+        try:
+            upload = ensure_upload_features_ready(db, upload, float(cfg["sampling_rate_hz"]))
+        except Exception as exc:
+            feature_crud.mark_upload_features_failed(db, upload.id, str(exc))
+            raise HTTPException(status_code=422, detail=f"Feature compute failed: {exc}")
+
+    if baseline_id is None:
+        baseline = baseline_crud.get_primary_baseline(db, upload.sensor_id)
+        if not baseline:
+            raise HTTPException(status_code=404, detail="No primary baseline for this sensor")
+        baseline_id = baseline.id
+    else:
+        baseline = baseline_crud.get_baseline_by_id(db, baseline_id)
+        if not baseline:
+            raise HTTPException(status_code=404, detail="Baseline not found")
+
+    definitions = {d.code: d.name for d in feature_crud.get_feature_definitions(db)}
+    upload_rows = feature_crud.get_measurement_features(db, upload_id, channel=channel)
+    baseline_map = {
+        (r.channel, r.feature_code): float(r.value)
+        for r in feature_crud.get_baseline_features(db, baseline_id, channel=channel)
+    }
+
+    items: list[FeatureCompareItemOut] = []
+    for r in upload_rows:
+        bval = baseline_map.get((r.channel, r.feature_code))
+        pct = (100.0 * float(r.value) / bval) if bval and bval > 1e-30 else None
+        items.append(
+            FeatureCompareItemOut(
+                channel=r.channel,
+                feature_code=r.feature_code,
+                feature_name=definitions.get(r.feature_code),
+                unit=r.unit,
+                upload_value=float(r.value),
+                baseline_value=bval,
+                percent_of_baseline=pct,
+                status=r.status,
+            )
+        )
+
+    return FeatureCompareOut(
+        upload_id=upload_id,
+        baseline_id=baseline_id,
+        channel=channel,
+        items=items,
+        summary=_summary_from_rows(upload_rows),
+    )

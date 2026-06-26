@@ -180,6 +180,9 @@ export function VibrationAnalysisPage() {
       setActiveChannel(0);
       setTimelineRefreshKey((k) => k + 1);
       queryClient.invalidateQueries({ queryKey: ["plots", "upload", upload.id] });
+      queryClient.invalidateQueries({ queryKey: ["upload-factor-trends", upload.id] });
+      queryClient.invalidateQueries({ queryKey: ["upload-features", upload.id] });
+      setActiveTab("trend");
       setPdfFile(null);
       setTimeout(() => refetchPlots(), 100);
     },
@@ -233,6 +236,8 @@ export function VibrationAnalysisPage() {
     setPlotSource("upload");
     setActiveChannel(0);
     queryClient.invalidateQueries({ queryKey: ["plots", "upload", uploadId] });
+    queryClient.invalidateQueries({ queryKey: ["upload-factor-trends", uploadId] });
+    queryClient.invalidateQueries({ queryKey: ["upload-features", uploadId] });
   };
 
   const handleLoadBaseline = (baseline: { id: string }) => {
@@ -380,9 +385,10 @@ export function VibrationAnalysisPage() {
         </div>
         <div hidden={activeTab !== "trend"}>
           <TrendAnalysisTab
-            sensorId={sensorId}
-            samplingRateHz={samplingRate}
-            primaryBaselineId={primaryBaseline?.id}
+            selectedUploadId={selectedUploadId}
+            channel={activeChannel}
+            channelCount={plotChannelCount}
+            onChannelChange={setActiveChannel}
           />
         </div>
         <div hidden={activeTab !== "detailed"}>

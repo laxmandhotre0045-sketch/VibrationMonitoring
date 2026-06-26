@@ -54,6 +54,9 @@ class SensorDataUpload(Base):
     plots_status = Column(String(20), nullable=False, default="pending")
     plots_error = Column(Text, nullable=True)
     plots_computed_at = Column(DateTime, nullable=True)
+    features_status = Column(String(20), nullable=False, default="pending")
+    features_error = Column(Text, nullable=True)
+    features_computed_at = Column(DateTime, nullable=True)
     original_filename = Column(String(255), nullable=True)
     source = Column(String(20), nullable=False, default="manual")
 
@@ -62,6 +65,12 @@ class SensorDataUpload(Base):
 
     sensor = relationship("SensorConfiguration", backref="data_uploads")
     plot_results = relationship("PlotResult", back_populates="upload", cascade="all, delete-orphan")
+    channel_features = relationship(
+        "MeasurementChannelFeature", back_populates="upload", cascade="all, delete-orphan"
+    )
+    channel_feature_trends = relationship(
+        "MeasurementChannelFeatureTrend", back_populates="upload", cascade="all, delete-orphan"
+    )
 
 
 class PlotResult(Base):
@@ -161,6 +170,113 @@ class SensorBaseline(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     plot_results = relationship("BaselinePlotResult", back_populates="baseline", cascade="all, delete-orphan")
+    channel_features = relationship(
+        "BaselineChannelFeature", back_populates="baseline", cascade="all, delete-orphan"
+    )
+
+
+class FeatureDefinition(Base):
+    __tablename__ = "feature_definitions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String(40), nullable=False, unique=True)
+    name = Column(String(120), nullable=False)
+    unit = Column(String(30), nullable=False)
+    description = Column(Text, nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+
+class FeatureThresholdRule(Base):
+    __tablename__ = "feature_threshold_rules"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    feature_code = Column(String(40), ForeignKey("feature_definitions.code"), nullable=False)
+    rule_type = Column(String(30), nullable=False)
+    machine_type = Column(String(80), nullable=True)
+    normal_max = Column(Numeric(18, 8), nullable=True)
+    warning_max = Column(Numeric(18, 8), nullable=True)
+    normal_min = Column(Numeric(18, 8), nullable=True)
+    warning_min = Column(Numeric(18, 8), nullable=True)
+    metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+
+class MeasurementChannelFeature(Base):
+    __tablename__ = "measurement_channel_features"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    upload_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_data_uploads.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    channel = Column(Integer, nullable=False)
+    feature_code = Column(String(40), ForeignKey("feature_definitions.code"), nullable=False)
+    value = Column(Numeric(18, 8), nullable=False)
+    unit = Column(String(30), nullable=False)
+    status = Column(String(20), nullable=False)
+    metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
+    computed_at = Column(DateTime, default=datetime.utcnow)
+
+    upload = relationship("SensorDataUpload", back_populates="channel_features")
+
+
+class MeasurementChannelFeatureTrend(Base):
+    __tablename__ = "measurement_channel_feature_trends"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    upload_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_data_uploads.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    channel = Column(Integer, nullable=False)
+    feature_code = Column(String(40), ForeignKey("feature_definitions.code"), nullable=False)
+    segment_index = Column(Integer, nullable=False)
+    time_s = Column(Numeric(18, 8), nullable=False)
+    value = Column(Numeric(18, 8), nullable=False)
+    computed_at = Column(DateTime, default=datetime.utcnow)
+
+    upload = relationship("SensorDataUpload", back_populates="channel_feature_trends")
+
+
+class BaselineChannelFeature(Base):
+    __tablename__ = "baseline_channel_features"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    baseline_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_baselines.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    channel = Column(Integer, nullable=False)
+    feature_code = Column(String(40), ForeignKey("feature_definitions.code"), nullable=False)
+    value = Column(Numeric(18, 8), nullable=False)
+    unit = Column(String(30), nullable=False)
+    status = Column(String(20), nullable=False, default="normal")
+    metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
+    computed_at = Column(DateTime, default=datetime.utcnow)
+
+    baseline = relationship("SensorBaseline", back_populates="channel_features")
 
 
 class BaselinePlotResult(Base):

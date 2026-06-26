@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 interface HealthChannelSelectorProps {
   value: number;
   onChange: (channel: number) => void;
+  channelCount?: number;
   disabled?: boolean;
   className?: string;
 }
@@ -15,9 +16,11 @@ interface HealthChannelSelectorProps {
 export function HealthChannelSelector({
   value,
   onChange,
+  channelCount = HEALTH_CHANNEL_COUNT,
   disabled = false,
   className,
 }: HealthChannelSelectorProps) {
+  const count = Math.max(1, channelCount);
   return (
     <div className={cn("flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3", className)}>
       <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide shrink-0">
@@ -32,7 +35,7 @@ export function HealthChannelSelector({
             onChange={(e) => onChange(Number(e.target.value))}
             aria-label="Health status channel"
           >
-            {Array.from({ length: HEALTH_CHANNEL_COUNT }, (_, i) => (
+            {Array.from({ length: count }, (_, i) => (
               <option key={i} value={i}>
                 {channelLabel(i)}
               </option>

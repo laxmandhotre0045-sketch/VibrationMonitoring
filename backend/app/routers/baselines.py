@@ -19,6 +19,9 @@ from app.schemas.baseline import (
 )
 from app.schemas.measurement import AllPlotsOut, PLOT_TYPES, PlotSeriesOut
 from app.services.baseline_storage import baseline_plot_to_series, persist_baseline_plot_results
+from app.services.feature_storage import copy_upload_features_to_baseline
+from app.crud import feature as feature_crud
+from app.schemas.feature import BaselineFeaturesOut, ChannelFeatureOut, FeaturesSummaryOut
 from app.services.pdf_parser import parse_sensor_file
 from app.services.plot_generator import save_parsed_data
 from app.services.plot_storage import compute_config_fingerprint
@@ -222,6 +225,7 @@ def create_baseline_from_upload(
     )
     try:
         persist_baseline_plot_results(db, baseline, upload_data.parsed_data, cfg)
+        copy_upload_features_to_baseline(db, upload_id, baseline)
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Baseline plot compute failed: {e}")
     return _baseline_out(baseline, plot_count=baseline_crud.count_baseline_plot_results(db, baseline.id))
@@ -274,3 +278,41 @@ def get_baseline_single_plot(
         if plot.plot_type == plot_type:
             return plot
     raise HTTPException(status_code=404, detail=f"Plot {plot_type} not found")
+
+
+@router.get("/{baseline_id}/features", response_model=BaselineFeaturesOut)
+def get_baseline_features(
+    baseline_id: UUID,
+    channel: int | None = Query(None, ge=0, le=31),
+    db: Session = Depends(get_db),
+):
+    baseline = baseline_crud.get_baseline_by_id(db, baseline_id)
+    if not baseline:
+        raise HTTPException(status_code=404, detail="Baseline not found")
+
+    definitions = {d.code: d.name for d in feature_crud.get_feature_definitions(db)}
+    rows = feature_crud.get_baseline_features(db, baseline_id, channel=channel)
+    summary_counts = {"normal": 0, "warning": 0, "critical": 0, "no_baseline": 0, "total": len(rows)}
+    for r in rows:
+        if r.status in summary_counts:
+            summary_counts[r.status] += 1
+
+    return BaselineFeaturesOut(
+        baseline_id=baseline.id,
+        sensor_id=baseline.sensor_id,
+        channel=channel,
+        items=[
+            ChannelFeatureOut(
+                channel=r.channel,
+                feature_code=r.feature_code,
+                feature_name=definitions.get(r.feature_code),
+                value=float(r.value),
+                unit=r.unit,
+                status=r.status,
+                metadata=r.metadata_ or {},
+                computed_at=r.computed_at,
+            )
+            for r in rows
+        ],
+        summary=FeaturesSummaryOut(**summary_counts),
+    )

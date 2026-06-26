@@ -16,6 +16,7 @@ interface HealthMetricCardProps {
   channelLabel: string;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  trendFooterLabel?: string;
   className?: string;
 }
 
@@ -66,6 +67,7 @@ export function HealthMetricCard({
   channelLabel,
   onRefresh,
   isRefreshing = false,
+  trendFooterLabel = "Segment trend",
   className,
 }: HealthMetricCardProps) {
   const shellRef = useRef<HTMLDivElement>(null);
@@ -257,7 +259,7 @@ export function HealthMetricCard({
 
       <div className="mt-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{channelLabel}</span>
-        <span>Segment trend</span>
+        <span>{trendFooterLabel}</span>
       </div>
     </div>
   );

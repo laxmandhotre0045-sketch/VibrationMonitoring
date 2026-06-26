@@ -24,22 +24,24 @@ export interface VibrationFeatureDefinition {
 }
 
 export const VIBRATION_FEATURE_CATALOG: readonly VibrationFeatureDefinition[] = [
-  { key: "rms", label: "RMS", unit: "g", category: "time_domain" },
-  { key: "peak", label: "Peak", unit: "g", category: "time_domain" },
+  { key: "rms", label: "RMS", unit: "scaled", category: "time_domain" },
+  { key: "peak", label: "Peak", unit: "scaled", category: "time_domain" },
   { key: "crest_factor", label: "Crest Factor", unit: "-", category: "time_domain" },
   { key: "kurtosis", label: "Kurtosis", unit: "-", category: "time_domain" },
   {
     key: "fft_band_energy",
-    label: "FFT Band Energy",
-    unit: "-",
+    label: "FFT Band Energy (0-500 Hz)",
+    unit: "scaled²",
     category: "frequency_domain",
   },
-  { key: "amplitude_1x", label: "1X Amplitude", unit: "-", category: "frequency_domain" },
-  { key: "amplitude_2x", label: "2X Amplitude", unit: "-", category: "frequency_domain" },
-  { key: "amplitude_3x", label: "3X Amplitude", unit: "-", category: "frequency_domain" },
-  { key: "envelope_rms", label: "Envelope RMS", unit: "g", category: "envelope" },
-  { key: "noise_floor", label: "Noise Floor", unit: "-", category: "noise" },
+  { key: "amplitude_1x", label: "1X Amplitude", unit: "scaled", category: "frequency_domain" },
+  { key: "amplitude_2x", label: "2X Amplitude", unit: "scaled", category: "frequency_domain" },
+  { key: "amplitude_3x", label: "3X Amplitude", unit: "scaled", category: "frequency_domain" },
+  { key: "envelope_rms", label: "Envelope RMS", unit: "scaled", category: "envelope" },
+  { key: "noise_floor", label: "Noise Floor", unit: "dB", category: "noise" },
 ] as const;
+
+export const FACTOR_TREND_KEYS = VIBRATION_FEATURE_CATALOG.map((d) => d.key);
 
 export const FEATURE_CATEGORY_ORDER: readonly VibrationFeatureCategory[] = [
   "time_domain",
@@ -63,6 +65,7 @@ const FEATURE_KEY_ALIASES: Record<string, VibrationFeatureKey> = {
   crestfactor: "crest_factor",
   kurtosis: "kurtosis",
   fft_band_energy: "fft_band_energy",
+  fft_band_energy_0_500: "fft_band_energy",
   fftbandenergy: "fft_band_energy",
   amplitude_1x: "amplitude_1x",
   amplitude1x: "amplitude_1x",

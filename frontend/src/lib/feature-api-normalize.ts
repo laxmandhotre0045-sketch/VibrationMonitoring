@@ -73,7 +73,7 @@ function normalizeChannelOverview(
 
 function normalizeFeatureStatusItem(raw: Record<string, unknown>): FeatureStatusItem {
   const rawKey = String(
-    raw.feature_key ?? raw.featureKey ?? raw.feature ?? raw.name ?? raw.parameter ?? ""
+    raw.feature_key ?? raw.featureKey ?? raw.feature_code ?? raw.feature ?? raw.name ?? raw.parameter ?? ""
   );
   const key = resolveVibrationFeatureKey(rawKey);
   const def = key ? getFeatureDefinition(key) : null;
@@ -91,7 +91,9 @@ function normalizeFeatureStatusItem(raw: Record<string, unknown>): FeatureStatus
 }
 
 function normalizeCompareItem(raw: Record<string, unknown>): FeatureCompareItem {
-  const rawKey = String(raw.feature_key ?? raw.featureKey ?? raw.feature ?? raw.name ?? "");
+  const rawKey = String(
+    raw.feature_key ?? raw.featureKey ?? raw.feature_code ?? raw.feature ?? raw.name ?? ""
+  );
   const key = resolveVibrationFeatureKey(rawKey);
   const def = key ? getFeatureDefinition(key) : null;
 
