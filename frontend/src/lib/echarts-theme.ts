@@ -14,10 +14,10 @@ export const ECHARTS_BRAND = {
 } as const;
 
 export const CHART_GRID = {
-  left: 56,
-  right: 24,
-  top: 28,
-  bottom: 64,
+  left: 58,
+  right: 28,
+  top: 32,
+  bottom: 72,
   containLabel: false,
 } as const;
 
@@ -40,8 +40,8 @@ export const CHART_X_AXIS_DATA_ZOOM: DataZoomComponentOption[] = [
     type: "slider",
     xAxisIndex: 0,
     filterMode: "none",
-    height: 22,
-    bottom: 8,
+    height: 26,
+    bottom: 10,
     borderColor: ECHARTS_BRAND.axis,
     fillerColor: "rgba(217, 140, 0, 0.12)",
     handleStyle: { color: ECHARTS_BRAND.amber, borderColor: ECHARTS_BRAND.amber },
@@ -82,8 +82,15 @@ export function baseAxisStyle() {
 export const baseTooltip: TooltipComponentOption = {
   trigger: "axis",
   axisPointer: {
-    type: "line",
+    type: "cross",
+    crossStyle: { color: ECHARTS_BRAND.amber, width: 1, type: "dashed" },
     lineStyle: { color: ECHARTS_BRAND.amber, width: 1, type: "dashed" },
+    label: {
+      backgroundColor: ECHARTS_BRAND.blue,
+      color: "#fff",
+      fontFamily: ECHARTS_BRAND.font,
+      fontSize: 11,
+    },
   },
   backgroundColor: ECHARTS_BRAND.plot,
   borderColor: ECHARTS_BRAND.amber,
@@ -94,6 +101,7 @@ export const baseTooltip: TooltipComponentOption = {
     fontFamily: ECHARTS_BRAND.font,
     fontSize: 13,
   },
+  confine: true,
 };
 
 export function formatFrequencyHz(value: number): string {

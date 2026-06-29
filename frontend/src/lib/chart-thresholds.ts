@@ -1,20 +1,22 @@
 import type { PlotSeries } from "@/types/measurements";
-import { ECHARTS_BRAND } from "./echarts-theme";
+import type { GraphThresholdSet, ThresholdOverlayOptions } from "./threshold-overlay";
+import {
+  buildThresholdMarkLineConfig,
+  resolveGraphThresholds,
+  thresholdValuesFromSet,
+} from "./threshold-overlay";
 
+/** @deprecated Use GraphThresholdSet from threshold-overlay */
 export interface PlotThresholds {
   warning?: number;
   danger?: number;
 }
 
-function readThreshold(metadata: Record<string, unknown>, key: string): number | undefined {
-  const value = metadata[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 export function getPlotThresholds(plot: PlotSeries): PlotThresholds {
+  const set = resolveGraphThresholds(plot);
   return {
-    warning: readThreshold(plot.metadata, "warning_threshold"),
-    danger: readThreshold(plot.metadata, "danger_threshold"),
+    warning: set.warning,
+    danger: set.critical,
   };
 }
 
@@ -24,46 +26,26 @@ export function thresholdValues(thresholds: PlotThresholds): number[] {
   );
 }
 
-type ThresholdMarkLineDatum = {
-  yAxis: number;
-  name: string;
-  lineStyle: { color: string; type: "dashed" | "dotted"; width: number };
-  label: { show: boolean };
-};
-
-/** Horizontal threshold markLines for ECharts — fixed Y during X zoom. */
-export function buildEchartsThresholdMarkLines(
-  thresholds: PlotThresholds
-): ThresholdMarkLineDatum[] {
-  const data: ThresholdMarkLineDatum[] = [];
-
-  if (thresholds.warning !== undefined) {
-    data.push({
-      yAxis: thresholds.warning,
-      name: "Warning",
-      lineStyle: { color: ECHARTS_BRAND.amber, type: "dashed", width: 1.5 },
-      label: { show: false },
-    });
-  }
-
-  if (thresholds.danger !== undefined) {
-    data.push({
-      yAxis: thresholds.danger,
-      name: "Danger",
-      lineStyle: { color: ECHARTS_BRAND.orange, type: "dotted", width: 1.5 },
-      label: { show: false },
-    });
-  }
-
-  return data;
+export function plotThresholdsFromSet(set: GraphThresholdSet): PlotThresholds {
+  return { warning: set.warning, danger: set.critical };
 }
 
-export function echartsThresholdMarkLineConfig(thresholds: PlotThresholds) {
-  const data = buildEchartsThresholdMarkLines(thresholds);
-  if (data.length === 0) return undefined;
-  return {
-    symbol: ["none", "none"],
-    silent: true,
-    data,
+/** @deprecated Use buildThresholdMarkLineConfig */
+export function echartsThresholdMarkLineConfig(
+  thresholds: PlotThresholds,
+  options?: ThresholdOverlayOptions
+) {
+  const set: GraphThresholdSet = {
+    warning: thresholds.warning,
+    critical: thresholds.danger,
   };
+  return buildThresholdMarkLineConfig(set, options);
+}
+
+export function echartsThresholdValues(
+  plot: PlotSeries,
+  options?: ThresholdOverlayOptions
+): number[] {
+  const set = options?.thresholds ?? resolveGraphThresholds(plot);
+  return thresholdValuesFromSet(set);
 }

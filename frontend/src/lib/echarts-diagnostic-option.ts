@@ -1,5 +1,6 @@
 import type { EChartsOption } from "echarts";
 import type { PlotSeries } from "@/types/measurements";
+import type { ThresholdOverlayOptions } from "./threshold-overlay";
 import { buildEnvelopeSpectrumOption } from "./envelope-spectrum-option";
 import { buildFftSpectrumOption } from "./fft-spectrum-option";
 import { buildOrbitOption } from "./orbit-option";
@@ -9,20 +10,21 @@ import { buildTimeWaveformOption } from "./waveform-option";
 /** Build the ECharts option for any diagnostic plot type. */
 export function buildDiagnosticChartOption(
   plot: PlotSeries,
-  samplingRateHz?: number
+  samplingRateHz?: number,
+  overlayOptions: ThresholdOverlayOptions = {}
 ): EChartsOption {
   switch (plot.plot_type) {
     case "time_waveform":
-      return buildTimeWaveformOption(plot, samplingRateHz);
+      return buildTimeWaveformOption(plot, samplingRateHz, overlayOptions);
     case "fft_spectrum":
-      return buildFftSpectrumOption(plot);
+      return buildFftSpectrumOption(plot, overlayOptions);
     case "envelope_spectrum":
-      return buildEnvelopeSpectrumOption(plot);
+      return buildEnvelopeSpectrumOption(plot, overlayOptions);
     case "circular_time_waveform":
-      return buildOrbitOption(plot);
+      return buildOrbitOption(plot, overlayOptions);
     case "trend_plot":
-      return buildTrendOption(plot);
+      return buildTrendOption(plot, overlayOptions);
     default:
-      return buildTimeWaveformOption(plot, samplingRateHz);
+      return buildTimeWaveformOption(plot, samplingRateHz, overlayOptions);
   }
 }

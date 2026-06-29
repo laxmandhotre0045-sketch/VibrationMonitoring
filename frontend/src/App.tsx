@@ -9,7 +9,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Dashboard } from "@/pages/Dashboard";
 import { EquipmentMasterList } from "@/pages/EquipmentMasterList";
 import { NewEquipmentPage, EditEquipmentPage } from "@/pages/EquipmentMaster";
-import { SettingsPage } from "@/pages/ModulePages";
+import { SettingsPage } from "@/pages/Settings";
 import { VibrationAnalysisPage } from "@/pages/VibrationAnalysis";
 import { LoginPage } from "@/pages/Login";
 import { UnauthorizedPage } from "@/pages/Unauthorized";

@@ -1,11 +1,8 @@
 import React, { useState } from "react";
 import type { Baseline } from "@/types/baseline";
-import { analysisBodyStack, analysisGridGap } from "@/components/analysis/analysis-layout";
+import { analysisBodyStack } from "@/components/analysis/analysis-layout";
 import { useFeatureHealthDashboard } from "@/hooks/useFeatureHealthDashboard";
 import { HealthChannelSelector } from "./HealthChannelSelector";
-import { HealthInfoBanner } from "./HealthInfoBanner";
-import { HealthMetricCard } from "./HealthMetricCard";
-import { SensorThresholdConfig } from "./SensorThresholdConfig";
 import { HealthSummaryCards, HealthSummaryCardsSkeleton } from "./HealthSummaryCards";
 import {
   ChannelHealthOverviewCard,
@@ -13,13 +10,14 @@ import {
 } from "./ChannelHealthOverviewCard";
 import { FeatureStatusTable, FeatureStatusTableSkeleton } from "./FeatureStatusTable";
 import { FeatureComparisonSection } from "./FeatureComparisonSection";
+import { FeatureTrendCardsSection } from "./FeatureTrendCardsSection";
 import { HealthEmptyState } from "./HealthEmptyState";
 import { cn } from "@/lib/utils";
 
 interface StatusHealthTabProps {
   sensorId: string;
   selectedUploadId: string;
-  samplingRateHz: number;
+  channelCount: number;
   primaryBaseline?: Baseline | null;
   baselineList?: Baseline[];
 }
@@ -27,7 +25,7 @@ interface StatusHealthTabProps {
 export function StatusHealthTab({
   sensorId,
   selectedUploadId,
-  samplingRateHz,
+  channelCount,
   primaryBaseline,
   baselineList,
 }: StatusHealthTabProps) {
@@ -38,14 +36,12 @@ export function StatusHealthTab({
     sensorId,
     uploadId: selectedUploadId,
     channel: healthChannel,
-    samplingRateHz,
     primaryBaseline,
     baselineList,
     enabled,
   });
 
   const {
-    healthQuery,
     featureItems,
     compareItems,
     summary,
@@ -66,15 +62,8 @@ export function StatusHealthTab({
       <HealthChannelSelector
         value={healthChannel}
         onChange={setHealthChannel}
+        channelCount={channelCount}
         disabled={!enabled}
-      />
-
-      <HealthInfoBanner
-        message={
-          healthQuery.snapshot?.bannerMessage ??
-          "No thresholds saved for this sensor/channel set. Showing calculated trend only."
-        }
-        hasThresholds={healthQuery.snapshot?.hasThresholds}
       />
 
       {!enabled && (
@@ -132,31 +121,17 @@ export function StatusHealthTab({
               void dashboard.compareQuery.refetch();
             }}
           />
-
-          <SensorThresholdConfig
-            channelLabel={channelLabel}
-            hasThresholds={healthQuery.snapshot?.hasThresholds ?? false}
-            cautionThreshold={healthQuery.snapshot?.cautionThreshold}
-            warningThreshold={healthQuery.snapshot?.warningThreshold}
-          />
-
-          {healthQuery.snapshot && healthQuery.snapshot.statusCardMetrics.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold text-foreground">Feature Trend Monitoring</h3>
-              <div className={cn("grid grid-cols-1 md:grid-cols-2", analysisGridGap)}>
-                {healthQuery.snapshot.statusCardMetrics.map((metric) => (
-                  <HealthMetricCard
-                    key={`${healthChannel}-${metric.key}`}
-                    metric={metric}
-                    channelLabel={channelLabel}
-                    onRefresh={() => healthQuery.refetch()}
-                    isRefreshing={healthQuery.isFetching}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </>
+      )}
+
+      {enabled && (
+        <FeatureTrendCardsSection
+          uploadId={selectedUploadId}
+          channel={healthChannel}
+          channelLabel={channelLabel}
+          baselineId={compareBaselineId || primaryBaseline?.id}
+          enabled={enabled}
+        />
       )}
     </div>
   );

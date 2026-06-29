@@ -1,10 +1,12 @@
 import React from "react";
-import { BarChart3, LineChart } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import type { PlotSeries, PlotType, SensorDataUpload } from "@/types/measurements";
 import { DiagnosticChart } from "@/components/analysis/DiagnosticChart";
 import { PlotSelector } from "@/components/analysis/PlotSelector";
 import { AnalysisSummaryPanel } from "@/components/analysis/AnalysisSummaryPanel";
 import { AnalysisSectionHeader } from "@/components/analysis/AnalysisSectionHeader";
+import { GraphChannelSelector } from "@/components/charts";
+import { GRAPH_PRIMARY_HEIGHT } from "@/lib/chart-constants";
 import {
   analysisBodyStack,
   analysisGridGap,
@@ -13,8 +15,6 @@ import {
 import { Button } from "@/components/ui/Button";
 import { FormField, TextInput } from "@/components/ui/FormField";
 import { cn } from "@/lib/utils";
-
-const DIAGNOSTIC_CHART_HEIGHT = 480;
 
 interface DetailedAnalysisTabProps {
   selectedUpload: SensorDataUpload | null | undefined;
@@ -80,19 +80,6 @@ export function DetailedAnalysisTab({
   return (
     <div className={analysisBodyStack}>
       <div className={cn("grid grid-cols-2 lg:grid-cols-4", analysisGridGap)}>
-        <FormField label={`Active Channel (0–${Math.max(0, channelCount - 1)})`} compact>
-          <TextInput
-            type="number"
-            min={0}
-            max={Math.max(0, channelCount - 1)}
-            className={analysisInputClass}
-            value={activeChannel}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              onChannelChange(Math.min(v, Math.max(0, channelCount - 1)));
-            }}
-          />
-        </FormField>
         <FormField label="Sampling Rate (Hz)" compact>
           <TextInput
             type="number"
@@ -119,29 +106,31 @@ export function DetailedAnalysisTab({
             onChange={(e) => onChannelCountChange(Number(e.target.value))}
           />
         </FormField>
+        <div className="flex items-end">
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={onSaveConfig}
+            disabled={!sensorId || saveConfigPending || !canWrite}
+          >
+            Save Plot Configuration
+          </Button>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          onClick={onSaveConfig}
-          disabled={!sensorId || saveConfigPending || !canWrite}
-        >
-          Save Plot Configuration
-        </Button>
-        {!canWrite && (
-          <p className="text-sm text-muted-foreground">
-            Read-only users cannot save plot configuration.
-          </p>
-        )}
-        {plotConfigExists && (
-          <p className="text-sm text-machine-healthy font-medium">
-            Configuration exists for this sensor.
-          </p>
-        )}
-      </div>
+      {!canWrite && (
+        <p className="text-sm text-muted-foreground">
+          Read-only users cannot save plot configuration.
+        </p>
+      )}
+      {plotConfigExists && (
+        <p className="text-sm text-machine-healthy font-medium">
+          Configuration exists for this sensor.
+        </p>
+      )}
 
       <AnalysisSectionHeader icon={BarChart3} title="Analysis Controls" className="mb-0 pb-0 border-b-0" />
+
       <div className={cn("grid lg:grid-cols-2", analysisGridGap)}>
         <AnalysisSummaryPanel
           selectedUpload={selectedUpload}
@@ -154,19 +143,6 @@ export function DetailedAnalysisTab({
           showCaptureSummary={false}
         />
         <div className="space-y-3">
-          {plotsEnabled && plotsData && plotsData.plots.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                Plot Type
-              </p>
-              <PlotSelector
-                value={activePlotType}
-                onChange={onPlotTypeChange}
-                availableTypes={availablePlotTypes}
-                compact
-              />
-            </div>
-          )}
           {plotsLoading && <p className="text-sm text-muted-foreground">Loading analysis data…</p>}
           {!!plotsError && (
             <p className="text-sm text-destructive font-semibold">
@@ -188,21 +164,47 @@ export function DetailedAnalysisTab({
         </div>
       </div>
 
-      <AnalysisSectionHeader icon={LineChart} title="Visualization" className="mb-0 pb-0 border-b-0" />
-      {!plotsEnabled && !plotsLoading && (
-        <p className="text-sm text-muted-foreground">
-          Diagnostic charts appear here after you select a capture from the timeline.
-        </p>
-      )}
       {activePlot && (
-        <div className="w-full">
+        <div className="w-full space-y-2">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Channel
+              </p>
+              <GraphChannelSelector
+                value={activeChannel}
+                channelCount={plotChannelCount}
+                onChange={onChannelChange}
+                disabled={!plotsEnabled}
+              />
+            </div>
+            {plotsEnabled && plotsData && plotsData.plots.length > 0 && (
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Plot Type
+                </p>
+                <PlotSelector
+                  value={activePlotType}
+                  onChange={onPlotTypeChange}
+                  availableTypes={availablePlotTypes}
+                />
+              </div>
+            )}
+          </div>
+
           <DiagnosticChart
             key={`${activePlot.plot_type}-${activePlot.channel}-${plotSource}-${selectedUploadId}-${selectedBaselineId}`}
             plot={activePlot}
-            height={DIAGNOSTIC_CHART_HEIGHT}
+            height={GRAPH_PRIMARY_HEIGHT}
             samplingRateHz={samplingRate}
           />
         </div>
+      )}
+
+      {!plotsEnabled && !plotsLoading && !activePlot && (
+        <p className="text-sm text-muted-foreground">
+          Diagnostic charts appear here after you select a capture from the timeline.
+        </p>
       )}
     </div>
   );

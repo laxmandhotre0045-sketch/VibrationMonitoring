@@ -1,8 +1,13 @@
 import type { EChartsOption } from "echarts";
 import type { PlotSeries } from "@/types/measurements";
 import { computeOrbitAxisBounds, expandBoundsForThresholds } from "./chart-bounds";
-import { downsampleSeries } from "./chart-data";
-import { echartsThresholdMarkLineConfig, getPlotThresholds, thresholdValues } from "./chart-thresholds";
+import { downsampleWaveformSeries } from "./chart-data";
+import { echartsThresholdValues } from "./chart-thresholds";
+import {
+  buildThresholdSeriesOverlay,
+  extractSeriesPoints,
+  type ThresholdOverlayOptions,
+} from "./threshold-overlay";
 import {
   baseAxisStyle,
   baseTooltip,
@@ -15,15 +20,23 @@ import {
 
 const ORBIT_MAX_POINTS = 8192;
 
-export function buildOrbitOption(plot: PlotSeries): EChartsOption {
-  const { x, y } = downsampleSeries(plot.x, plot.y, ORBIT_MAX_POINTS);
+export function buildOrbitOption(
+  plot: PlotSeries,
+  overlayOptions: ThresholdOverlayOptions = {}
+): EChartsOption {
+  const { x, y } = downsampleWaveformSeries(plot.x, plot.y, ORBIT_MAX_POINTS);
   const seriesData = x.map((xi, i) => [xi, y[i]] as [number, number]);
-  const thresholds = getPlotThresholds(plot);
+  const points = extractSeriesPoints(seriesData);
   const yRange = expandBoundsForThresholds(
     computeOrbitAxisBounds(plot.x, plot.y),
-    thresholdValues(thresholds)
+    echartsThresholdValues(plot, overlayOptions)
   );
-  const thresholdMarkLine = echartsThresholdMarkLineConfig(thresholds);
+  const thresholdOverlay = buildThresholdSeriesOverlay(
+    points,
+    plot,
+    { showShading: true, showCrossings: true, ...overlayOptions },
+    yRange?.[1]
+  );
 
   return {
     backgroundColor: ECHARTS_BRAND.plot,
@@ -84,7 +97,9 @@ export function buildOrbitOption(plot: PlotSeries): EChartsOption {
           lineStyle: { width: 2, color: ECHARTS_BRAND.orange },
         },
         data: seriesData,
-        markLine: thresholdMarkLine,
+        markLine: thresholdOverlay.markLine,
+        markArea: thresholdOverlay.markArea,
+        markPoint: thresholdOverlay.markPoint,
       },
     ],
   };

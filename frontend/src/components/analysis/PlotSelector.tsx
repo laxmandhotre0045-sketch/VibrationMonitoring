@@ -43,7 +43,7 @@ export function PlotSelector({
       role="tablist"
       aria-label="Diagnostic plot type"
     >
-      <div className={cn("inline-flex min-w-full gap-0.5 rounded-md border border-border bg-warm p-0.5 sm:flex-wrap sm:min-w-0", compact && "p-0.5")}>
+      <div className={cn("inline-flex w-full flex-wrap gap-1 rounded-lg border border-border bg-[#F5F3EF] p-1", compact && "gap-0.5")}>
         {options.map((option) => {
           const isActive = value === option.type;
 
@@ -56,12 +56,12 @@ export function PlotSelector({
               disabled={option.disabled}
               onClick={() => onChange(option.type)}
               className={cn(
-                "shrink-0 rounded-md font-semibold whitespace-nowrap transition-colors",
-                compact ? "px-2.5 py-1.5 text-sm" : "px-3 py-2 text-sm",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(245,166,35,0.22)]",
+                "h-9 min-w-[108px] flex-1 rounded-md font-semibold whitespace-nowrap transition-all duration-200",
+                compact ? "px-2.5 text-xs" : "px-3 text-sm",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-light/45",
                 isActive
-                  ? "bg-cta text-cta-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-white hover:text-foreground",
+                  ? "bg-white text-signal-dark shadow-sm ring-1 ring-signal-light/35"
+                  : "text-muted-foreground hover:bg-white/70 hover:text-foreground",
                 option.disabled && "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground"
               )}
             >

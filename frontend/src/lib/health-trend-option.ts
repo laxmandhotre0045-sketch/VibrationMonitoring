@@ -1,9 +1,16 @@
 import type { EChartsOption } from "echarts";
 import type { HealthMetricTrend } from "@/types/health-status";
-import { echartsThresholdMarkLineConfig } from "./chart-thresholds";
+import {
+  buildThresholdSeriesOverlay,
+  extractSeriesPoints,
+  resolveGraphThresholdsFromHealth,
+  thresholdValuesFromSet,
+  type ThresholdOverlayOptions,
+} from "./threshold-overlay";
 import {
   baseAxisStyle,
   baseTooltip,
+  CHART_X_AXIS_DATA_ZOOM,
   ECHARTS_BRAND,
 } from "./echarts-theme";
 
@@ -11,7 +18,7 @@ const HEALTH_CHART_GRID = {
   left: 44,
   right: 12,
   top: 16,
-  bottom: 28,
+  bottom: 48,
   containLabel: false,
 } as const;
 
@@ -23,22 +30,38 @@ function formatMetricValue(value: number, unit: string): string {
   return value.toFixed(4);
 }
 
-export function buildHealthTrendOption(metric: HealthMetricTrend): EChartsOption {
+export function buildHealthTrendOption(
+  metric: HealthMetricTrend,
+  overlayOptions: ThresholdOverlayOptions = {}
+): EChartsOption {
   const seriesData = metric.trendX.map((x, i) => [x, metric.trendY[i]] as [number, number]);
-  const thresholds = {
-    warning: metric.warningThreshold,
-    danger: metric.dangerThreshold,
-  };
-  const thresholdMarkLine = echartsThresholdMarkLineConfig(thresholds);
+  const points = extractSeriesPoints(seriesData);
+  const thresholds = resolveGraphThresholdsFromHealth(
+    metric.warningThreshold,
+    metric.dangerThreshold,
+    metric.normalThreshold
+  );
+  const thresholdOverlay = buildThresholdSeriesOverlay(points, undefined, {
+    showShading: true,
+    showCrossings: true,
+    thresholds,
+    ...overlayOptions,
+  });
   const yValues = metric.trendY.filter((v) => Number.isFinite(v));
-  const yMin = yValues.length ? Math.min(...yValues) : 0;
-  const yMax = yValues.length ? Math.max(...yValues) : 1;
+  const thresholdVals = thresholdValuesFromSet(thresholds);
+  let yMin = yValues.length ? Math.min(...yValues) : 0;
+  let yMax = yValues.length ? Math.max(...yValues) : 1;
+  if (thresholdVals.length > 0) {
+    yMin = Math.min(yMin, ...thresholdVals);
+    yMax = Math.max(yMax, ...thresholdVals);
+  }
   const padding = (yMax - yMin) * 0.12 || 0.1;
 
   return {
     backgroundColor: ECHARTS_BRAND.plot,
     animation: false,
     grid: HEALTH_CHART_GRID,
+    dataZoom: CHART_X_AXIS_DATA_ZOOM,
     tooltip: {
       ...baseTooltip,
       formatter(params) {
@@ -93,7 +116,9 @@ export function buildHealthTrendOption(metric: HealthMetricTrend): EChartsOption
             ],
           },
         },
-        markLine: thresholdMarkLine,
+        markLine: thresholdOverlay.markLine,
+        markArea: thresholdOverlay.markArea,
+        markPoint: thresholdOverlay.markPoint,
       },
     ],
   };

@@ -2,7 +2,12 @@ import type { EChartsOption } from "echarts";
 import type { PlotSeries } from "@/types/measurements";
 import { computeYAxisBounds, expandBoundsForThresholds } from "./chart-bounds";
 import { downsampleSeries } from "./chart-data";
-import { echartsThresholdMarkLineConfig, getPlotThresholds, thresholdValues } from "./chart-thresholds";
+import { echartsThresholdValues } from "./chart-thresholds";
+import {
+  buildThresholdSeriesOverlay,
+  extractSeriesPoints,
+  type ThresholdOverlayOptions,
+} from "./threshold-overlay";
 import {
   baseAxisStyle,
   baseTooltip,
@@ -13,15 +18,23 @@ import {
   fixedYAxisConfig,
 } from "./echarts-theme";
 
-export function buildTrendOption(plot: PlotSeries): EChartsOption {
+export function buildTrendOption(
+  plot: PlotSeries,
+  overlayOptions: ThresholdOverlayOptions = {}
+): EChartsOption {
   const { x, y } = downsampleSeries(plot.x, plot.y);
   const seriesData = x.map((time, i) => [time, y[i]] as [number, number]);
-  const thresholds = getPlotThresholds(plot);
+  const points = extractSeriesPoints(seriesData);
   const yRange = expandBoundsForThresholds(
     computeYAxisBounds(plot.y),
-    thresholdValues(thresholds)
+    echartsThresholdValues(plot, overlayOptions)
   );
-  const thresholdMarkLine = echartsThresholdMarkLineConfig(thresholds);
+  const thresholdOverlay = buildThresholdSeriesOverlay(
+    points,
+    plot,
+    { showShading: true, showCrossings: true, ...overlayOptions },
+    yRange?.[1]
+  );
 
   return {
     backgroundColor: ECHARTS_BRAND.plot,
@@ -84,7 +97,9 @@ export function buildTrendOption(plot: PlotSeries): EChartsOption {
           lineStyle: { width: 2, color: ECHARTS_BRAND.orange },
         },
         data: seriesData,
-        markLine: thresholdMarkLine,
+        markLine: thresholdOverlay.markLine,
+        markArea: thresholdOverlay.markArea,
+        markPoint: thresholdOverlay.markPoint,
       },
     ],
   };

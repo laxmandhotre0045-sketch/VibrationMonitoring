@@ -51,6 +51,7 @@ export interface HealthMetricTrend {
   trendY: number[];
   available: boolean;
   status: HealthStatusLevel;
+  normalThreshold?: number;
   warningThreshold?: number;
   dangerThreshold?: number;
 }

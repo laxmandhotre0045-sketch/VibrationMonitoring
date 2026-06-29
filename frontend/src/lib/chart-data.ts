@@ -16,6 +16,46 @@ export function downsampleSeries(
   };
 }
 
+/**
+ * Min/max bucket downsampling — preserves peaks for oscillating waveforms (sine, vibration).
+ * Outputs up to maxPoints (pairs min+max per bucket).
+ */
+export function downsampleWaveformSeries(
+  x: number[],
+  y: number[],
+  maxPoints = 8192
+): { x: number[]; y: number[] } {
+  if (x.length <= maxPoints || y.length !== x.length) return { x, y };
+
+  const bucketCount = Math.max(1, Math.floor(maxPoints / 2));
+  const bucketSize = x.length / bucketCount;
+  const outX: number[] = [];
+  const outY: number[] = [];
+
+  for (let b = 0; b < bucketCount; b++) {
+    const start = Math.floor(b * bucketSize);
+    const end = Math.min(x.length, Math.floor((b + 1) * bucketSize));
+    if (end - start < 1) continue;
+
+    let minIdx = start;
+    let maxIdx = start;
+    for (let i = start + 1; i < end; i++) {
+      if (y[i] < y[minIdx]) minIdx = i;
+      if (y[i] > y[maxIdx]) maxIdx = i;
+    }
+
+    if (minIdx <= maxIdx) {
+      outX.push(x[minIdx], x[maxIdx]);
+      outY.push(y[minIdx], y[maxIdx]);
+    } else {
+      outX.push(x[maxIdx], x[minIdx]);
+      outY.push(y[maxIdx], y[minIdx]);
+    }
+  }
+
+  return { x: outX, y: outY };
+}
+
 export interface SpectrumPeak {
   frequency: number;
   magnitude: number;

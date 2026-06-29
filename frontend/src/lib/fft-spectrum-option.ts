@@ -2,7 +2,16 @@ import type { EChartsOption } from "echarts";
 import type { PlotSeries } from "@/types/measurements";
 import { computeYAxisBounds, expandBoundsForThresholds } from "./chart-bounds";
 import { downsampleSeries, resolveSpectrumPeak } from "./chart-data";
-import { getPlotThresholds, thresholdValues } from "./chart-thresholds";
+import { echartsThresholdValues } from "./chart-thresholds";
+import {
+  buildThresholdMarkLineConfig,
+  buildThresholdSeriesOverlay,
+  extractSeriesPoints,
+  mergeMarkLineConfigs,
+  mergeMarkPointConfigs,
+  resolveGraphThresholds,
+  type ThresholdOverlayOptions,
+} from "./threshold-overlay";
 import {
   baseAxisStyle,
   baseTooltip,
@@ -15,47 +24,12 @@ import {
   formatMagnitude,
 } from "./echarts-theme";
 
-type MarkLineDatum = {
-  yAxis?: number;
-  xAxis?: number;
-  name?: string;
-  lineStyle?: { color: string; type?: "solid" | "dashed" | "dotted"; width?: number; opacity?: number };
-  label?: {
-    show?: boolean;
-    formatter?: string;
-    color?: string;
-    fontFamily?: string;
-    fontSize?: number;
-    position?: "insideEndTop";
-  };
-};
-
-function buildMarkLineData(
-  thresholds: ReturnType<typeof getPlotThresholds>,
+function buildDominantFrequencyMarkLine(
   peak: ReturnType<typeof resolveSpectrumPeak>
-): MarkLineDatum[] {
-  const data: MarkLineDatum[] = [];
-
-  if (thresholds.warning !== undefined) {
-    data.push({
-      yAxis: thresholds.warning,
-      name: "Warning",
-      lineStyle: { color: ECHARTS_BRAND.amber, type: "dashed", width: 1.5 },
-      label: { show: false },
-    });
-  }
-
-  if (thresholds.danger !== undefined) {
-    data.push({
-      yAxis: thresholds.danger,
-      name: "Danger",
-      lineStyle: { color: ECHARTS_BRAND.orange, type: "dotted", width: 1.5 },
-      label: { show: false },
-    });
-  }
-
-  if (peak !== null) {
-    data.push({
+): Array<Record<string, unknown>> {
+  if (peak === null) return [];
+  return [
+    {
       xAxis: peak.frequency,
       name: "Dominant",
       lineStyle: { color: ECHARTS_BRAND.orange, type: "solid", width: 1, opacity: 0.65 },
@@ -67,24 +41,36 @@ function buildMarkLineData(
         fontSize: 11,
         position: "insideEndTop",
       },
-    });
-  }
-
-  return data;
+    },
+  ];
 }
 
-export function buildFftSpectrumOption(plot: PlotSeries): EChartsOption {
+export function buildFftSpectrumOption(
+  plot: PlotSeries,
+  overlayOptions: ThresholdOverlayOptions = {}
+): EChartsOption {
   const { x, y } = downsampleSeries(plot.x, plot.y);
   const seriesData = x.map((freq, i) => [freq, y[i]] as [number, number]);
-  const thresholds = getPlotThresholds(plot);
+  const points = extractSeriesPoints(seriesData);
   const yRange = expandBoundsForThresholds(
     computeYAxisBounds(plot.y),
-    thresholdValues(thresholds)
+    echartsThresholdValues(plot, overlayOptions)
   );
   const peak = resolveSpectrumPeak(plot);
-  const markLineData = buildMarkLineData(thresholds, peak);
+  const thresholds = overlayOptions.thresholds ?? resolveGraphThresholds(plot);
+  const thresholdMarkLine = buildThresholdMarkLineConfig(thresholds, {
+    showShading: false,
+    showCrossings: false,
+    ...overlayOptions,
+  });
+  const thresholdOverlay = buildThresholdSeriesOverlay(
+    points,
+    plot,
+    { showShading: true, showCrossings: true, ...overlayOptions, thresholds },
+    yRange?.[1]
+  );
 
-  const markPoint =
+  const peakMarkPoint =
     peak !== null
       ? {
           symbol: "circle",
@@ -163,15 +149,15 @@ export function buildFftSpectrumOption(plot: PlotSeries): EChartsOption {
           lineStyle: { width: 2, color: ECHARTS_BRAND.orange },
         },
         data: seriesData,
-        markPoint,
-        markLine:
-          markLineData.length > 0
-            ? {
-                symbol: ["none", "none"],
-                silent: true,
-                data: markLineData,
-              }
-            : undefined,
+        markPoint: mergeMarkPointConfigs(
+          peakMarkPoint as Record<string, unknown> | undefined,
+          thresholdOverlay.markPoint as Record<string, unknown> | undefined
+        ),
+        markLine: mergeMarkLineConfigs(
+          thresholdMarkLine as Record<string, unknown> | undefined,
+          buildDominantFrequencyMarkLine(peak)
+        ),
+        markArea: thresholdOverlay.markArea,
       },
     ],
   };

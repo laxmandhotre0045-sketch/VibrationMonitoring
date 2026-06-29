@@ -43,7 +43,8 @@ export const NAV_ITEMS: NavItem[] = [
     path: "/settings",
     label: "Settings",
     icon: Settings,
-    active: false,
+    active: true,
+    matchPaths: ["/settings"],
     roles: ["super_admin", "admin"],
   },
 ];

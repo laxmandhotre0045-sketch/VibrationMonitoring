@@ -1,12 +1,15 @@
 import type { EChartsOption } from "echarts";
 import type { PlotSeries } from "@/types/measurements";
 import { computeYAxisBounds, expandBoundsForThresholds } from "./chart-bounds";
-import { downsampleSeries } from "./chart-data";
+import { downsampleWaveformSeries } from "./chart-data";
 import {
-  echartsThresholdMarkLineConfig,
-  getPlotThresholds,
-  thresholdValues,
+  echartsThresholdValues,
 } from "./chart-thresholds";
+import {
+  buildThresholdSeriesOverlay,
+  extractSeriesPoints,
+  type ThresholdOverlayOptions,
+} from "./threshold-overlay";
 import {
   baseAxisStyle,
   baseTooltip,
@@ -27,18 +30,24 @@ const WAVEFORM_MAX_POINTS = 8192;
 /** ECharts option builder for time waveform with frontend-generated ms time axis. */
 export function buildTimeWaveformOption(
   plot: PlotSeries,
-  configuredSampleRateHz?: number
+  configuredSampleRateHz?: number,
+  overlayOptions: ThresholdOverlayOptions = {}
 ): EChartsOption {
   const displayPlot = withGeneratedTimeAxis(plot, configuredSampleRateHz);
-  const { x, y } = downsampleSeries(displayPlot.x, displayPlot.y, WAVEFORM_MAX_POINTS);
+  const { x, y } = downsampleWaveformSeries(displayPlot.x, displayPlot.y, WAVEFORM_MAX_POINTS);
   const seriesData = x.map((timeMs, i) => [timeMs, y[i]] as [number, number]);
-  const thresholds = getPlotThresholds(displayPlot);
+  const points = extractSeriesPoints(seriesData);
   const yRange = expandBoundsForThresholds(
     computeYAxisBounds(displayPlot.y),
-    thresholdValues(thresholds)
+    echartsThresholdValues(displayPlot, overlayOptions)
   );
   const sampleRateHz = resolveSampleRateHz(plot, configuredSampleRateHz);
-  const thresholdMarkLine = echartsThresholdMarkLineConfig(thresholds);
+  const thresholdOverlay = buildThresholdSeriesOverlay(
+    points,
+    displayPlot,
+    { showShading: true, showCrossings: true, ...overlayOptions },
+    yRange?.[1]
+  );
 
   return {
     backgroundColor: ECHARTS_BRAND.plot,
@@ -107,7 +116,9 @@ export function buildTimeWaveformOption(
           lineStyle: { width: 2, color: ECHARTS_BRAND.orange },
         },
         data: seriesData,
-        markLine: thresholdMarkLine,
+        markLine: thresholdOverlay.markLine,
+        markArea: thresholdOverlay.markArea,
+        markPoint: thresholdOverlay.markPoint,
       },
     ],
   };

@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { compareUploadFeatures, getUploadFeatures } from "@/api/measurements";
-import { useHealthStatusData } from "@/hooks/useHealthStatusData";
 import {
   enrichFeatureCompareItems,
   enrichFeatureStatusItems,
 } from "@/lib/feature-display";
-import {
-  buildFallbackChannelOverview,
-  deriveHealthState,
-  summarizeFeatureItems,
-} from "@/lib/health-feature-fallback";
+import { deriveHealthState, summarizeFeatureItems } from "@/lib/health-feature-fallback";
 import type { Baseline } from "@/types/baseline";
 import type {
   ChannelHealthOverviewData,
@@ -23,7 +18,6 @@ interface UseFeatureHealthDashboardOptions {
   sensorId: string;
   uploadId: string;
   channel: number;
-  samplingRateHz: number;
   primaryBaseline: Baseline | null | undefined;
   baselineList: Baseline[] | undefined;
   enabled?: boolean;
@@ -33,7 +27,6 @@ export function useFeatureHealthDashboard({
   sensorId,
   uploadId,
   channel,
-  samplingRateHz,
   primaryBaseline,
   baselineList,
   enabled = true,
@@ -42,13 +35,6 @@ export function useFeatureHealthDashboard({
   const compareContextRef = useRef({ uploadId: "", channel: 0 });
 
   const isEnabled = enabled && !!sensorId && !!uploadId;
-
-  const healthQuery = useHealthStatusData({
-    uploadId,
-    channel,
-    samplingRateHz,
-    enabled: isEnabled,
-  });
 
   useEffect(() => {
     const uploadChanged = compareContextRef.current.uploadId !== uploadId;
@@ -120,14 +106,6 @@ export function useFeatureHealthDashboard({
       };
     }
     if (!featuresQuery.isSuccess) return null;
-    if (healthQuery.snapshot) {
-      return buildFallbackChannelOverview(
-        healthQuery.snapshot,
-        summary,
-        baselineName,
-        baselineId
-      );
-    }
     return {
       health_state: deriveHealthState(summary),
       feature_count: summary.total,
@@ -139,7 +117,6 @@ export function useFeatureHealthDashboard({
     featuresQuery.data,
     featuresQuery.isSuccess,
     compareQuery.data,
-    healthQuery.snapshot,
     summary,
     selectedBaseline,
     primaryBaseline,
@@ -160,7 +137,6 @@ export function useFeatureHealthDashboard({
     featuresQuery.isSuccess && featureItems.length > 0;
 
   return {
-    healthQuery,
     featuresQuery,
     compareQuery,
     featureItems,

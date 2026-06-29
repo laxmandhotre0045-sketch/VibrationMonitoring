@@ -378,18 +378,13 @@ export function VibrationAnalysisPage() {
           <StatusHealthTab
             sensorId={sensorId}
             selectedUploadId={selectedUploadId}
-            samplingRateHz={samplingRate}
+            channelCount={plotChannelCount}
             primaryBaseline={primaryBaseline}
             baselineList={baselineList?.items}
           />
         </div>
         <div hidden={activeTab !== "trend"}>
-          <TrendAnalysisTab
-            selectedUploadId={selectedUploadId}
-            channel={activeChannel}
-            channelCount={plotChannelCount}
-            onChannelChange={setActiveChannel}
-          />
+          <TrendAnalysisTab selectedUploadId={selectedUploadId} />
         </div>
         <div hidden={activeTab !== "detailed"}>
           <DetailedAnalysisTab
