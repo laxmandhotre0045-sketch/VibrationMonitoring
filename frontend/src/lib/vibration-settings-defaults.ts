@@ -78,23 +78,24 @@ const THRESHOLD_SEEDS: Partial<
 > = {
   1: {
     rms: { warning: 0.02, danger: 0.05, enabled: true },
-    vrms: { warning: 2.5, danger: 4.0, enabled: true },
     peak: { warning: 0.1, danger: 0.2, enabled: true },
     crest_factor: { warning: 3.5, danger: 5.0, enabled: true },
-    temperature: { warning: 65, danger: 75, enabled: false },
+    kurtosis: { warning: 3.5, danger: 5.0, enabled: false },
   },
   2: {
     rms: { warning: 0.02, danger: 0.05, enabled: true },
-    vrms: { warning: 2.5, danger: 4.0, enabled: true },
     peak: { warning: 0.1, danger: 0.2, enabled: false },
-    saturation: { warning: 80, danger: 95, enabled: true },
+    fft_band_energy: { warning: 0.4, danger: 0.7, enabled: true },
+    amplitude_1x: { warning: 0.15, danger: 0.3, enabled: true },
   },
   3: {
     rms: { warning: 0.015, danger: 0.04, enabled: true },
-    skewness: { warning: 0.5, danger: 1.0, enabled: true },
+    amplitude_2x: { warning: 0.08, danger: 0.16, enabled: true },
+    envelope_rms: { warning: 0.05, danger: 0.12, enabled: true },
   },
   4: {
     rms: { warning: 0.02, danger: 0.05, enabled: true },
+    noise_floor: { warning: -55, danger: -45, enabled: true },
   },
 };
 

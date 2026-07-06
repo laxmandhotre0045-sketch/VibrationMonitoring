@@ -1,3 +1,9 @@
+import {
+  VIBRATION_FEATURE_CATALOG,
+  type VibrationFeatureCategory,
+  type VibrationFeatureKey,
+} from "@/lib/vibration-features";
+
 export const VIBRATION_CHANNEL_COUNT = 8;
 
 export type ChannelAxis = "vertical" | "horizontal" | "axial";
@@ -9,30 +15,30 @@ export type ChannelDataType =
   | "displacement";
 export type EngineeringUnit = "g" | "mm/s" | "µm" | "°C";
 
-export type ThresholdParameter =
-  | "rms"
-  | "vrms"
-  | "peak"
-  | "saturation"
-  | "crest_factor"
-  | "skewness"
-  | "temperature";
+/**
+ * Threshold parameters mirror the Status (Health) section feature catalog so the
+ * Settings page always stays in sync with the parameters analysed there.
+ * @see src/lib/vibration-features.ts (VIBRATION_FEATURE_CATALOG)
+ */
+export type ThresholdParameter = VibrationFeatureKey;
+
+export type ThresholdParameterCategory = VibrationFeatureCategory;
 
 export interface ThresholdParameterMeta {
   id: ThresholdParameter;
   label: string;
   unit: string;
+  category: ThresholdParameterCategory;
 }
 
-export const THRESHOLD_PARAMETERS: ThresholdParameterMeta[] = [
-  { id: "rms", label: "RMS", unit: "g" },
-  { id: "vrms", label: "VRMS", unit: "mm/s" },
-  { id: "peak", label: "Peak", unit: "g" },
-  { id: "saturation", label: "Saturation", unit: "" },
-  { id: "crest_factor", label: "Crest Factor", unit: "" },
-  { id: "skewness", label: "Skewness", unit: "" },
-  { id: "temperature", label: "Temperature", unit: "°C" },
-];
+export const THRESHOLD_PARAMETERS: ThresholdParameterMeta[] = VIBRATION_FEATURE_CATALOG.map(
+  (feature) => ({
+    id: feature.key,
+    label: feature.label,
+    unit: feature.unit === "-" ? "" : feature.unit,
+    category: feature.category,
+  })
+);
 
 export interface ChannelConfig {
   channelNo: number;

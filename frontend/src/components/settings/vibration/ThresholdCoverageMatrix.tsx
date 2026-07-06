@@ -4,6 +4,7 @@ import { SettingsSectionCard } from "@/components/settings/SettingsSectionCard";
 import {
   channelLabel,
   findThresholdRow,
+  formatThresholdParameterLabel,
   getThresholdCoverageStatus,
 } from "@/lib/vibration-settings-utils";
 import {
@@ -74,7 +75,7 @@ export function ThresholdCoverageMatrix({ thresholds }: ThresholdCoverageMatrixP
                   key={param.id}
                   className="px-2 py-2.5 text-center font-semibold text-muted-foreground whitespace-nowrap"
                 >
-                  {param.unit ? `${param.label} (${param.unit})` : param.label}
+                  {formatThresholdParameterLabel(param.id)}
                 </th>
               ))}
             </tr>

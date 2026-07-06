@@ -4,8 +4,12 @@ import { analysisSelectClass } from "@/components/analysis/analysis-layout";
 import { Button } from "@/components/ui/Button";
 import { SettingsSectionCard } from "@/components/settings/SettingsSectionCard";
 import { ToggleSwitch } from "@/components/settings/ToggleSwitch";
-import { channelLabel, isThresholdValid } from "@/lib/vibration-settings-utils";
-import { THRESHOLD_PARAMETERS, type ThresholdConfig } from "@/types/vibration-settings";
+import {
+  channelLabel,
+  formatThresholdParameterLabel,
+  isThresholdValid,
+} from "@/lib/vibration-settings-utils";
+import { type ThresholdConfig } from "@/types/vibration-settings";
 import { cn } from "@/lib/utils";
 
 interface ThresholdConfigurationSectionProps {
@@ -22,12 +26,6 @@ interface ThresholdConfigurationSectionProps {
 
 function rowKey(channelNo: number, parameter: string): string {
   return `${channelNo}-${parameter}`;
-}
-
-function parameterLabel(parameter: ThresholdConfig["parameter"]): string {
-  const meta = THRESHOLD_PARAMETERS.find((item) => item.id === parameter);
-  if (!meta) return parameter;
-  return meta.unit ? `${meta.label} (${meta.unit})` : meta.label;
 }
 
 export function ThresholdConfigurationSection({
@@ -80,7 +78,7 @@ export function ThresholdConfigurationSection({
                     {channelLabel(row.channelNo)}
                   </td>
                   <td className="px-3 py-2.5 font-medium text-foreground whitespace-nowrap">
-                    {parameterLabel(row.parameter)}
+                    {formatThresholdParameterLabel(row.parameter)}
                   </td>
                   <td className="px-3 py-2.5">
                     <input

@@ -1,13 +1,27 @@
-import type {
-  ChannelConfig,
-  ChannelReadinessStatus,
-  ThresholdConfig,
-  ThresholdCoverageStatus,
-  VibrationSettingsState,
+import {
+  THRESHOLD_PARAMETERS,
+  type ChannelConfig,
+  type ChannelReadinessStatus,
+  type ThresholdConfig,
+  type ThresholdCoverageStatus,
+  type VibrationSettingsState,
 } from "@/types/vibration-settings";
 
 export function channelLabel(channelNo: number): string {
   return `CH-${channelNo}`;
+}
+
+/** Display label for a threshold parameter, appending its unit without duplicating parentheses. */
+export function formatThresholdParameterLabel(
+  parameter: ThresholdConfig["parameter"]
+): string {
+  const meta = THRESHOLD_PARAMETERS.find((item) => item.id === parameter);
+  if (!meta) return parameter;
+  if (!meta.unit) return meta.label;
+  // Labels that already carry a qualifier in parentheses (e.g. FFT Band Energy
+  // (0-500 Hz)) get the unit appended with a separator instead of nested parens.
+  if (meta.label.includes("(")) return `${meta.label} · ${meta.unit}`;
+  return `${meta.label} (${meta.unit})`;
 }
 
 export function isChannelFullyConfigured(channel: ChannelConfig): boolean {

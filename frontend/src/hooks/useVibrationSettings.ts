@@ -6,7 +6,7 @@ import {
   renumberChannels,
   settingsStatesEqual,
 } from "@/lib/vibration-settings-utils";
-import { VIBRATION_CHANNEL_COUNT } from "@/types/vibration-settings";
+import { THRESHOLD_PARAMETERS, VIBRATION_CHANNEL_COUNT } from "@/types/vibration-settings";
 import type {
   ChannelConfig,
   ThresholdConfig,
@@ -29,12 +29,42 @@ function persistToStorage(state: VibrationSettingsState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+/**
+ * Rebuild thresholds against the current parameter catalog (sourced from the
+ * Status section) so persisted settings using an older parameter set stay valid.
+ * Values for parameters that still exist are preserved.
+ */
+function migrateThresholds(
+  existing: ThresholdConfig[],
+  channelCount: number
+): ThresholdConfig[] {
+  const rows: ThresholdConfig[] = [];
+  for (let channelNo = 1; channelNo <= channelCount; channelNo += 1) {
+    for (const param of THRESHOLD_PARAMETERS) {
+      const previous = existing.find(
+        (row) => row.channelNo === channelNo && row.parameter === param.id
+      );
+      rows.push(
+        previous ?? {
+          channelNo,
+          parameter: param.id,
+          warningThreshold: null,
+          dangerThreshold: null,
+          enabled: false,
+        }
+      );
+    }
+  }
+  return rows;
+}
+
 function migrateSettings(state: VibrationSettingsState): VibrationSettingsState {
   const maxChannelCount = getDeviceMaxChannelCount(state.device, VIBRATION_CHANNEL_COUNT);
   const channels =
     state.channels.length > 0
       ? renumberChannels(state.channels)
       : createDefaultVibrationSettings().channels;
+  const boundedChannels = channels.slice(0, maxChannelCount);
 
   return {
     ...state,
@@ -42,7 +72,8 @@ function migrateSettings(state: VibrationSettingsState): VibrationSettingsState 
       ...state.device,
       maxChannelCount,
     },
-    channels: channels.slice(0, maxChannelCount),
+    channels: boundedChannels,
+    thresholds: migrateThresholds(state.thresholds ?? [], maxChannelCount),
   };
 }
 
