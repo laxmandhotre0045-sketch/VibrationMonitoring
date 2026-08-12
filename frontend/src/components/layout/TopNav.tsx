@@ -1,21 +1,39 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, ChevronDown, Building2 } from "lucide-react";
+import { Search, Bell, ChevronDown, Building2, Menu, X } from "lucide-react";
 import { useLayout } from "@/contexts/LayoutContext";
 import { PLANTS } from "./nav-config";
 import { cn } from "@/lib/utils";
 
 const navBtn = "bg-white border border-border hover:border-signal-light transition-colors rounded-lg";
 
-export function TopNav() {
+interface TopNavProps {
+  onMenuClick?: () => void;
+  menuOpen?: boolean;
+}
+
+export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
   const { selectedPlant, setSelectedPlant } = useLayout();
   const [searchFocused, setSearchFocused] = useState(false);
   const [plantOpen, setPlantOpen] = useState(false);
   const [notifications] = useState(3);
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-6 py-3 bg-warm border-b border-border shadow-nav">
-      <div className={cn("relative hidden md:block transition-all duration-200", searchFocused ? "w-[400px]" : "w-80")}>
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6 py-2 sm:py-3 bg-warm border-b border-border shadow-nav">
+      {/* Mobile menu button */}
+      <button
+        onClick={onMenuClick}
+        className="md:hidden p-2 hover:bg-signal-light/10 rounded-lg transition-colors"
+        aria-label="Toggle menu"
+      >
+        {menuOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Search bar - responsive */}
+      <div className={cn(
+        "relative hidden sm:block transition-all duration-200 flex-1 sm:flex-initial",
+        searchFocused ? "w-full sm:w-[400px]" : "w-full sm:w-80"
+      )}>
         <Search size={16} className={cn("absolute left-3 top-1/2 -translate-y-1/2", searchFocused ? "text-signal-light" : "text-muted-foreground")} />
         <input
           type="text"
@@ -26,12 +44,21 @@ export function TopNav() {
         />
       </div>
 
-      <div className="flex items-center gap-2 ml-auto">
+      {/* Mobile search icon */}
+      <button className="sm:hidden p-2 hover:bg-signal-light/10 rounded-lg transition-colors">
+        <Search size={18} className="text-brand" />
+      </button>
+
+      <div className="flex items-center gap-1 sm:gap-2 ml-auto">
         <div className="relative">
-          <button onClick={() => setPlantOpen(!plantOpen)} className={cn("flex items-center gap-2 px-3 py-2 text-sm font-medium text-brand", navBtn)}>
-            <Building2 size={15} className="text-signal-dark" />
-            <span className="hidden sm:inline max-w-[140px] truncate">{selectedPlant}</span>
-            <ChevronDown size={14} className="text-muted-foreground" />
+          <button
+            onClick={() => setPlantOpen(!plantOpen)}
+            className={cn("flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-brand", navBtn)}
+            title={selectedPlant}
+          >
+            <Building2 size={15} className="text-signal-dark flex-shrink-0" />
+            <span className="hidden md:inline max-w-[100px] lg:max-w-[140px] truncate">{selectedPlant}</span>
+            <ChevronDown size={14} className="text-muted-foreground hidden sm:block" />
           </button>
           <AnimatePresence>
             {plantOpen && (

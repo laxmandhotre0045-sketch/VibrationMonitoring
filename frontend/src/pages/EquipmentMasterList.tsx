@@ -110,7 +110,7 @@ export function EquipmentMasterList() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6 sm:mb-8">
         {STAT_CONFIG.map((stat, i) => (
           <GlassCard key={stat.key} delay={0.05 + i * 0.06} className="p-5">
             <div className="flex items-center gap-4">
@@ -131,37 +131,36 @@ export function EquipmentMasterList() {
       </div>
 
       {/* Filters */}
-      <GlassCard className="p-4 mb-6" delay={0.2}>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
+      <GlassCard className="p-3 sm:p-4 mb-6" delay={0.2}>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
+          <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
             <Search
               size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground flex-shrink-0"
             />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, ID, or plant..."
+              placeholder="Search..."
               className={cn(
-                "w-full pl-11 pr-4 py-2.5 text-sm rounded-lg transition-all",
+                "w-full pl-11 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm rounded-lg transition-all",
                 "bg-white border border-border text-foreground",
                 "placeholder:text-muted-foreground focus:outline-none",
                 "focus:border-brand-accent focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]"
               )}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter size={15} className="text-brand hidden sm:block" />
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className={cn(
-                "px-4 py-2.5 text-sm rounded-lg cursor-pointer transition-all",
+                "px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm rounded-lg cursor-pointer transition-all flex-1 sm:flex-initial",
                 "bg-white border border-border text-foreground",
                 "focus:outline-none focus:border-brand-accent focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]"
               )}
             >
-              <option value="">All Types</option>
+              <option value="">Types</option>
               {MACHINE_TYPES.slice(1).map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -172,12 +171,12 @@ export function EquipmentMasterList() {
               value={filterCriticality}
               onChange={(e) => setFilterCriticality(e.target.value)}
               className={cn(
-                "px-4 py-2.5 text-sm rounded-lg cursor-pointer transition-all",
+                "px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm rounded-lg cursor-pointer transition-all flex-1 sm:flex-initial",
                 "bg-white border border-border text-foreground",
                 "focus:outline-none focus:border-brand-accent focus:ring-2 focus:ring-[rgba(245,166,35,0.15)]"
               )}
             >
-              <option value="">All Criticality</option>
+              <option value="">Criticality</option>
               {CRITICALITY.slice(1).map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -227,14 +226,18 @@ export function EquipmentMasterList() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  {["Machine", "ID", "Type", "Plant / Area", "Criticality", "Status", "Actions"].map(
+                  {["Machine", "ID", "Type", "Plant", "Criticality", "Status", "Actions"].map(
                     (h) => (
                       <th
                         key={h}
-                        className="text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-5 py-4 whitespace-nowrap"
+                        className={cn(
+                          "text-left text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-2 sm:px-4 lg:px-5 py-3 sm:py-4 whitespace-nowrap",
+                          h === "Type" && "hidden sm:table-cell",
+                          h === "Plant" && "hidden lg:table-cell"
+                        )}
                       >
                         {h}
                       </th>
@@ -252,39 +255,39 @@ export function EquipmentMasterList() {
                       transition={{ delay: i * 0.03 }}
                       className="border-b border-border/50 hover:bg-warm transition-colors group"
                     >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center shrink-0 group-hover:border-signal-light/50 transition-colors">
-                            <Cpu size={16} className="text-brand" />
+                      <td className="px-2 sm:px-4 lg:px-5 py-3 sm:py-4">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-white border border-border flex items-center justify-center shrink-0 group-hover:border-signal-light/50 transition-colors">
+                            <Cpu size={14} sm className="text-brand" />
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-semibold text-foreground truncate">
                               {item.machine_name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                               {item.manufacturer || "—"}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className="text-xs font-mono px-2.5 py-1 rounded-xl bg-white text-foreground border border-border">
+                      <td className="px-2 sm:px-4 lg:px-5 py-3 sm:py-4">
+                        <span className="text-[10px] sm:text-xs font-mono px-2 sm:px-2.5 py-1 rounded-xl bg-white text-foreground border border-border whitespace-nowrap">
                           {item.machine_id}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-sm text-foreground/90">
+                      <td className="px-2 sm:px-4 lg:px-5 py-3 sm:py-4 text-xs sm:text-sm text-foreground/90 hidden sm:table-cell truncate">
                         {item.machine_type}
                       </td>
-                      <td className="px-5 py-4">
-                        <p className="text-sm text-foreground/90">
+                      <td className="px-2 sm:px-4 lg:px-5 py-3 sm:py-4 hidden lg:table-cell">
+                        <p className="text-xs sm:text-sm text-foreground/90 truncate">
                           {item.plant_name}
                         </p>
-                        <p className="text-xs text-muted-foreground">{item.area}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{item.area}</p>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 sm:px-4 lg:px-5 py-3 sm:py-4">
                         <span
                           className={cn(
-                            "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border",
+                            "inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border whitespace-nowrap",
                             CRITICALITY_COLORS[item.machine_criticality]
                           )}
                         >
@@ -297,10 +300,10 @@ export function EquipmentMasterList() {
                           {item.machine_criticality}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 sm:px-4 lg:px-5 py-3 sm:py-4">
                         <span
                           className={cn(
-                            "text-xs px-3 py-1.5 rounded-full font-semibold",
+                            "text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 rounded-full font-semibold whitespace-nowrap",
                             ASSET_STATUS_COLORS[item.asset_status || "Active"] ||
                               ASSET_STATUS_COLORS.Active
                           )}
@@ -308,7 +311,7 @@ export function EquipmentMasterList() {
                           {item.asset_status || "Active"}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 sm:px-4 lg:px-5 py-3 sm:py-4">
                         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                           <motion.button
                             whileTap={{ scale: 0.9 }}

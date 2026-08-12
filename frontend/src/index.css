@@ -311,4 +311,46 @@
     border-color: #e2e8f0;
     box-shadow: none;
   }
+
+  /* Responsive utilities */
+  .responsive-padding {
+    @apply px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8;
+  }
+
+  .responsive-gap {
+    @apply gap-3 sm:gap-4 lg:gap-6;
+  }
+
+  .responsive-text-lg {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+
+  .responsive-text-md {
+    @apply text-base sm:text-lg lg:text-xl;
+  }
+
+  .responsive-text-sm {
+    @apply text-xs sm:text-sm lg:text-base;
+  }
+
+  /* Mobile-first heading sizes */
+  h1 {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+
+  h2 {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+
+  h3 {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+
+  /* Touch-friendly button sizing */
+  @media (max-width: 640px) {
+    button, a[role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 import { sensoVibeLogo, sensoVibeMark } from "@/images";
 import { NAV_ITEMS } from "./nav-config";
 import { useLayout } from "@/contexts/LayoutContext";
@@ -11,7 +11,11 @@ const SIDEBAR_WIDTH = 320;
 const SIDEBAR_COLLAPSED = 80;
 const TAGLINE = "AI Powered Vibration Intelligence";
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const { sidebarCollapsed, toggleSidebar } = useLayout();
   const location = useLocation();
 
@@ -29,10 +33,20 @@ export function Sidebar() {
     >
       <div
         className={cn(
-          "logo-zone flex flex-col justify-center min-h-[90px]",
+          "logo-zone flex flex-col justify-between min-h-[90px] md:justify-center",
           sidebarCollapsed ? "px-3 py-5 items-center" : "px-6 py-5"
         )}
       >
+        {/* Close button for mobile */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 md:hidden p-2 hover:bg-signal-light/10 rounded-lg transition-colors"
+            aria-label="Close sidebar"
+          >
+            <X size={20} className="text-brand" />
+          </button>
+        )}
         <AnimatePresence mode="wait">
           {sidebarCollapsed ? (
             <motion.div
@@ -86,7 +100,12 @@ export function Sidebar() {
           const Icon = item.icon;
 
           return (
-            <NavLink key={item.path} to={item.path} className="block group">
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className="block group"
+              onClick={() => onClose?.()}
+            >
               <div
                 className={cn(
                   "sidebar-nav-item",
