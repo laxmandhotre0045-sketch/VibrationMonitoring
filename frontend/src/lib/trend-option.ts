@@ -4,11 +4,6 @@ import { computeYAxisBounds, expandBoundsForThresholds } from "./chart-bounds";
 import { downsampleSeries } from "./chart-data";
 import { echartsThresholdValues } from "./chart-thresholds";
 import {
-  buildThresholdSeriesOverlay,
-  extractSeriesPoints,
-  type ThresholdOverlayOptions,
-} from "./threshold-overlay";
-import {
   baseAxisStyle,
   baseTooltip,
   CHART_GRID,
@@ -16,7 +11,19 @@ import {
   CHART_X_AXIS_DATA_ZOOM,
   ECHARTS_BRAND,
   fixedYAxisConfig,
+  formatAmplitudeWithUnit,
+  industrialAxisConfig,
 } from "./echarts-theme";
+import {
+  buildVizContextFromPlot,
+  INDUSTRIAL_AXIS_GRID,
+  INDUSTRIAL_TRACE_COLORS,
+} from "./industrial-viz-standards";
+import {
+  buildThresholdSeriesOverlay,
+  extractSeriesPoints,
+  type ThresholdOverlayOptions,
+} from "./threshold-overlay";
 
 export function buildTrendOption(
   plot: PlotSeries,
@@ -25,6 +32,7 @@ export function buildTrendOption(
   const { x, y } = downsampleSeries(plot.x, plot.y);
   const seriesData = x.map((time, i) => [time, y[i]] as [number, number]);
   const points = extractSeriesPoints(seriesData);
+  const vizContext = buildVizContextFromPlot(plot.metadata, plot.y_label, null, plot.y.length);
   const yRange = expandBoundsForThresholds(
     computeYAxisBounds(plot.y),
     echartsThresholdValues(plot, overlayOptions)
@@ -35,6 +43,7 @@ export function buildTrendOption(
     { showShading: true, showCrossings: true, ...overlayOptions },
     yRange?.[1]
   );
+  const traceColor = INDUSTRIAL_TRACE_COLORS.trend_plot;
 
   return {
     backgroundColor: ECHARTS_BRAND.plot,
@@ -50,7 +59,7 @@ export function buildTrendOption(
         return [
           `<span style="font-weight:600;color:${ECHARTS_BRAND.blue}">${plot.title}</span>`,
           `${plot.x_label}: <b>${time.toFixed(4)}</b>`,
-          `${plot.y_label}: <b>${amplitude.toFixed(4)}</b>`,
+          `${plot.y_label}: <b>${formatAmplitudeWithUnit(amplitude, vizContext.yUnit)}</b>`,
         ].join("<br/>");
       },
     },
@@ -68,6 +77,7 @@ export function buildTrendOption(
         fontWeight: 500,
       },
       ...baseAxisStyle(),
+      ...industrialAxisConfig(INDUSTRIAL_AXIS_GRID.splitNumber),
     },
     yAxis: {
       type: "value",
@@ -81,6 +91,7 @@ export function buildTrendOption(
         fontWeight: 500,
       },
       ...baseAxisStyle(),
+      ...industrialAxisConfig(INDUSTRIAL_AXIS_GRID.splitNumber),
       ...fixedYAxisConfig(yRange?.[0], yRange?.[1]),
     },
     series: [
@@ -90,7 +101,7 @@ export function buildTrendOption(
         showSymbol: true,
         symbolSize: 5,
         smooth: false,
-        lineStyle: { color: ECHARTS_BRAND.amber, width: 1.5 },
+        lineStyle: { color: traceColor, width: 1.5 },
         itemStyle: { color: ECHARTS_BRAND.orange },
         emphasis: {
           focus: "series",

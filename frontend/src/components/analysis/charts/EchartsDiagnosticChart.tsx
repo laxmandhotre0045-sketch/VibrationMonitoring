@@ -22,7 +22,9 @@ import {
   EchartsGraphViewport,
   GraphStatisticsPanel,
   GraphWorkspace,
+  ThresholdZoneLegend,
 } from "@/components/charts";
+import { parseUnitFromAxisLabel } from "@/lib/industrial-viz-standards";
 
 interface EchartsDiagnosticChartProps {
   plot: PlotSeries;
@@ -139,6 +141,21 @@ function EchartsDiagnosticChartInner({
     link.click();
   }, [getInstance, plot.plot_type, plot.channel]);
 
+  const amplitudeUnit = useMemo(
+    () => parseUnitFromAxisLabel(plot.y_label),
+    [plot.y_label]
+  );
+
+  const statisticsPanel = useMemo(
+    () => (
+      <div className="space-y-2">
+        <GraphStatisticsPanel stats={statistics} amplitudeUnit={amplitudeUnit || undefined} />
+        <ThresholdZoneLegend visible={showThresholds} />
+      </div>
+    ),
+    [statistics, amplitudeUnit, showThresholds]
+  );
+
   return (
     <GraphWorkspace
       title={plot.title}
@@ -162,7 +179,7 @@ function EchartsDiagnosticChartInner({
       onChartResize={handleResize}
       isCrosshairActive={crosshairEnabled}
       thresholdsVisible={showThresholds}
-      statistics={<GraphStatisticsPanel stats={statistics} />}
+      statistics={statisticsPanel}
       toolbarActions={[
         "zoomIn",
         "zoomOut",

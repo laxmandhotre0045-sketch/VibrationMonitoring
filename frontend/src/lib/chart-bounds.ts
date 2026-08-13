@@ -49,6 +49,30 @@ export function expandBoundsForThresholds(
   return [min - pad, max + pad];
 }
 
+/**
+ * Symmetric zero-centered Y-axis for time waveforms.
+ * Reference: Condition Monitoring with Vibration Signals — acceleration waveforms are
+ * displayed symmetrically about zero to assess impacts and DC offset.
+ */
+export function computeSymmetricYAxisBounds(
+  y: number[],
+  options?: { paddingRatio?: number; minSpan?: number }
+): [number, number] | undefined {
+  const finite = y.filter((v) => Number.isFinite(v));
+  if (finite.length === 0) return undefined;
+
+  const paddingRatio = options?.paddingRatio ?? 0.1;
+  const minSpan = options?.minSpan ?? 1e-6;
+  const maxAbs = finite.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+
+  if (maxAbs === 0) {
+    return [-minSpan, minSpan];
+  }
+
+  const limit = maxAbs * (1 + paddingRatio);
+  return [-limit, limit];
+}
+
 /** Symmetric orbit bounds from X and Y orbit coordinates. */
 export function computeOrbitAxisBounds(x: number[], y: number[]): [number, number] | undefined {
   const xBounds = computeYAxisBounds(x);

@@ -16,7 +16,14 @@ import {
   CHART_X_AXIS_DATA_ZOOM,
   ECHARTS_BRAND,
   fixedYAxisConfig,
+  formatAmplitudeWithUnit,
+  industrialAxisConfig,
 } from "./echarts-theme";
+import {
+  buildVizContextFromPlot,
+  INDUSTRIAL_AXIS_GRID,
+  INDUSTRIAL_TRACE_COLORS,
+} from "./industrial-viz-standards";
 
 const ORBIT_MAX_POINTS = 8192;
 
@@ -27,6 +34,7 @@ export function buildOrbitOption(
   const { x, y } = downsampleWaveformSeries(plot.x, plot.y, ORBIT_MAX_POINTS);
   const seriesData = x.map((xi, i) => [xi, y[i]] as [number, number]);
   const points = extractSeriesPoints(seriesData);
+  const vizContext = buildVizContextFromPlot(plot.metadata, plot.y_label, null, plot.y.length);
   const yRange = expandBoundsForThresholds(
     computeOrbitAxisBounds(plot.x, plot.y),
     echartsThresholdValues(plot, overlayOptions)
@@ -37,6 +45,7 @@ export function buildOrbitOption(
     { showShading: true, showCrossings: true, ...overlayOptions },
     yRange?.[1]
   );
+  const traceColor = INDUSTRIAL_TRACE_COLORS.circular_time_waveform;
 
   return {
     backgroundColor: ECHARTS_BRAND.plot,
@@ -51,8 +60,8 @@ export function buildOrbitOption(
         const [xi, yi] = point.value as [number, number];
         return [
           `<span style="font-weight:600;color:${ECHARTS_BRAND.blue}">${plot.title}</span>`,
-          `${plot.x_label}: <b>${xi.toFixed(4)}</b>`,
-          `${plot.y_label}: <b>${yi.toFixed(4)}</b>`,
+          `${plot.x_label}: <b>${formatAmplitudeWithUnit(xi, vizContext.yUnit)}</b>`,
+          `${plot.y_label}: <b>${formatAmplitudeWithUnit(yi, vizContext.yUnit)}</b>`,
         ].join("<br/>");
       },
     },
@@ -70,6 +79,8 @@ export function buildOrbitOption(
         fontWeight: 500,
       },
       ...baseAxisStyle(),
+      ...industrialAxisConfig(INDUSTRIAL_AXIS_GRID.splitNumber),
+      ...fixedYAxisConfig(yRange?.[0], yRange?.[1]),
     },
     yAxis: {
       type: "value",
@@ -83,6 +94,7 @@ export function buildOrbitOption(
         fontWeight: 500,
       },
       ...baseAxisStyle(),
+      ...industrialAxisConfig(INDUSTRIAL_AXIS_GRID.splitNumber),
       ...fixedYAxisConfig(yRange?.[0], yRange?.[1]),
     },
     series: [
@@ -91,7 +103,7 @@ export function buildOrbitOption(
         name: plot.title,
         showSymbol: false,
         smooth: false,
-        lineStyle: { color: ECHARTS_BRAND.blue, width: 1.5 },
+        lineStyle: { color: traceColor, width: 1.5 },
         emphasis: {
           focus: "series",
           lineStyle: { width: 2, color: ECHARTS_BRAND.orange },

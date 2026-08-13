@@ -17,9 +17,9 @@ export function buildDiagnosticChartOption(
     case "time_waveform":
       return buildTimeWaveformOption(plot, samplingRateHz, overlayOptions);
     case "fft_spectrum":
-      return buildFftSpectrumOption(plot, overlayOptions);
+      return buildFftSpectrumOption(plot, samplingRateHz, overlayOptions);
     case "envelope_spectrum":
-      return buildEnvelopeSpectrumOption(plot, overlayOptions);
+      return buildEnvelopeSpectrumOption(plot, samplingRateHz, overlayOptions);
     case "circular_time_waveform":
       return buildOrbitOption(plot, overlayOptions);
     case "trend_plot":

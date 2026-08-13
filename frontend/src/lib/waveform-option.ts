@@ -1,15 +1,11 @@
 import type { EChartsOption } from "echarts";
 import type { PlotSeries } from "@/types/measurements";
-import { computeYAxisBounds, expandBoundsForThresholds } from "./chart-bounds";
+import {
+  computeSymmetricYAxisBounds,
+  expandBoundsForThresholds,
+} from "./chart-bounds";
 import { downsampleWaveformSeries } from "./chart-data";
-import {
-  echartsThresholdValues,
-} from "./chart-thresholds";
-import {
-  buildThresholdSeriesOverlay,
-  extractSeriesPoints,
-  type ThresholdOverlayOptions,
-} from "./threshold-overlay";
+import { echartsThresholdValues } from "./chart-thresholds";
 import {
   baseAxisStyle,
   baseTooltip,
@@ -18,7 +14,19 @@ import {
   CHART_X_AXIS_DATA_ZOOM,
   ECHARTS_BRAND,
   fixedYAxisConfig,
+  formatAmplitudeWithUnit,
+  industrialAxisConfig,
 } from "./echarts-theme";
+import {
+  buildVizContextFromPlot,
+  INDUSTRIAL_AXIS_GRID,
+  INDUSTRIAL_TRACE_COLORS,
+} from "./industrial-viz-standards";
+import {
+  buildThresholdSeriesOverlay,
+  extractSeriesPoints,
+  type ThresholdOverlayOptions,
+} from "./threshold-overlay";
 import {
   formatTimeMs,
   resolveSampleRateHz,
@@ -37,17 +45,24 @@ export function buildTimeWaveformOption(
   const { x, y } = downsampleWaveformSeries(displayPlot.x, displayPlot.y, WAVEFORM_MAX_POINTS);
   const seriesData = x.map((timeMs, i) => [timeMs, y[i]] as [number, number]);
   const points = extractSeriesPoints(seriesData);
+  const vizContext = buildVizContextFromPlot(
+    displayPlot.metadata,
+    displayPlot.y_label,
+    resolveSampleRateHz(displayPlot, configuredSampleRateHz),
+    displayPlot.y.length
+  );
   const yRange = expandBoundsForThresholds(
-    computeYAxisBounds(displayPlot.y),
+    computeSymmetricYAxisBounds(displayPlot.y),
     echartsThresholdValues(displayPlot, overlayOptions)
   );
-  const sampleRateHz = resolveSampleRateHz(plot, configuredSampleRateHz);
+  const sampleRateHz = vizContext.sampleRateHz ?? resolveSampleRateHz(plot, configuredSampleRateHz);
   const thresholdOverlay = buildThresholdSeriesOverlay(
     points,
     displayPlot,
     { showShading: true, showCrossings: true, ...overlayOptions },
     yRange?.[1]
   );
+  const traceColor = INDUSTRIAL_TRACE_COLORS.time_waveform;
 
   return {
     backgroundColor: ECHARTS_BRAND.plot,
@@ -60,12 +75,19 @@ export function buildTimeWaveformOption(
         const point = items[0];
         if (!point || !Array.isArray(point.value)) return "";
         const [timeMs, amplitude] = point.value as [number, number];
-        return [
+        const lines = [
           `<span style="font-weight:600;color:${ECHARTS_BRAND.blue}">${displayPlot.title}</span>`,
           `Time: <b>${formatTimeMs(timeMs)}</b>`,
-          `Amplitude: <b>${amplitude.toFixed(4)}</b>`,
-          `<span style="color:${ECHARTS_BRAND.muted};font-size:12px">${sampleRateHz.toLocaleString()} Hz · ${displayPlot.y.length} samples</span>`,
-        ].join("<br/>");
+          `Amplitude: <b>${formatAmplitudeWithUnit(amplitude, vizContext.yUnit)}</b>`,
+          `<span style="color:${ECHARTS_BRAND.muted};font-size:12px">${sampleRateHz.toLocaleString()} Hz · ${displayPlot.y.length.toLocaleString()} samples</span>`,
+        ];
+        if (vizContext.sampleCount) {
+          const durationMs = ((vizContext.sampleCount - 1) / sampleRateHz) * 1000;
+          lines.push(
+            `<span style="color:${ECHARTS_BRAND.muted};font-size:12px">Record length: ${formatTimeMs(durationMs)}</span>`
+          );
+        }
+        return lines.join("<br/>");
       },
     },
     toolbox: CHART_TOOLBOX_OFF,
@@ -75,6 +97,7 @@ export function buildTimeWaveformOption(
       name: displayPlot.x_label,
       nameLocation: "middle",
       nameGap: 30,
+      min: 0,
       nameTextStyle: {
         color: ECHARTS_BRAND.blue,
         fontFamily: ECHARTS_BRAND.font,
@@ -82,6 +105,7 @@ export function buildTimeWaveformOption(
         fontWeight: 500,
       },
       ...baseAxisStyle(),
+      ...industrialAxisConfig(INDUSTRIAL_AXIS_GRID.splitNumber),
       axisLabel: {
         color: ECHARTS_BRAND.muted,
         fontFamily: ECHARTS_BRAND.font,
@@ -101,6 +125,7 @@ export function buildTimeWaveformOption(
         fontWeight: 500,
       },
       ...baseAxisStyle(),
+      ...industrialAxisConfig(INDUSTRIAL_AXIS_GRID.splitNumber),
       ...fixedYAxisConfig(yRange?.[0], yRange?.[1]),
     },
     series: [
@@ -109,8 +134,7 @@ export function buildTimeWaveformOption(
         name: displayPlot.title,
         showSymbol: false,
         smooth: false,
-        lineStyle: { color: ECHARTS_BRAND.blue, width: 1.5 },
-        areaStyle: { color: "rgba(217, 140, 0, 0.12)" },
+        lineStyle: { color: traceColor, width: 1.5 },
         emphasis: {
           focus: "series",
           lineStyle: { width: 2, color: ECHARTS_BRAND.orange },

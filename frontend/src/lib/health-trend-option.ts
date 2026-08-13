@@ -12,7 +12,9 @@ import {
   baseTooltip,
   CHART_X_AXIS_DATA_ZOOM,
   ECHARTS_BRAND,
+  industrialAxisConfig,
 } from "./echarts-theme";
+import { INDUSTRIAL_AXIS_GRID } from "./industrial-viz-standards";
 
 const HEALTH_CHART_GRID = {
   left: 44,
@@ -90,6 +92,7 @@ export function buildHealthTrendOption(
       max: yMax + padding,
       scale: false,
       ...baseAxisStyle(),
+      ...industrialAxisConfig(INDUSTRIAL_AXIS_GRID.splitNumber),
       axisLabel: {
         ...baseAxisStyle().axisLabel,
         fontSize: 10,

@@ -74,8 +74,20 @@ export function baseAxisStyle() {
       fontSize: 12,
     },
     splitLine: {
+      show: true,
       lineStyle: { color: ECHARTS_BRAND.grid, width: 1 },
     },
+    minorSplitLine: {
+      show: false,
+    },
+  };
+}
+
+/** Industrial CM axis configuration — consistent grid divisions. */
+export function industrialAxisConfig(splitNumber = 5) {
+  return {
+    splitNumber,
+    minInterval: 0,
   };
 }
 
@@ -122,3 +134,5 @@ export function formatMagnitude(value: number): string {
   if (abs >= 1) return value.toFixed(4);
   return value.toExponential(3);
 }
+
+export { formatAmplitudeWithUnit } from "./industrial-viz-standards";

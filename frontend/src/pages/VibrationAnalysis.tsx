@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, Settings2 } from "lucide-react";
+import { Upload, Settings2, Trash2 } from "lucide-react";
 import { listEquipment, getEquipment } from "@/api/equipment";
 import {
   createBaselineFromUpload,
@@ -50,6 +50,12 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString();
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function VibrationAnalysisPage() {
   const queryClient = useQueryClient();
   const [equipmentId, setEquipmentId] = useState("");
@@ -62,6 +68,7 @@ export function VibrationAnalysisPage() {
   const [selectedBaselineId, setSelectedBaselineId] = useState("");
   const [plotSource, setPlotSource] = useState<PlotSource>("upload");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activePlotType, setActivePlotType] = useState<PlotType>("time_waveform");
   const [baselineModalOpen, setBaselineModalOpen] = useState(false);
   const [selectedUploadMeta, setSelectedUploadMeta] = useState<SensorDataUpload | null>(null);
@@ -184,6 +191,9 @@ export function VibrationAnalysisPage() {
       queryClient.invalidateQueries({ queryKey: ["upload-features", upload.id] });
       setActiveTab("trend");
       setPdfFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       setTimeout(() => refetchPlots(), 100);
     },
   });
@@ -204,6 +214,13 @@ export function VibrationAnalysisPage() {
   });
 
   const sensors = (equipment as EquipmentOut | undefined)?.sensors ?? [];
+
+  const handleRemoveFile = () => {
+    setPdfFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const plotsByType = useMemo(() => {
     const map = new Map<PlotType, PlotSeries>();
@@ -334,20 +351,49 @@ export function VibrationAnalysisPage() {
             CSV or PDF with rows: timestamp_, ch0, ch1, ... and numeric values.
           </p>
           <div className="flex flex-col md:flex-row md:items-end gap-2">
-            <FormField label="Data file" className="flex-1 min-w-0" compact>
-              <input
-                type="file"
-                accept=".pdf,.csv,application/pdf,text/csv"
+            {!pdfFile ? (
+              <FormField label="Data file" className="flex-1 min-w-0" compact>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.csv,application/pdf,text/csv"
+                  className={cn(
+                    "w-full text-base text-foreground file:mr-3 file:py-1.5 file:px-3",
+                    "file:rounded-md file:border file:border-border file:bg-white",
+                    "file:text-base file:font-medium file:text-foreground",
+                    "file:cursor-pointer hover:file:bg-warm"
+                  )}
+                  disabled={!sensorId || !canWrite}
+                  onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+                />
+              </FormField>
+            ) : (
+              <div
                 className={cn(
-                  "w-full text-base text-foreground file:mr-3 file:py-1.5 file:px-3",
-                  "file:rounded-md file:border file:border-border file:bg-white",
-                  "file:text-base file:font-medium file:text-foreground",
-                  "file:cursor-pointer hover:file:bg-warm"
+                  "flex flex-1 min-w-0 items-center justify-between gap-3 rounded-lg border border-border",
+                  "border-l-2 border-l-signal-light bg-white px-4 py-3"
                 )}
-                disabled={!sensorId || !canWrite}
-                onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
-              />
-            </FormField>
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{pdfFile.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatFileSize(pdfFile.size)}
+                    {pdfFile.type ? ` · ${pdfFile.type}` : ""}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  icon={<Trash2 size={14} />}
+                  onClick={handleRemoveFile}
+                  disabled={uploadMutation.isPending}
+                  className="shrink-0"
+                >
+                  Remove File
+                </Button>
+              </div>
+            )}
             <Button
               onClick={() => uploadMutation.mutate()}
               disabled={!sensorId || !pdfFile || uploadMutation.isPending || !canWrite}

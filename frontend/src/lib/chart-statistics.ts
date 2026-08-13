@@ -75,9 +75,11 @@ export function sliceValuesByZoomPercent(
   return values.slice(start, end);
 }
 
-export function formatStatValue(value: number | null, digits = 4): string {
+export function formatStatValue(value: number | null, digits = 4, unit?: string): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  if (Math.abs(value) >= 1000) return value.toExponential(3);
-  if (Math.abs(value) >= 1) return value.toFixed(digits);
-  return value.toFixed(Math.min(digits + 2, 6));
+  let formatted: string;
+  if (Math.abs(value) >= 1000) formatted = value.toExponential(3);
+  else if (Math.abs(value) >= 1) formatted = value.toFixed(digits);
+  else formatted = value.toFixed(Math.min(digits + 2, 6));
+  return unit ? `${formatted} ${unit}` : formatted;
 }
