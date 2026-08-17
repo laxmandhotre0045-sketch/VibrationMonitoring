@@ -9,6 +9,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
+from app.routers.dashboard import router as dashboard_router
 from app.routers.equipment import router as equipment_router
 from app.routers.lookups import router as lookups_router
 from app.routers.measurements import router as measurements_router
@@ -73,6 +74,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(baselines_router)
+app.include_router(dashboard_router)
 app.include_router(equipment_router)
 app.include_router(lookups_router)
 app.include_router(measurements_router)

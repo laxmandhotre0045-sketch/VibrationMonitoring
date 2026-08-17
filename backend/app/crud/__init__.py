@@ -4,3 +4,4 @@ from app.crud.equipment import (
     get_sensors_by_equipment, get_sensor_by_id, create_sensor, update_sensor,
     delete_sensor, compute_ai_readiness,
 )
+from app.crud.dashboard import get_dashboard_summary
