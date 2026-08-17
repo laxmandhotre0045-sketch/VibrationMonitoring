@@ -6,6 +6,7 @@ from typing import Any
 
 from app.models.measurement import PlotConfiguration
 from app.models.sensor import SensorConfiguration
+from app.services.signal_processing import SAMPLES_PER_LINE
 
 DEFAULT_SAMPLE_RATE_HZ = 256_000.0
 DEFAULT_LOR = 51_200
@@ -32,19 +33,22 @@ def compute_acquisition_formula(
     overlap_decimal: float = 0.0,
     average_count: int = 1,
 ) -> dict[str, float]:
-    block_time = lor / sample_rate_hz
-    step = int(lor * (1.0 - overlap_decimal))
+    # lor is lines of resolution, so the device must capture SAMPLES_PER_LINE
+    # samples per line — the same block sizing compute_fft_spectrum applies.
+    required_samples = lor * SAMPLES_PER_LINE
+    block_time = required_samples / sample_rate_hz
+    step = int(required_samples * (1.0 - overlap_decimal))
     return {
-        "frequencyResolutionHz": sample_rate_hz / lor,
+        "frequencyResolutionHz": sample_rate_hz / required_samples,
         "blockTimeSeconds": block_time,
         "sampleRateHz": sample_rate_hz,
-        "requiredSamples": float(lor),
+        "requiredSamples": float(required_samples),
         "overlapDecimal": overlap_decimal,
         "totalAcquisitionTimeSeconds": block_time * average_count,
         "averageCount": float(average_count),
         "fmaxHz": DEFAULT_FMAX_HZ,
         "lor": float(lor),
-        "stepSizeSamples": float(step if step > 0 else lor),
+        "stepSizeSamples": float(step if step > 0 else required_samples),
     }
 
 
