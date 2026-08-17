@@ -333,7 +333,7 @@ The `× 0.01` test catches the common case where every row in a batch shares one
 |----------|--------|
 | `compute_time_waveform(ts, samples, fs)` | `{x: resolved time (s), y: samples, x_label:"Time (s)", y_label:"Amplitude", title:"Time Waveform", metadata:{plot_style:"line"}}` |
 | `compute_circular_time_waveform(ts, samples, max_points=2048)` | Decimates by striding, then maps `θ = linspace(0, 2π, n, endpoint=False)`, `x = A·cos θ`, `y = A·sin θ`. Requires ≥4 samples |
-| `compute_fft_spectrum(samples, fs, fft_lines, frequency_max_hz)` | Truncates to `min(fft_lines, n)`, applies a **Hann window** (`np.hanning`), computes `abs(fft(windowed))[:n//2] × 2/n` (single-sided amplitude scaling), builds `fftfreq(n, 1/fs)[:n//2]`, optionally masks to `frequency_max_hz`. Metadata records `fft_lines` and `sampling_rate_hz` |
+| `compute_fft_spectrum(samples, fs, fft_lines, frequency_max_hz)` | Treats `fft_lines` as **lines of resolution**: a block of `SAMPLES_PER_LINE × fft_lines` samples (capped at `n`, floored at 4) yields `block//2` lines. A capture longer than one block is split into 50 %-overlapping blocks whose magnitude spectra are averaged, so the whole capture contributes instead of only its first block. Each block is **Hann**-windowed (`np.hanning`) and the averaged magnitude is scaled by `2 / window.sum()` — the window's coherent gain, not the sample count, so peak amplitudes match the input signal. Builds `fftfreq(block, 1/fs)[:block//2]`, optionally masks to `frequency_max_hz`. Metadata records `fft_lines` (the realised line count), `block_size`, `averages`, and `sampling_rate_hz` |
 | `compute_envelope_spectrum(...)` | Hilbert transform → `abs(analytic)` → subtract the mean (removes the DC pedestal) → FFT of the envelope. Retitled "Envelope Spectrum", y-label "Envelope Magnitude" |
 | `compute_trend_plot(ts, samples, fs, num_segments=32)` | Splits into 32 equal segments, computes RMS per segment, and places each point at the segment mid-time |
 
@@ -469,15 +469,17 @@ Four status constants (`normal`, `warning`, `critical`, `no_baseline`) and a `Th
 
 Defaults used when a sensor has no plot configuration: `DEFAULT_SAMPLE_RATE_HZ = 256_000.0`, `DEFAULT_LOR = 51_200`, `DEFAULT_FMAX_HZ = 15_000.0`, `DEFAULT_CHANNEL_COUNT = 8`, `DEFAULT_WINDOW = "HANNING"`, `DEFAULT_MINUTES = "1"`, `DEFAULT_AVERAGING = 1`, `DEFAULT_OVERLAP = 0`.
 
+`lor` is a **line count**, so the device must capture `requiredSamples = lor × SAMPLES_PER_LINE` samples per block. That constant is imported from `signal_processing`, which is the same factor `compute_fft_spectrum` uses to size its block — the two sides cannot drift apart.
+
 `compute_acquisition_formula(sample_rate, lor, overlap, average_count)` returns:
 
 | Field | Formula |
 |-------|---------|
-| `frequencyResolutionHz` | `sample_rate / lor` |
-| `blockTimeSeconds` | `lor / sample_rate` |
-| `requiredSamples` | `lor` |
+| `requiredSamples` | `lor × SAMPLES_PER_LINE` (= `2 × lor`) |
+| `frequencyResolutionHz` | `sample_rate / requiredSamples` |
+| `blockTimeSeconds` | `requiredSamples / sample_rate` |
 | `totalAcquisitionTimeSeconds` | `blockTime × averageCount` |
-| `stepSizeSamples` | `lor × (1 − overlap)`, floored at `lor` when the result is ≤ 0 |
+| `stepSizeSamples` | `requiredSamples × (1 − overlap)`, floored at `requiredSamples` when the result is ≤ 0 |
 | `sampleRateHz`, `overlapDecimal`, `averageCount`, `fmaxHz`, `lor` | Pass-through |
 
 `_axis_from_orientation` maps the sensor's orientation to `HORIZONTAL` / `AXIAL` / `VERTICAL` (default). `build_channels` emits one entry per channel with `channelIndex` starting at **1** (edge convention) while the platform's own channels are 0-based (`ch0`).
