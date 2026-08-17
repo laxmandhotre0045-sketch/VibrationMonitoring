@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, ChevronDown, Building2, LogOut, User } from "lucide-react";
+import { Search, Bell, ChevronDown, Building2, LogOut, User, Menu, X } from "lucide-react";
 import { useLayout } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { PLANTS } from "./nav-config";
@@ -9,7 +9,12 @@ import { cn } from "@/lib/utils";
 
 const navBtn = "bg-white border border-border hover:border-signal-light transition-colors rounded-lg";
 
-export function TopNav() {
+interface TopNavProps {
+  onMenuClick?: () => void;
+  menuOpen?: boolean;
+}
+
+export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
   const { selectedPlant, setSelectedPlant } = useLayout();
   const { user, roles, logout } = useAuth();
   const [searchFocused, setSearchFocused] = useState(false);
@@ -21,6 +26,15 @@ export function TopNav() {
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-6 py-3 bg-warm border-b border-border shadow-nav">
+      {onMenuClick && (
+        <button
+          onClick={onMenuClick}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          className={cn("md:hidden flex items-center justify-center p-2 shrink-0", navBtn)}
+        >
+          {menuOpen ? <X size={20} className="text-brand" /> : <Menu size={20} className="text-brand" />}
+        </button>
+      )}
       <div className={cn("relative hidden md:block transition-all duration-200", searchFocused ? "w-[400px]" : "w-80")}>
         <Search size={16} className={cn("absolute left-3 top-1/2 -translate-y-1/2", searchFocused ? "text-signal-light" : "text-muted-foreground")} />
         <input
