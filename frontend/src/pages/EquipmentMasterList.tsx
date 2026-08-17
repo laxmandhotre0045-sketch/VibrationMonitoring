@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,6 +17,8 @@ import { CRITICALITY_COLORS, CRITICALITY_DOT, ASSET_STATUS_COLORS } from "@/type
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLayout } from "@/contexts/LayoutContext";
+import { ALL_PLANTS } from "@/components/layout/nav-config";
 import { WRITE_ROLES } from "@/lib/role-access";
 import { emptyEquipment } from "@/images";
 import { PageHero } from "@/components/layout/PageHero";
@@ -48,12 +50,19 @@ export function EquipmentMasterList() {
   const [filterCriticality, setFilterCriticality] = useState("");
   const [page, setPage] = useState(1);
 
+  const { selectedPlant } = useLayout();
+  const plantFilter = selectedPlant === ALL_PLANTS ? undefined : selectedPlant;
+
+  // A narrower plant may have fewer pages than the one currently shown.
+  useEffect(() => setPage(1), [selectedPlant]);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["equipment", page, filterType, filterCriticality],
+    queryKey: ["equipment", page, filterType, filterCriticality, plantFilter ?? "all"],
     queryFn: () =>
       listEquipment({
         page,
         page_size: 20,
+        plant_name: plantFilter,
         machine_type: filterType || undefined,
         machine_criticality: filterCriticality || undefined,
       }),

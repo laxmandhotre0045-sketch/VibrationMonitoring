@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { sensoVibeLogo, sensoVibeMark } from "@/images";
 import { NAV_ITEMS } from "./nav-config";
 import { useLayout } from "@/contexts/LayoutContext";
@@ -141,11 +141,6 @@ export function Sidebar({ onClose }: SidebarProps) {
                     >
                       {item.label}
                     </p>
-                    {!item.active && (
-                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock size={13} aria-hidden /> Coming Soon
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

@@ -13,7 +13,10 @@ def get_equipment_list(db: Session, page: int = 1, page_size: int = 20,
                        machine_criticality: Optional[str] = None):
     query = db.query(Equipment)
     if plant_name:
-        query = query.filter(Equipment.plant_name.ilike(f"%{plant_name}%"))
+        # Exact (case-insensitive) match: the plant selector supplies values
+        # straight from the lookup, and a substring match would leak one plant's
+        # equipment into another's view (e.g. "mumbai" matching "navi mumbai").
+        query = query.filter(func.lower(Equipment.plant_name) == plant_name.strip().lower())
     if machine_type:
         query = query.filter(Equipment.machine_type == machine_type)
     if machine_criticality:

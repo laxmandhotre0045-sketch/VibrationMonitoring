@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, Settings2, Trash2 } from "lucide-react";
 import { listEquipment, getEquipment } from "@/api/equipment";
+import { useLayout } from "@/contexts/LayoutContext";
+import { ALL_PLANTS } from "@/components/layout/nav-config";
 import {
   createBaselineFromUpload,
   getBaselinePlots,
@@ -78,10 +80,21 @@ export function VibrationAnalysisPage() {
   const { hasRole } = useAuth();
   const canWrite = hasRole(WRITE_ROLES);
 
+  const { selectedPlant } = useLayout();
+  const plantFilter = selectedPlant === ALL_PLANTS ? undefined : selectedPlant;
+
   const { data: equipmentList } = useQuery({
-    queryKey: ["equipment-list-analysis"],
-    queryFn: () => listEquipment({ page: 1, page_size: 100 }),
+    queryKey: ["equipment-list-analysis", plantFilter ?? "all"],
+    queryFn: () => listEquipment({ page: 1, page_size: 100, plant_name: plantFilter }),
   });
+
+  // Drop the selection on a plant switch so a machine from the previous plant
+  // cannot stay loaded once it has left the dropdown.
+  useEffect(() => {
+    setEquipmentId("");
+    setSensorId("");
+    setSelectedUploadId("");
+  }, [selectedPlant]);
 
   const { data: equipment } = useQuery({
     queryKey: ["equipment-detail", equipmentId],

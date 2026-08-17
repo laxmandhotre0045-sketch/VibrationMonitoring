@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.dependencies.auth import get_current_user
+from app.models.equipment import Equipment
 
 router = APIRouter(
     prefix="/api/v1/lookups",
@@ -64,9 +67,26 @@ LOOKUPS = {
 }
 
 
+def plant_names(db: Session) -> list[str]:
+    """Distinct plant names actually present in the equipment master."""
+    rows = (
+        db.query(Equipment.plant_name)
+        .distinct()
+        .order_by(Equipment.plant_name.asc())
+        .all()
+    )
+    return [row[0] for row in rows if (row[0] or "").strip()]
+
+
 @router.get("/")
-def get_all_lookups():
-    return LOOKUPS
+def get_all_lookups(db: Session = Depends(get_db)):
+    return {**LOOKUPS, "plants": plant_names(db)}
+
+
+# Declared before /{lookup_name} so the catch-all does not swallow it.
+@router.get("/plants")
+def get_plants(db: Session = Depends(get_db)):
+    return {"lookup": "plants", "values": plant_names(db)}
 
 
 @router.get("/{lookup_name}")

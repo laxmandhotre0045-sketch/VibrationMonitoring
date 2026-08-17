@@ -1,9 +1,12 @@
 import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, ChevronDown, Building2, LogOut, User, Menu, X } from "lucide-react";
+import { Search, ChevronDown, Building2, LogOut, User, Menu, X } from "lucide-react";
 import { useLayout } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { PLANTS } from "./nav-config";
+import { getLookup } from "@/api/equipment";
+import { NotificationBell } from "./NotificationBell";
+import { ALL_PLANTS } from "./nav-config";
 import { primaryRole, roleLabel } from "@/lib/role-access";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +23,15 @@ export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [plantOpen, setPlantOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const [notifications] = useState(3);
 
   const badge = roleLabel(primaryRole(roles));
+
+  const { data: plants } = useQuery({
+    queryKey: ["lookup", "plants"],
+    queryFn: () => getLookup("plants"),
+    staleTime: 5 * 60_000,
+  });
+  const plantOptions = [ALL_PLANTS, ...(plants ?? [])];
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-6 py-3 bg-warm border-b border-border shadow-nav">
@@ -64,7 +73,7 @@ export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
                   transition={{ duration: 0.15 }}
                   className="absolute right-0 top-full mt-1 w-56 z-20 py-1 rounded-lg bg-white border border-border shadow-card-hover"
                 >
-                  {PLANTS.map((plant) => (
+                  {plantOptions.map((plant) => (
                     <button
                       key={plant}
                       onClick={() => { setSelectedPlant(plant); setPlantOpen(false); }}
@@ -82,14 +91,7 @@ export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
           </AnimatePresence>
         </div>
 
-        <button className={cn("relative p-2", navBtn)}>
-          <Bell size={18} className="text-brand" />
-          {notifications > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[10px] font-bold text-white bg-signal-dark rounded-full">
-              {notifications}
-            </span>
-          )}
-        </button>
+        <NotificationBell className={navBtn} />
 
         <div className="relative">
           <button

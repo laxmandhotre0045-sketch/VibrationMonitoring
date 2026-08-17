@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -14,5 +16,8 @@ router = APIRouter(
 
 
 @router.get("/summary", response_model=DashboardSummaryOut)
-def get_dashboard_summary(db: Session = Depends(get_db)):
-    return crud.get_dashboard_summary(db)
+def get_dashboard_summary(
+    plant_name: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return crud.get_dashboard_summary(db, plant_name=plant_name)

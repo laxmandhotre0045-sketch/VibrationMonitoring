@@ -32,9 +32,25 @@ def _latest_upload_per_sensor(db: Session) -> Dict[UUID, SensorDataUpload]:
     return latest
 
 
-def get_dashboard_summary(db: Session, alert_limit: int = 20, activity_limit: int = 10):
-    equipment_list = db.query(Equipment).order_by(Equipment.machine_name.asc()).all()
+def get_dashboard_summary(
+    db: Session,
+    alert_limit: int = 20,
+    activity_limit: int = 10,
+    plant_name: Optional[str] = None,
+):
+    equipment_query = db.query(Equipment)
+    if plant_name:
+        equipment_query = equipment_query.filter(
+            func.lower(Equipment.plant_name) == plant_name.strip().lower()
+        )
+    equipment_list = equipment_query.order_by(Equipment.machine_name.asc()).all()
+
     sensors = db.query(SensorConfiguration).all()
+    if plant_name:
+        # Scope sensors (and therefore alerts and activity) to the selected plant.
+        equipment_ids = {e.id for e in equipment_list}
+        sensors = [s for s in sensors if s.equipment_id in equipment_ids]
+
     sensors_by_equipment: Dict[UUID, List[SensorConfiguration]] = {}
     for sensor in sensors:
         sensors_by_equipment.setdefault(sensor.equipment_id, []).append(sensor)
@@ -139,9 +155,13 @@ def get_dashboard_summary(db: Session, alert_limit: int = 20, activity_limit: in
     equipment_by_id = {e.id: e for e in equipment_list}
     sensor_by_id = {s.id: s for s in sensors}
 
+    upload_query = db.query(SensorDataUpload)
+    if plant_name:
+        upload_query = upload_query.filter(
+            SensorDataUpload.sensor_id.in_([s.id for s in sensors])
+        )
     recent_uploads = (
-        db.query(SensorDataUpload)
-        .order_by(SensorDataUpload.created_at.desc())
+        upload_query.order_by(SensorDataUpload.created_at.desc())
         .limit(activity_limit)
         .all()
     )
