@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { Settings } from "lucide-react";
 import { PageHero } from "@/components/layout/PageHero";
-import { ComingSoon } from "@/components/layout/ComingSoon";
 import { SettingsTabNav } from "@/components/settings/SettingsTabNav";
 import { VibrationSettingsModule } from "@/components/settings/vibration/VibrationSettingsModule";
+import { PlatformSettingsModule } from "@/components/settings/platform/PlatformSettingsModule";
 import type { SettingsModuleId } from "@/types/vibration-settings";
 import { analysisPageStack } from "@/components/analysis/analysis-layout";
 
@@ -21,21 +20,7 @@ export function SettingsPage() {
 
       <SettingsTabNav activeModule={activeModule} onModuleChange={setActiveModule} />
 
-      {activeModule === "vibration" ? (
-        <VibrationSettingsModule />
-      ) : (
-        <ComingSoon
-          title="Platform Settings"
-          subtitle="User management, plant hierarchy, notification rules, and integration settings."
-          icon={Settings}
-          features={[
-            "Role-based access control",
-            "Plant & area hierarchy",
-            "Notification rules",
-            "API & webhook integrations",
-          ]}
-        />
-      )}
+      {activeModule === "vibration" ? <VibrationSettingsModule /> : <PlatformSettingsModule />}
     </div>
   );
 }
