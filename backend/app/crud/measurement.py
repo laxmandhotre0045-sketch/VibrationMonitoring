@@ -56,6 +56,9 @@ def create_upload_record(
     upload_id: UUID | None = None,
     original_filename: str | None = None,
     source: str = "manual",
+    measured_at: datetime | None = None,
+    rotation_speed_rpm: float | None = None,
+    api_key_id: UUID | None = None,
 ) -> SensorDataUpload:
     kwargs: dict = {
         "sensor_id": sensor_id,
@@ -68,6 +71,14 @@ def create_upload_record(
         kwargs["original_filename"] = original_filename
     if upload_id is not None:
         kwargs["id"] = upload_id
+    # A manual upload has no capture clock of its own, so it keeps the receipt
+    # time that created_at already records rather than claiming a measured_at.
+    if measured_at is not None:
+        kwargs["measured_at"] = measured_at
+    if rotation_speed_rpm is not None:
+        kwargs["rotation_speed_rpm"] = rotation_speed_rpm
+    if api_key_id is not None:
+        kwargs["api_key_id"] = api_key_id
     upload = SensorDataUpload(**kwargs)
     db.add(upload)
     db.commit()

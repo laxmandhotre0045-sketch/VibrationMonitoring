@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.user import Role, User, UserRole, RefreshToken
@@ -127,3 +128,72 @@ def super_admin_exists(db: Session) -> bool:
         .first()
         is not None
     )
+
+
+# ── Admin user management ───────────────────────────────────────────────────
+# users.role is the column every authorisation check reads; the user_roles join
+# table is the older representation and is kept in sync so both agree.
+
+def list_users(
+    db: Session,
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+) -> List[User]:
+    query = db.query(User).options(joinedload(User.roles))
+    if search:
+        pattern = f"%{search.strip().lower()}%"
+        query = query.filter(
+            func.lower(User.email).like(pattern) | func.lower(User.full_name).like(pattern)
+        )
+    if role:
+        query = query.filter(User.role == role)
+    if is_active is not None:
+        query = query.filter(User.is_active.is_(is_active))
+    return query.order_by(User.full_name.asc()).all()
+
+
+def set_user_roles(db: Session, user: User, role_names: List[str]) -> None:
+    """Replace the join-table rows and the denormalised role column together."""
+    db.query(UserRole).filter(UserRole.user_id == user.id).delete(synchronize_session=False)
+    for role_name in role_names:
+        role = get_role_by_name(db, role_name)
+        if role:
+            db.add(UserRole(user_id=user.id, role_id=role.id))
+    user.role = primary_role(role_names)
+
+
+def update_user(db: Session, user: User, data: dict) -> User:
+    new_role = data.pop("role", None)
+    for field, value in data.items():
+        setattr(user, field, value)
+    if new_role and new_role != user.role:
+        set_user_roles(db, user, [new_role])
+    db.commit()
+    db.refresh(user)
+    return get_user_by_id(db, user.id)
+
+
+def set_user_password(db: Session, user: User, password_hash: str, must_change: bool) -> User:
+    user.password_hash = password_hash
+    user.must_change_password = must_change
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def delete_user(db: Session, user: User) -> None:
+    db.delete(user)
+    db.commit()
+
+
+def count_active_super_admins(db: Session, excluding: Optional[UUID] = None) -> int:
+    query = db.query(User).filter(User.role == "super_admin", User.is_active.is_(True))
+    if excluding is not None:
+        query = query.filter(User.id != excluding)
+    return query.count()
+
+
+def role_user_counts(db: Session) -> dict:
+    rows = db.query(User.role, func.count(User.id)).group_by(User.role).all()
+    return {role: count for role, count in rows}

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
-from app.models.equipment import Equipment
+from app.models.plant import Plant
 
 router = APIRouter(
     prefix="/api/v1/lookups",
@@ -68,11 +68,16 @@ LOOKUPS = {
 
 
 def plant_names(db: Session) -> list[str]:
-    """Distinct plant names actually present in the equipment master."""
+    """Active plant names from the registry.
+
+    Reads the plants table rather than DISTINCT plant_name off equipment, so a
+    plant appears in the dropdown as soon as it is registered — before any
+    equipment has been assigned to it.
+    """
     rows = (
-        db.query(Equipment.plant_name)
-        .distinct()
-        .order_by(Equipment.plant_name.asc())
+        db.query(Plant.name)
+        .filter(Plant.is_active.is_(True))
+        .order_by(Plant.name.asc())
         .all()
     )
     return [row[0] for row in rows if (row[0] or "").strip()]

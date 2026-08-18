@@ -15,6 +15,13 @@ class Equipment(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Location & Hierarchy
+    # plant_id/area_id/line_id are the source of truth; the three text columns
+    # are denormalised copies kept in sync on write so existing filters,
+    # lookups and dashboard grouping keep working without a join.
+    plant_id = Column(UUID(as_uuid=True), ForeignKey("plants.id", ondelete="RESTRICT"), nullable=True, index=True)
+    area_id = Column(UUID(as_uuid=True), ForeignKey("areas.id", ondelete="RESTRICT"), nullable=True, index=True)
+    line_id = Column(UUID(as_uuid=True), ForeignKey("lines.id", ondelete="RESTRICT"), nullable=True, index=True)
+
     plant_name = Column(String(255), nullable=False)
     area = Column(String(255), nullable=False)
     line = Column(String(255), nullable=False)
@@ -77,3 +84,6 @@ class Equipment(Base):
 
     # Relationships
     sensors = relationship("SensorConfiguration", back_populates="equipment", cascade="all, delete-orphan")
+    plant = relationship("Plant")
+    area_ref = relationship("Area")
+    line_ref = relationship("Line")

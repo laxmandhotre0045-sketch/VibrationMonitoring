@@ -11,8 +11,12 @@ from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.equipment import router as equipment_router
+from app.routers.ingest import router as ingest_router
+from app.routers.integrations import router as integrations_router
 from app.routers.lookups import router as lookups_router
 from app.routers.measurements import router as measurements_router
+from app.routers.plants import router as plants_router
+from app.routers.users import router as users_router
 from app.services.seed import seed_role_users, seed_super_admin
 
 
@@ -76,8 +80,12 @@ app.include_router(auth_router)
 app.include_router(baselines_router)
 app.include_router(dashboard_router)
 app.include_router(equipment_router)
+app.include_router(ingest_router)
+app.include_router(integrations_router)
 app.include_router(lookups_router)
 app.include_router(measurements_router)
+app.include_router(plants_router)
+app.include_router(users_router)
 
 os.makedirs(settings.upload_dir, exist_ok=True)
 os.makedirs(settings.measurement_upload_dir, exist_ok=True)

@@ -11,6 +11,7 @@ from app.models.user import User
 from app.services.auth_service import decode_access_token
 
 WRITE_ROLES = {"super_admin", "admin"}
+ADMIN_ROLES = {"super_admin", "admin"}
 
 
 def _user_role(user: User) -> str:
@@ -65,3 +66,18 @@ def require_write_access(current_user: User = Depends(get_current_user)) -> User
             detail="Insufficient permissions",
         )
     return current_user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Admin or super_admin. Same set as write access today, but kept separate so
+    user administration can tighten independently of ordinary data writes."""
+    if _user_role(current_user) not in ADMIN_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator access required",
+        )
+    return current_user
+
+
+def is_super_admin(user: User) -> bool:
+    return _user_role(user) == "super_admin"

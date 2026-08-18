@@ -1,6 +1,8 @@
 """Persist and evaluate channel features + segment trends."""
 from __future__ import annotations
 
+import logging
+
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -23,6 +25,9 @@ from app.services.feature_extraction import (
 )
 from app.services.plot_generator import load_parsed_data
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
+from app.services.webhook_service import build_alert_payload, dispatch_alert
+
+logger = logging.getLogger(__name__)
 
 
 def _load_parsed_for_upload(db: Session, upload: SensorDataUpload) -> dict[str, Any]:
@@ -93,6 +98,9 @@ def persist_upload_features_and_trends(
     now = datetime.utcnow()
     feature_rows: list[MeasurementChannelFeature] = []
     trend_rows: list[MeasurementChannelFeatureTrend] = []
+    # Anything that evaluates to warning/critical here is what an alert webhook
+    # subscriber is waiting to hear about.
+    breached: list[dict] = []
 
     for channel, features in scalars.items():
         channel_rms = float(features.get("rms", {}).get("value", 0.0))
@@ -113,6 +121,15 @@ def persist_upload_features_and_trends(
                     channel_rms=channel_rms,
                     baseline_value=baseline_val,
                 )
+
+            if status in ("warning", "critical"):
+                breached.append({
+                    "channel": channel,
+                    "feature_code": code,
+                    "value": float(payload["value"]),
+                    "unit": payload["unit"],
+                    "status": status,
+                })
 
             feature_rows.append(
                 MeasurementChannelFeature(
@@ -151,7 +168,64 @@ def persist_upload_features_and_trends(
     if trend_rows:
         db.bulk_save_objects(trend_rows)
     db.commit()
+
+    # Fired only after the commit, so a webhook can never describe an alert that
+    # was rolled back. Dispatch is backgrounded and never raises into ingestion.
+    if breached:
+        _notify_alert_webhooks(db, upload, breached)
+
     return len(feature_rows), len(trend_rows)
+
+
+def _notify_alert_webhooks(
+    db: Session, upload: SensorDataUpload, breached: list[dict]
+) -> None:
+    try:
+        severity = "critical" if any(b["status"] == "critical" for b in breached) else "warning"
+        payload = build_alert_payload(
+            sensor_id=upload.sensor_id,
+            upload_id=upload.id,
+            equipment=_equipment_context(db, upload),
+            triggered=breached,
+        )
+        dispatch_alert(db, severity, payload)
+    except Exception:  # notification must never fail an ingest
+        logger.exception("Alert webhook dispatch failed for upload %s", upload.id)
+
+
+def _equipment_context(db: Session, upload: SensorDataUpload) -> dict:
+    """Enough identity for a receiver to route the alert without calling back."""
+    from app.models.equipment import Equipment
+    from app.models.sensor import SensorConfiguration
+
+    sensor = (
+        db.query(SensorConfiguration)
+        .filter(SensorConfiguration.id == upload.sensor_id)
+        .first()
+    )
+    if sensor is None:
+        return {}
+    equipment = (
+        db.query(Equipment).filter(Equipment.id == sensor.equipment_id).first()
+        if sensor.equipment_id
+        else None
+    )
+    context = {
+        "sensor_type": sensor.sensor_type,
+        "sensor_location": sensor.mounting_location,
+        "sensor_orientation": sensor.orientation,
+        "device_id": sensor.device_id,
+    }
+    if equipment is not None:
+        context.update({
+            "equipment_id": str(equipment.id),
+            "machine_name": equipment.machine_name,
+            "plant": equipment.plant_name,
+            "area": equipment.area,
+            "line": equipment.line,
+            "criticality": equipment.machine_criticality,
+        })
+    return context
 
 
 def copy_upload_features_to_baseline(

@@ -5,6 +5,7 @@ from sqlalchemy import func
 from app.models.equipment import Equipment
 from app.models.sensor import SensorConfiguration
 from app.schemas.equipment import EquipmentCreate, EquipmentUpdate, SensorConfigCreate, SensorConfigUpdate
+from app.crud import plant as plant_crud
 
 
 def get_equipment_list(db: Session, page: int = 1, page_size: int = 20,
@@ -34,10 +35,25 @@ def get_equipment_by_machine_id(db: Session, machine_id: str) -> Optional[Equipm
     return db.query(Equipment).filter(Equipment.machine_id == machine_id).first()
 
 
+
+def _apply_hierarchy_links(db: Session, equipment: Equipment) -> None:
+    """Point the equipment at the registry rows its plant/area/line names name.
+
+    The names are the authoritative input — that is what the form submits and
+    what every existing filter reads — so the ids are derived from them on every
+    write. An unregistered plant simply leaves the links null, which is the same
+    state migration 012 left rows in that it could not match.
+    """
+    equipment.plant_id, equipment.area_id, equipment.line_id = plant_crud.resolve_hierarchy(
+        db, equipment.plant_name, equipment.area, equipment.line
+    )
+
+
 def create_equipment(db: Session, data: EquipmentCreate) -> Equipment:
     sensors_data = data.sensors or []
     equipment_data = data.model_dump(exclude={"sensors"})
     db_equipment = Equipment(**equipment_data)
+    _apply_hierarchy_links(db, db_equipment)
     db.add(db_equipment)
     db.flush()
     for sensor in sensors_data:
@@ -55,6 +71,8 @@ def update_equipment(db: Session, equipment_id: UUID, data: EquipmentUpdate) -> 
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_equipment, field, value)
+    if {"plant_name", "area", "line"} & update_data.keys():
+        _apply_hierarchy_links(db, db_equipment)
     db.commit()
     db.refresh(db_equipment)
     return db_equipment
