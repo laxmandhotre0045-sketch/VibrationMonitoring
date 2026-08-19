@@ -114,10 +114,10 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#07111F] text-white overflow-hidden">
       {/* Left panel — industrial brand + intelligence visuals */}
-      <div className="relative flex flex-col px-6 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-10 lg:w-[54%] min-h-[360px] lg:min-h-screen lg:justify-center overflow-hidden">
+      <div className="relative flex flex-col px-g4 py-g5 sm:px-g5 sm:py-g6 lg:px-g6 lg:py-g6 lg:w-[61.8%] min-h-[360px] lg:min-h-screen lg:justify-center overflow-hidden">
         <LoginIntelligenceBg variant="left" />
 
-        <div className="relative z-10 flex flex-col gap-5 lg:gap-6 max-w-xl">
+        <div className="relative z-10 flex flex-col gap-g4 lg:gap-g4 max-w-xl">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -172,7 +172,7 @@ export function LoginPage() {
       </div>
 
       {/* Right panel — borderless login form */}
-      <div className="relative flex-1 flex items-center justify-center lg:justify-start px-6 py-8 lg:py-10 lg:pl-10 lg:pr-12">
+      <div className="relative flex-1 flex items-center justify-center lg:justify-start px-g4 py-g5 lg:py-g6 lg:pl-g6 lg:pr-g6">
         <LoginIntelligenceBg variant="right" />
 
         <motion.div

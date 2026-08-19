@@ -11,7 +11,7 @@ export function DigitalTwinHeader({ data, isEdit }: DigitalTwinHeaderProps) {
   return (
     <div className="content-card relative overflow-hidden">
       <HeroIntelligenceBg />
-      <div className="relative z-10 px-8 py-8">
+      <div className="relative z-10 px-g5 py-g5">
         <p className="text-overline text-brand/65 mb-2">
           Equipment Master
         </p>

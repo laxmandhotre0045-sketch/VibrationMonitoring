@@ -9,15 +9,15 @@ export function ChangePasswordPage() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background px-g4 py-g6">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
         className="w-full max-w-lg"
       >
-        <GlassCard className="p-8 text-center">
-          <div className="w-16 h-16 rounded-xl bg-white border border-border flex items-center justify-center mx-auto mb-6">
+        <GlassCard className="card-pad text-center">
+          <div className="w-16 h-16 rounded-xl bg-white border border-border flex items-center justify-center mx-auto mb-g4">
             <KeyRound size={28} className="text-signal-dark" />
           </div>
 
@@ -27,11 +27,11 @@ export function ChangePasswordPage() {
             Your administrator requires a password change before you can access the platform.
           </p>
           {user && (
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-muted-foreground mb-g4">
               Signed in as <span className="font-semibold text-brand">{user.email}</span>
             </p>
           )}
-          <p className="text-sm text-muted-foreground mb-8 px-2">
+          <p className="text-sm text-muted-foreground mb-g5 px-2">
             Password change API is not yet available. Contact your administrator.
           </p>
 

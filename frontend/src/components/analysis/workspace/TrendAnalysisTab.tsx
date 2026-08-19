@@ -9,7 +9,7 @@ interface TrendAnalysisTabProps {
 export function TrendAnalysisTab({ selectedUploadId }: TrendAnalysisTabProps) {
   return (
     <div className={analysisBodyStack}>
-      <div className="rounded-xl border border-dashed border-border bg-muted/10 px-6 py-10 text-center">
+      <div className="rounded-xl border border-dashed border-border bg-muted/10 px-g4 py-g6 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand/5 text-brand">
           <LineChart size={24} aria-hidden />
         </div>

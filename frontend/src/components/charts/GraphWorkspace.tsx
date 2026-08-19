@@ -191,7 +191,7 @@ export function GraphWorkspace({
         "graph-workspace rounded-xl border border-border bg-white shadow-[0_2px_12px_rgba(21,54,109,0.06)]",
         variant === "primary" ? "p-3 sm:p-4" : "p-3",
         isExpanded && usePortalFallback &&
-          "fixed inset-0 z-[200] m-0 flex h-dvh w-screen flex-col rounded-none border-0 p-4 sm:p-6",
+          "fixed inset-0 z-[200] m-0 flex h-dvh w-screen flex-col rounded-none border-0 p-g3 sm:p-g4",
         isExpanded && !usePortalFallback && "flex flex-col",
         className
       )}

@@ -66,19 +66,19 @@ function FormBody({
 
   return (
     <EquipmentPageShell>
-    <div className="space-y-11">
+    <div className="space-y-g5">
       <FormBreadcrumb editId={editId} />
       <DigitalTwinHeader data={data} isEdit={!!editId} />
 
-      <div className="flex flex-col xl:flex-row gap-8 items-start">
-        <div className="flex-1 min-w-0 w-full space-y-11">
+      <div className="flex flex-col xl:flex-row gap-g5 items-start">
+        <div className="flex-1 min-w-0 w-full space-y-g5">
           <FormStepper
             activeStep={activeTab}
             completedSteps={completedTabs}
             onStepClick={setActiveTab}
           />
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-11">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-g5">
             {/* Keep all tabs mounted so uncontrolled inputs never lose their values */}
             <div style={{ display: activeTab === 1 ? undefined : "none" }}><BasicDetailsTab onImageSelect={setPendingImage} /></div>
             <div style={{ display: activeTab === 2 ? undefined : "none" }}><MechanicalDetailsTab /></div>

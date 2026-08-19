@@ -34,15 +34,15 @@ export function PageHero({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={cn(
-        "relative mb-6",
+        "relative",
         vibrationBg && "content-card overflow-hidden"
       )}
     >
       {vibrationBg && <HeroIntelligenceBg />}
 
-      <div className={cn("relative z-10", vibrationBg && "px-6 lg:px-8 py-6 lg:py-7")}>
+      <div className={cn("relative z-10", vibrationBg && "card-pad")}>
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1.5 mb-3 text-base font-medium">
+          <nav className="flex items-center gap-1.5 mb-g2 text-sm font-medium">
             {breadcrumbs.map((crumb, i) => (
               <React.Fragment key={crumb.label}>
                 {i > 0 && <ChevronRight size={14} className="text-muted-foreground" />}
@@ -58,16 +58,16 @@ export function PageHero({
           </nav>
         )}
 
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-g4">
           <div className="space-y-1">
-            <h1 className="text-page-title lg:text-5xl">{title}</h1>
+            <h1 className="text-page-title lg:text-4xl">{title}</h1>
             <div className="brand-divider" />
-            <p className="text-base text-helper max-w-2xl pt-2">{subtitle}</p>
+            <p className="text-helper max-w-2xl pt-g1">{subtitle}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-g2">
             {equipmentCount !== undefined && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/90 border border-border shadow-card backdrop-blur-[2px]">
+              <div className="flex items-center gap-g2 px-g3 py-g2 rounded-lg bg-white/90 border border-border shadow-card backdrop-blur-[2px]">
                 <div>
                   <p className="text-overline">Equipment</p>
                   <p className="text-kpi-value text-brand">{equipmentCount.toLocaleString()}</p>

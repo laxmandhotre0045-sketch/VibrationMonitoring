@@ -37,7 +37,7 @@ export function StatusPill({ tone, children }: StatusPillProps) {
 export function EmptyRow({ colSpan, message }: { colSpan: number; message: string }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="px-4 py-10 text-center text-sm text-muted-foreground">
+      <td colSpan={colSpan} className="px-g4 py-g6 text-center text-sm text-muted-foreground">
         {message}
       </td>
     </tr>
@@ -47,7 +47,7 @@ export function EmptyRow({ colSpan, message }: { colSpan: number; message: strin
 export function LoadingRow({ colSpan }: { colSpan: number }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="px-4 py-10 text-center text-sm text-muted-foreground">
+      <td colSpan={colSpan} className="px-g4 py-g6 text-center text-sm text-muted-foreground">
         <span className="inline-flex items-center gap-2">
           <Loader2 size={16} className="animate-spin" />
           Loading…

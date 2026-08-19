@@ -44,7 +44,7 @@ export function PlatformSettingsModule() {
   // would otherwise land on a page of 403s.
   if (!hasRole(ADMIN_ROLES)) {
     return (
-      <div className="rounded-xl border border-border bg-[#FFFDF8] px-6 py-12 text-center shadow-[0_2px_14px_rgba(21,54,109,0.07)]">
+      <div className="rounded-xl border border-border bg-[#FFFDF8] px-g4 py-g6 text-center shadow-[0_2px_14px_rgba(21,54,109,0.07)]">
         <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand/[0.06] text-brand/60">
           <Lock size={22} />
         </span>

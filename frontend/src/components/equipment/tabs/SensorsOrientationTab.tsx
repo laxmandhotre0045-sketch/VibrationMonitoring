@@ -67,8 +67,8 @@ export function SensorsOrientationTab() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="flex flex-col gap-g5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-g5">
         <div className="lg:col-span-2">
           <SectionCard title="Sensor Mounting & Orientation" icon={<Radio size={16} />}>
             <div className="overflow-x-auto min-w-0">

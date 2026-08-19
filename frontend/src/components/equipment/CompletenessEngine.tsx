@@ -13,11 +13,11 @@ interface CompletenessEngineProps {
 export function CompletenessEngine({ data }: CompletenessEngineProps) {
   return (
     <div className={cn("bg-card border border-border rounded-xl", cardHover.panel)}>
-      <div className="px-8 py-5 border-b border-border flex items-center gap-3">
+      <div className="px-g5 py-5 border-b border-border flex items-center gap-3">
         <BarChart3 size={20} className="text-signal-dark" />
         <h3 className="text-section-title text-brand">Configuration Completeness</h3>
       </div>
-      <div className="p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="card-pad grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-g4">
         {COMPLETENESS_SECTIONS.map((section) => {
           const pct = getStepCompletion(data, section.id);
           return (

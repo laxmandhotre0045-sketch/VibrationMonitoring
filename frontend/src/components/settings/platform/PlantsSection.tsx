@@ -78,14 +78,14 @@ export function PlantsSection() {
         {error && <ErrorNote message={apiErrorMessage(error, "Failed to load plants")} />}
 
         {isLoading && (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-g2 py-g6 text-sm text-muted-foreground">
             <Loader2 size={16} className="animate-spin" />
             Loading hierarchy…
           </div>
         )}
 
         {!isLoading && !plants?.length && (
-          <div className="rounded-lg border border-dashed border-border bg-warm px-4 py-10 text-center">
+          <div className="rounded-lg border border-dashed border-border bg-warm px-g4 py-g6 text-center">
             <p className="text-sm font-semibold text-foreground">No plants yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Add a plant to start filing equipment under a hierarchy.

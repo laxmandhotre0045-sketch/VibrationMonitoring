@@ -41,24 +41,22 @@ export function SectionCard({
         className
       )}
     >
-      <div className="px-8 pt-8 pb-0 shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="card-pad pb-0 shrink-0">
+        <div className="flex items-center gap-g2">
           {icon && (
-            <span className="w-10 h-10 rounded-lg bg-[#FFA500]/10 orange-gradient-border flex items-center justify-center text-[#FFA500] shrink-0">
+            <span className="w-9 h-9 rounded-lg bg-[#FFA500]/10 orange-gradient-border flex items-center justify-center text-[#FFA500] shrink-0">
               {icon}
             </span>
           )}
           <div className="min-w-0">
             <h3 className="text-section-title">{title}</h3>
-            {description && (
-              <p className="text-base text-helper mt-1">{description}</p>
-            )}
+            {description && <p className="text-helper mt-g1">{description}</p>}
           </div>
         </div>
       </div>
       <div
         className={cn(
-          "p-8",
+          "card-pad pt-g3",
           equalHeight && "flex-1 min-h-0",
           scrollBody && cardSizing.scrollSm
         )}

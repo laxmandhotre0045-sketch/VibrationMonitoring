@@ -540,32 +540,82 @@
     @apply text-signal-dark font-bold tabular-nums;
   }
 
+  /* ---- Layout skeleton -------------------------------------------------
+     Every page used to invent its own rhythm: the dashboard stacked with
+     space-y-6, the equipment list hand-placed mb-8/mb-6/mt-6, analysis used
+     space-y-4. Three systems meant nothing lined up between pages. These four
+     classes are now the only vocabulary a page needs.
+     -------------------------------------------------------------------- */
+
+  /* Caps line length and centres it. Without this the content is w-full, and
+     on a wide monitor a four-up KPI row hands each card ~600px to hold a 36px
+     icon and one word — the "empty space" is inside the cards, not between. */
+  .page-shell {
+    @apply w-full mx-auto max-w-content;
+  }
+
+  /* Vertical rhythm between top-level page sections. */
+  .page-stack > * + * {
+    margin-top: theme("spacing.g5");
+  }
+
+  /* Rhythm between blocks inside one section or card. */
+  .section-stack > * + * {
+    margin-top: theme("spacing.g4");
+  }
+
+  /* The golden split, used for a primary/secondary column pair.
+     61.8% / 38.2% — the actual ratio, where the old layout approximated it
+     with a 3-column grid and col-span-2 (66.7/33.3). */
+  .grid-golden {
+    @apply grid grid-cols-1 gap-g3;
+  }
+
+  @media (min-width: 1024px) {
+    .grid-golden {
+      grid-template-columns: 1.618fr 1fr;
+      align-items: stretch;
+    }
+    .grid-golden-reverse {
+      grid-template-columns: 1fr 1.618fr;
+    }
+  }
+
+  /* Standard interior padding for a card. One value, one rung of the ladder. */
+  .card-pad {
+    padding: theme("spacing.g4");
+  }
+
+  .card-pad-tight {
+    padding: theme("spacing.g3");
+  }
+
   .text-overline {
-    @apply text-sm font-semibold uppercase tracking-wider text-muted-foreground;
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
   }
 
   .text-helper {
-    @apply text-base font-normal text-helper-foreground leading-relaxed;
+    @apply text-sm font-normal text-helper-foreground leading-relaxed;
   }
 
   .text-kpi-value {
-    @apply text-3xl font-bold text-foreground tabular-nums;
+    @apply text-2xl font-bold text-foreground tabular-nums leading-none;
   }
 
   .text-table-header {
-    @apply text-sm font-semibold text-muted-foreground uppercase tracking-wider;
+    @apply text-xs font-semibold text-muted-foreground uppercase tracking-wider;
   }
 
   .text-card-title {
-    @apply text-lg font-semibold text-foreground;
+    @apply text-base font-semibold text-foreground;
   }
 
   .text-section-title {
-    @apply text-2xl font-semibold text-foreground tracking-tight;
+    @apply text-xl font-semibold text-foreground tracking-tight;
   }
 
   .text-page-title {
-    @apply text-4xl font-bold text-brand tracking-tight;
+    @apply text-3xl font-bold text-brand tracking-tight;
   }
 
   @keyframes sensor-pulse {

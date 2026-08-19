@@ -11,7 +11,7 @@ export function UnauthorizedPage() {
   const { logout } = useAuth();
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center bg-background px-g4 py-g6 overflow-hidden">
       <HeroIntelligenceBg className="absolute inset-0 opacity-30" />
 
       <motion.div
@@ -20,14 +20,14 @@ export function UnauthorizedPage() {
         transition={{ duration: 0.35 }}
         className="relative z-10 w-full max-w-lg"
       >
-        <GlassCard className="p-8 text-center">
-          <div className="w-20 h-20 rounded-xl bg-white border border-border flex items-center justify-center mx-auto mb-6">
+        <GlassCard className="card-pad text-center">
+          <div className="w-20 h-20 rounded-xl bg-white border border-border flex items-center justify-center mx-auto mb-g4">
             <ShieldAlert size={36} className="text-signal-dark" />
           </div>
 
           <h1 className="text-2xl font-bold text-brand mb-2">Access Restricted</h1>
           <div className="brand-divider mx-auto mb-4" />
-          <p className="text-base text-helper mb-8">
+          <p className="text-base text-helper mb-g5">
             You do not have permission to access this area.
           </p>
 

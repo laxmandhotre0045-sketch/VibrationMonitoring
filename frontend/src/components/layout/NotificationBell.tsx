@@ -57,11 +57,11 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
               <div className="max-h-[380px] overflow-y-auto">
                 {isError ? (
-                  <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                  <p className="px-4 py-g4 text-sm text-muted-foreground text-center">
                     Could not load alerts.
                   </p>
                 ) : count === 0 ? (
-                  <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+                  <div className="px-4 py-g5 flex flex-col items-center gap-2 text-center">
                     <ShieldCheck size={22} className="text-machine-healthy" />
                     <p className="text-sm text-muted-foreground">
                       No active alerts — fleet is within normal thresholds.

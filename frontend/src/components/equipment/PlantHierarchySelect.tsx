@@ -80,7 +80,7 @@ export function PlantHierarchySelect() {
   const registryEmpty = !plantsLoading && !plants?.length;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-g4">
       <FormField
         label="Plant Name"
         hint={

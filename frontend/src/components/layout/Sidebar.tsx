@@ -38,7 +38,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       <div
         className={cn(
           "logo-zone flex flex-col justify-between min-h-[90px] md:justify-center",
-          sidebarCollapsed ? "px-3 py-5 items-center" : "px-6 py-5"
+          sidebarCollapsed ? "px-3 py-5 items-center" : "px-g4 py-5"
         )}
       >
         {/* Close button for mobile */}

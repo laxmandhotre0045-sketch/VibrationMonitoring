@@ -18,8 +18,8 @@ export function FormStepper({ activeStep, completedSteps, onStepClick }: FormSte
   );
 
   return (
-    <div className={cn("content-card p-6 sm:p-8", cardHover.soft)}>
-      <div className="flex items-center gap-4 mb-6 sm:mb-8">
+    <div className={cn("content-card card-pad", cardHover.soft)}>
+      <div className="flex items-center gap-4 mb-g4 sm:mb-g5">
         <span className="text-base font-medium text-muted-foreground shrink-0">
           Step <span className="font-bold text-[#FF6B00]">{activeStep}</span> of {FORM_STEPS.length}
         </span>

@@ -84,20 +84,68 @@ export default {
         xl: "0.75rem",
         "2xl": "1rem",
       },
+      /**
+       * Spacing ladder — Fibonacci, which converges on the golden ratio.
+       *
+       * 4, 8, 13, 21, 34, 55: each step is the sum of the two before it, so
+       * consecutive steps sit at 1.625, 1.615, 1.619... of each other. That is
+       * the golden ratio arriving on whole pixels, which a phi-multiplied
+       * ladder (16, 25.9, 41.9) never does.
+       *
+       * The rungs have jobs, and mixing them is what made the old layout feel
+       * arbitrary:
+       *   g1  4px  — icon-to-label, badge insets
+       *   g2  8px  — related controls on one row
+       *   g3 13px  — gap between sibling cards in a grid
+       *   g4 21px  — padding inside a card
+       *   g5 34px  — gap between page sections
+       *   g6 55px  — page top/bottom breathing room
+       */
+      spacing: {
+        g1: "0.25rem",
+        g2: "0.5rem",
+        g3: "0.8125rem",
+        g4: "1.3125rem",
+        g5: "2.125rem",
+        g6: "3.4375rem",
+      },
+      maxWidth: {
+        /* Content stops here so a 2560px monitor does not stretch a four-up
+           KPI row into four near-empty 600px cards. */
+        content: "1440px",
+        "content-wide": "1760px",
+      },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
       },
+      /**
+       * Type scale — golden ratio, cube-root stepped.
+       *
+       * Ratio is phi^(1/3) = 1.1740, so every THIRD step is exactly a golden
+       * jump: base(15) -> 2xl(24) -> ~5xl(38.5) is 1:phi:phi^2. A full phi
+       * between adjacent sizes is far too violent for UI, but a third of one
+       * gives a ramp that still resolves to golden proportions at the
+       * distances that read as hierarchy — body to section title, section
+       * title to page title.
+       *
+       * Below base the ratio halves to phi^(1/6) = 1.0844. Small text needs
+       * finer steps: at 12-15px a full 1.174 jump crosses the legibility floor
+       * in one move, and captions end up either shouting or unreadable.
+       *
+       * Sizes are in rem against a 16px root, which is why the values look
+       * unround. They are meant to be read as the px comments.
+       */
       fontSize: {
-        xs: ["0.875rem", { lineHeight: "1.25rem" }],
-        sm: ["1rem", { lineHeight: "1.5rem" }],
-        base: ["1.125rem", { lineHeight: "1.75rem" }],
-        lg: ["1.25rem", { lineHeight: "1.875rem" }],
-        xl: ["1.375rem", { lineHeight: "2rem" }],
-        "2xl": ["1.75rem", { lineHeight: "2.125rem" }],
-        "3xl": ["2.125rem", { lineHeight: "2.5rem" }],
-        "4xl": ["2.5rem", { lineHeight: "2.75rem" }],
-        "5xl": ["3rem", { lineHeight: "1.15" }],
-        overline: ["0.875rem", { lineHeight: "1.25rem", letterSpacing: "0.05em", fontWeight: "600" }],
+        xs: ["0.78125rem", { lineHeight: "1.125rem" }],   /* 12.5 / 18   */
+        sm: ["0.859375rem", { lineHeight: "1.25rem" }],   /* 13.75 / 20  */
+        base: ["0.9375rem", { lineHeight: "1.4375rem" }], /* 15 / 23     */
+        lg: ["1.09375rem", { lineHeight: "1.625rem" }],   /* 17.5 / 26   */
+        xl: ["1.28125rem", { lineHeight: "1.8125rem" }],  /* 20.5 / 29   */
+        "2xl": ["1.5rem", { lineHeight: "2rem" }],        /* 24 / 32     */
+        "3xl": ["1.75rem", { lineHeight: "2.25rem" }],    /* 28 / 36     */
+        "4xl": ["2.0625rem", { lineHeight: "2.5rem" }],   /* 33 / 40     */
+        "5xl": ["2.40625rem", { lineHeight: "1.15" }],    /* 38.5        */
+        overline: ["0.75rem", { lineHeight: "1rem", letterSpacing: "0.06em", fontWeight: "600" }],
       },
       boxShadow: {
         card: "0 1px 3px rgba(21, 54, 109, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)",

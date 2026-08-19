@@ -14,7 +14,7 @@ export function HealthEmptyState({
   return (
     <div
       className={cn(
-        "rounded-xl border border-dashed border-border bg-surface/40 px-6 py-10 text-center",
+        "rounded-xl border border-dashed border-border bg-surface/40 px-g4 py-g6 text-center",
         className
       )}
     >

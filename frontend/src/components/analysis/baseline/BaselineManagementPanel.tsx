@@ -158,7 +158,7 @@ export function BaselineManagementPanel({
         )}
 
         {!isLoading && !error && (baselineList?.total ?? 0) === 0 && (
-          <div className="rounded-xl border border-dashed border-border bg-muted/10 px-4 py-8 text-center">
+          <div className="rounded-xl border border-dashed border-border bg-muted/10 px-g4 py-g6 text-center">
             <p className="text-sm font-semibold text-foreground">
               No baselines available for this sensor.
             </p>

@@ -54,7 +54,7 @@ export function AppShell() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 w-full"
+            className="page-shell px-g3 sm:px-g4 lg:px-g5 py-g4 lg:py-g5"
           >
             <Outlet />
           </motion.div>

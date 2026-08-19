@@ -26,6 +26,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { EquipmentPageShell } from "@/components/equipment/EquipmentPageShell";
 import { cardSizing } from "@/lib/card-sizing";
+import { cardPad, cardPadTight, gridMetrics, pageStack } from "@/lib/layout";
 import { cardHover } from "@/lib/card-hover";
 
 const MACHINE_TYPES = [
@@ -104,7 +105,7 @@ export function EquipmentMasterList() {
 
   return (
     <EquipmentPageShell>
-    <div>
+    <div className={pageStack}>
       <PageHero
         title="Equipment Master"
         subtitle="Configure equipment profiles and digital twins for vibration monitoring."
@@ -128,18 +129,18 @@ export function EquipmentMasterList() {
       />
 
       {/* Stats */}
-      <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8", cardSizing.gridEqual)}>
+      <div className={gridMetrics}>
         {STAT_CONFIG.map((stat, i) => (
-          <GlassCard key={stat.key} equalHeight delay={0.05 + i * 0.06} className="p-5">
-            <div className={cn(cardSizing.kpiBody, "gap-4")}>
-              <div className={cn("w-11 h-11 rounded-lg flex items-center justify-center", stat.iconBg)}>
+          <GlassCard key={stat.key} equalHeight delay={0.05 + i * 0.06} className={cardPad}>
+            <div className={cn(cardSizing.kpiBody, "gap-g3")}>
+              <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", stat.iconBg)}>
                 <Cpu size={18} className={stat.iconColor} />
               </div>
               <div>
                 <p className="text-kpi-value">
                   {stats[stat.key]}
                 </p>
-                <p className="text-base font-medium text-muted-foreground">
+                <p className="text-sm font-medium text-muted-foreground mt-g1">
                   {stat.label}
                 </p>
               </div>
@@ -149,8 +150,8 @@ export function EquipmentMasterList() {
       </div>
 
       {/* Filters */}
-      <GlassCard className="p-4 mb-6" delay={0.2}>
-        <div className="flex flex-wrap items-center gap-3">
+      <GlassCard className={cardPadTight} delay={0.2}>
+        <div className="flex flex-wrap items-center gap-g2">
           <div className="relative flex-1 min-w-[200px]">
             <Search
               size={16}
@@ -168,7 +169,7 @@ export function EquipmentMasterList() {
               )}
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-g2">
             <Filter size={15} className="text-brand hidden sm:block" />
             <select
               value={filterType}
@@ -238,7 +239,7 @@ export function EquipmentMasterList() {
               Add your first equipment to begin AI readiness configuration.
             </p>
             {canWrite && (
-              <div className="mt-6">
+              <div className="mt-g4">
                 <Button icon={<Plus size={16} />} onClick={() => navigate("/equipment/new")}>
                   Add Equipment
                 </Button>
@@ -254,7 +255,7 @@ export function EquipmentMasterList() {
                     (h) => (
                       <th
                         key={h}
-                        className="text-left text-table-header px-5 py-4 whitespace-nowrap"
+                        className="text-left text-table-header px-g4 py-g3 whitespace-nowrap"
                       >
                         {h}
                       </th>
@@ -272,36 +273,36 @@ export function EquipmentMasterList() {
                       transition={{ delay: i * 0.03 }}
                       className="border-b border-border/50 hover:bg-warm transition-colors group"
                     >
-                      <td className="px-5 py-4">
+                      <td className="px-g4 py-g3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center shrink-0 group-hover:border-signal-light/50 transition-colors">
+                          <div className="w-9 h-9 rounded-lg bg-white border border-border flex items-center justify-center shrink-0 group-hover:border-signal-light/50 transition-colors">
                             <Cpu size={16} className="text-brand" />
                           </div>
                           <div>
-                            <p className="text-base font-semibold text-foreground">
+                            <p className="text-sm font-semibold text-foreground">
                               {item.machine_name}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               {item.manufacturer || "—"}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-g4 py-g3">
                         <span className="text-sm font-mono px-2.5 py-1 rounded-xl bg-white text-foreground border border-border">
                           {item.machine_id}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-base text-foreground/90">
+                      <td className="px-g4 py-g3 text-sm text-foreground/90">
                         {item.machine_type}
                       </td>
-                      <td className="px-5 py-4">
-                        <p className="text-base text-foreground/90">
+                      <td className="px-g4 py-g3">
+                        <p className="text-sm text-foreground/90">
                           {item.plant_name}
                         </p>
-                        <p className="text-sm text-muted-foreground">{item.area}</p>
+                        <p className="text-xs text-muted-foreground">{item.area}</p>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-g4 py-g3">
                         <span
                           className={cn(
                             "inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-full border",
@@ -317,7 +318,7 @@ export function EquipmentMasterList() {
                           {item.machine_criticality}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-g4 py-g3">
                         <span
                           className={cn(
                             "text-sm px-3 py-1.5 rounded-full font-semibold",
@@ -328,7 +329,7 @@ export function EquipmentMasterList() {
                           {item.asset_status || "Active"}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-g4 py-g3">
                         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                           {canWrite && (
                             <>
@@ -369,13 +370,13 @@ export function EquipmentMasterList() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex items-center justify-between mt-6"
+          className="flex items-center justify-between"
         >
-          <p className="text-base text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Showing {Math.min((page - 1) * 20 + 1, data.total)}–
             {Math.min(page * 20, data.total)} of {data.total}
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-g2">
             <Button
               variant="secondary"
               size="sm"
@@ -402,7 +403,7 @@ export function EquipmentMasterList() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
         className={cn(
-          "mt-8 flex items-center gap-3 px-5 py-4 rounded-lg bg-brand-accent/5 orange-gradient-border-subtle",
+          "flex items-center gap-g3 px-g4 py-g3 rounded-lg bg-brand-accent/5 orange-gradient-border-subtle",
           cardHover.passive
         )}
       >

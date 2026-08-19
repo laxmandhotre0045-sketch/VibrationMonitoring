@@ -19,15 +19,15 @@ export function RotatingComponentsTab() {
   const isGearboxType = machineType === "Gearbox" || driveType === "Gear Drive";
 
   return (
-    <div className="flex flex-col gap-11">
+    <div className="flex flex-col gap-g5">
       <SectionCard title="Bearing Details" icon={<RotateCw size={15} />}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-g4">
           <FormField label="Bearing Details" className="lg:col-span-2">
             <Controller name="bearing_details" control={control} render={({ field }) => (
               <TextareaInput {...field} value={field.value ?? ""} rows={3} placeholder="Bearing type, size, and details..." />
             )} />
           </FormField>
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-g4">
             <FormField label="Bearing Number (DE)">
               <Controller name="bearing_number_de" control={control} render={({ field }) => (
                 <TextInput {...field} value={field.value ?? ""} placeholder="e.g. 6205" />
@@ -43,7 +43,7 @@ export function RotatingComponentsTab() {
       </SectionCard>
 
       <SectionCard title="Rotating Components" icon={<RotateCw size={15} />}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-g4">
           {isMotorType && (
             <FormField label="Motor Pole Count">
               <Controller name="motor_pole_count" control={control} render={({ field }) => (

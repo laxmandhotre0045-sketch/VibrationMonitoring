@@ -33,13 +33,13 @@ function ReviewSection({
 }) {
   return (
     <div className={cn("content-card card-auto", cardHover.soft, scrollBody && "overflow-hidden")}>
-      <div className="px-8 py-5 border-b border-border">
+      <div className="px-g5 py-5 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-brand">{icon}</span>
           <span className="text-section-title">{title}</span>
         </div>
       </div>
-      <div className={cn("px-8 py-6", scrollBody && cardSizing.scrollSm)}>{children}</div>
+      <div className={cn("px-g5 py-g4", scrollBody && cardSizing.scrollSm)}>{children}</div>
     </div>
   );
 }
@@ -49,8 +49,8 @@ export function ReviewSaveTab() {
   const data = watch();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-11">
-      <div className="lg:col-span-2 flex flex-col gap-11">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-g5">
+      <div className="lg:col-span-2 flex flex-col gap-g5">
         <ReviewSection title="Location & Identity" icon={<MapPin size={14} />}>
           <ReviewRow label="Plant Name" value={data.plant_name} />
           <ReviewRow label="Area" value={data.area} />

@@ -15,7 +15,7 @@ export function MechanicalDetailsTab() {
 
   return (
     <SectionCard title="Mechanical Details" icon={<Settings size={15} />}>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-g4">
         <FormField label="Rated Power">
           <Controller name="rated_power_kw" control={control} render={({ field }) => (
             <TextInput type="number" step="0.01" min="0" unit="kW" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value === "" ? null : parseFloat(e.target.value))} placeholder="e.g. 75" />

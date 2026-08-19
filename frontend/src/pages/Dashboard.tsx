@@ -10,10 +10,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { PageHero } from "@/components/layout/PageHero";
+import { PageSection } from "@/components/layout/PageSection";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { IndustrialEmptyState } from "@/components/equipment/industrial/IndustrialEmptyState";
 import { cardSizing } from "@/lib/card-sizing";
+import { cardPad, gridGolden, gridMetrics, pageStack } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 import { STATUS_META, relativeTime } from "@/lib/alert-status";
@@ -53,7 +55,7 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className={pageStack}>
       <PageHero
         title="Operations Dashboard"
         subtitle="Real-time fleet health, vibration insights, and predictive analytics across your industrial asset portfolio."
@@ -65,37 +67,33 @@ export function Dashboard() {
         <IndustrialEmptyState message="Couldn't load fleet dashboard data. Check that the backend is reachable and try again." />
       )}
 
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-lg font-bold text-brand tracking-tight">Fleet Overview</h2>
-        </div>
-        <div className="h-0.5 w-10 bg-brand-accent rounded-full mb-4" />
-        <div className={cn("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4", cardSizing.gridEqual)}>
+      <PageSection title="Fleet Overview">
+        <div className={gridMetrics}>
           {kpis.map((stat, i) => {
             const Icon = stat.icon;
             return (
-              <GlassCard key={stat.label} equalHeight delay={0.05 + i * 0.05} className="p-5">
-                <div className={cn(cardSizing.kpiBody, "gap-4")}>
+              <GlassCard key={stat.label} equalHeight delay={0.05 + i * 0.05} className={cardPad}>
+                <div className={cn(cardSizing.kpiBody, "gap-g3")}>
                   <div className="w-9 h-9 rounded-lg bg-white border border-border flex items-center justify-center shrink-0">
                     <Icon size={18} className={stat.text} />
                   </div>
                   <div className="min-w-0">
-                    <p className={cn("text-kpi-value mb-0.5", isLoading && "opacity-40")}>{stat.value}</p>
-                    <p className="text-base font-medium text-muted-foreground">{stat.label}</p>
+                    <p className={cn("text-kpi-value", isLoading && "opacity-40")}>{stat.value}</p>
+                    <p className="text-sm font-medium text-muted-foreground mt-g1">{stat.label}</p>
                   </div>
                 </div>
               </GlassCard>
             );
           })}
         </div>
-      </div>
+      </PageSection>
 
       {!isLoading && !hasFleet ? (
-        <GlassCard className="p-5" delay={0.3}>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <GlassCard className={cardPad} delay={0.3}>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-g3">
             <div>
               <h3 className="text-card-title text-brand">Start with Equipment Master Data</h3>
-              <p className="text-helper mt-1">
+              <p className="text-helper mt-g1">
                 Register your assets to enable vibration intelligence and predictive maintenance.
               </p>
             </div>
@@ -105,14 +103,14 @@ export function Dashboard() {
           </div>
         </GlassCard>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <GlassCard className="p-5 lg:col-span-2" delay={0.3}>
-            <div className="flex items-center gap-2 mb-4">
+        <div className={gridGolden}>
+          <GlassCard equalHeight className={cardPad} delay={0.3}>
+            <div className="flex items-center gap-g2 mb-g3">
               <Cpu size={16} className="text-brand" />
               <h3 className="text-card-title text-brand">Fleet Health Status</h3>
             </div>
             {data && data.equipment_health.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={cn(cardSizing.scrollFill, "grid grid-cols-1 sm:grid-cols-2 gap-g2 content-start")}>
                 {data.equipment_health.map((eq) => {
                   const meta = STATUS_META[eq.status];
                   return (
@@ -120,18 +118,18 @@ export function Dashboard() {
                       key={eq.equipment_id}
                       to={`/equipment/${eq.equipment_id}/edit`}
                       className={cn(
-                        "rounded-lg border px-4 py-3 transition-all hover:-translate-y-0.5 hover:shadow-md",
+                        "rounded-lg border px-g3 py-g2 transition-all hover:-translate-y-0.5 hover:shadow-md",
                         meta.box
                       )}
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-g2">
                         <p className="font-semibold text-brand truncate">{eq.machine_name}</p>
                         <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", meta.dot)} />
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate mt-g1">
                         {eq.plant_name} · {eq.area}
                       </p>
-                      <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center justify-between mt-g2">
                         <span className={cn("text-xs font-semibold", meta.text)}>{meta.label}</span>
                         <span className="text-xs text-muted-foreground">{relativeTime(eq.last_upload_at)}</span>
                       </div>
@@ -144,29 +142,29 @@ export function Dashboard() {
             )}
           </GlassCard>
 
-          <GlassCard className="p-5" delay={0.35}>
-            <div className="flex items-center gap-2 mb-4">
+          <GlassCard equalHeight className={cardPad} delay={0.35}>
+            <div className="flex items-center gap-g2 mb-g3">
               <AlertTriangle size={16} className="text-machine-warning" />
               <h3 className="text-card-title text-brand">Maintenance Alerts</h3>
             </div>
             {data && data.alerts.length > 0 ? (
-              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+              <div className={cn(cardSizing.scrollFill, "space-y-g2 pr-1")}>
                 {data.alerts.map((alert, i) => {
                   const meta = STATUS_META[alert.status as EquipmentHealthStatus] ?? STATUS_META.no_baseline;
                   return (
                     <div
                       key={`${alert.equipment_id}-${alert.channel}-${alert.feature_code}-${i}`}
-                      className={cn("rounded-lg border px-3 py-2.5", meta.box)}
+                      className={cn("rounded-lg border px-g3 py-g2", meta.box)}
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-g2">
                         <p className="font-semibold text-brand text-sm truncate">{alert.machine_name}</p>
                         <span className={cn("text-xs font-semibold shrink-0", meta.text)}>{meta.label}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-g1">
                         {alert.feature_name ?? alert.feature_code} · CH-{alert.channel + 1} ·{" "}
                         {alert.value.toFixed(2)} {alert.unit}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">{relativeTime(alert.computed_at)}</p>
+                      <p className="text-xs text-muted-foreground mt-g1">{relativeTime(alert.computed_at)}</p>
                     </div>
                   );
                 })}
@@ -179,17 +177,17 @@ export function Dashboard() {
       )}
 
       {hasFleet && (
-        <GlassCard className="p-5" delay={0.4}>
-          <div className="flex items-center gap-2 mb-4">
+        <GlassCard className={cardPad} delay={0.4}>
+          <div className="flex items-center gap-g2 mb-g3">
             <Radio size={16} className="text-signal-dark" />
             <h3 className="text-card-title text-brand">Signal Analytics Feed</h3>
           </div>
           {data && data.recent_activity.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-g2">
               {data.recent_activity.map((activity) => (
                 <div
                   key={activity.upload_id}
-                  className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-warm border border-border"
+                  className="flex items-center justify-between gap-g3 px-g3 py-g2 rounded-lg bg-warm border border-border"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-brand truncate">{activity.machine_name}</p>
@@ -197,7 +195,7 @@ export function Dashboard() {
                       {activity.mounting_location} · {activity.original_filename ?? "manual capture"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-g3 shrink-0">
                     <span className="text-xs font-medium text-muted-foreground capitalize">
                       {activity.features_status}
                     </span>

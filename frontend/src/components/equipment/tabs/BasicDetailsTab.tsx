@@ -37,13 +37,13 @@ export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-11">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-g5">
       <SectionCard title="Location Hierarchy" icon={<MapPin size={15} />}>
         <PlantHierarchySelect />
       </SectionCard>
 
       <SectionCard title="Machine Identification" icon={<Tag size={15} />}>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-g4">
           <FormField label="Machine Name">
             <Controller name="machine_name" control={control} render={({ field }) => (
               <TextInput {...field} value={field.value ?? ""} placeholder="e.g. Cooling Water Pump P-204" />
@@ -83,9 +83,9 @@ export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
         </div>
       </SectionCard>
 
-      <div className="flex flex-col gap-11">
+      <div className="flex flex-col gap-g5">
         <SectionCard title="Manufacturer & Model" icon={<Factory size={15} />}>
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-g4">
             <FormField label="Manufacturer">
               <Controller name="manufacturer" control={control} render={({ field }) => (
                 <TextInput {...field} value={field.value ?? ""} placeholder="e.g. KSB" />
@@ -119,7 +119,7 @@ export function BasicDetailsTab({ onImageSelect }: BasicDetailsTabProps) {
           ) : (
             <div
               className={cn(
-                "border border-dashed border-border rounded-lg p-8 flex flex-col items-center justify-center gap-2",
+                "border border-dashed border-border rounded-lg card-pad flex flex-col items-center justify-center gap-2",
                 cardHover.upload
               )}
               onClick={() => fileRef.current?.click()}

@@ -88,7 +88,7 @@ export function ChannelConfigurationSection({
       </div>
 
       {channels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-g2 px-g4 py-g6 text-center">
           <p className="text-sm text-muted-foreground">
             No channel mappings configured. Add a row to begin mapping device channels.
           </p>

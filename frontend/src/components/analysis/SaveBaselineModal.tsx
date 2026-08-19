@@ -40,7 +40,7 @@ export function SaveBaselineModal({
       aria-modal="true"
       aria-labelledby="save-baseline-title"
     >
-      <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-border bg-white card-pad shadow-xl">
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <h3 id="save-baseline-title" className="text-lg font-bold text-brand">
@@ -86,7 +86,7 @@ export function SaveBaselineModal({
           </label>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-g2 mt-g4">
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
