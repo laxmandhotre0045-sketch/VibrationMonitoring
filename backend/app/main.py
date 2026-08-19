@@ -63,11 +63,17 @@ Protected APIs return **401** without a token and **403** for write actions when
 
 app.add_middleware(
     CORSMiddleware,
+    # Vite steps to the next free port when 5173 is taken, which happens as soon
+    # as a second dev server is running, so the usual fallbacks are listed too.
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
         "http://localhost:4173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
         "http://127.0.0.1:4173",
         "http://127.0.0.1:3000",
     ],
