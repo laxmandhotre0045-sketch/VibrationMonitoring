@@ -41,7 +41,7 @@ export function SaveBaselineModal({
       aria-labelledby="save-baseline-title"
     >
       <div className="w-full max-w-md rounded-xl border border-border bg-white card-pad shadow-xl">
-        <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="flex items-start justify-between gap-g3 mb-g4">
           <div>
             <h3 id="save-baseline-title" className="text-lg font-bold text-brand">
               Save as baseline
@@ -60,7 +60,7 @@ export function SaveBaselineModal({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-g3">
           <FormField label="Baseline name">
             <TextInput
               value={name}

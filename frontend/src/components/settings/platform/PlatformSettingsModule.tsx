@@ -45,7 +45,7 @@ export function PlatformSettingsModule() {
   if (!hasRole(ADMIN_ROLES)) {
     return (
       <div className="rounded-xl border border-border bg-[#FFFDF8] px-g4 py-g6 text-center shadow-[0_2px_14px_rgba(21,54,109,0.07)]">
-        <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand/[0.06] text-brand/60">
+        <span className="mx-auto mb-g3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand/[0.06] text-brand/60">
           <Lock size={22} />
         </span>
         <h2 className="text-base font-bold text-brand">Administrator access required</h2>
@@ -58,7 +58,7 @@ export function PlatformSettingsModule() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-g4">
       <div
         className="flex flex-wrap gap-2"
         role="tablist"

@@ -50,7 +50,7 @@ export function AnalysisSummaryPanel({
     return (
       <div
         className={cn(
-          "rounded-md border border-dashed border-border bg-surface/40 px-4 py-5 text-center",
+          "rounded-md border border-dashed border-border bg-surface/40 px-g4 py-g4 text-center",
           className
         )}
       >

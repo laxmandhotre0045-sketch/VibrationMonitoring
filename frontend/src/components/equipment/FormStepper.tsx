@@ -19,7 +19,7 @@ export function FormStepper({ activeStep, completedSteps, onStepClick }: FormSte
 
   return (
     <div className={cn("content-card card-pad", cardHover.soft)}>
-      <div className="flex items-center gap-4 mb-g4 sm:mb-g5">
+      <div className="flex items-center gap-g3 mb-g4 sm:mb-g5">
         <span className="text-base font-medium text-muted-foreground shrink-0">
           Step <span className="font-bold text-[#FF6B00]">{activeStep}</span> of {FORM_STEPS.length}
         </span>

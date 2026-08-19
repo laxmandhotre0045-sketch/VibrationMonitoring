@@ -46,7 +46,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.25 }}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg shadow-card-hover text-base font-semibold min-w-72 border bg-white",
+                "flex items-center gap-g2 px-g4 py-g3 rounded-lg shadow-card-hover text-base font-semibold min-w-72 border bg-white",
                 toast.type === "success"
                   ? "text-machine-healthy border-machine-healthy/25"
                   : "text-destructive border-destructive/25"

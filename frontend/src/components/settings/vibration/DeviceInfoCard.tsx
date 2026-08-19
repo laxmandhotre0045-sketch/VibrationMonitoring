@@ -12,7 +12,7 @@ export function DeviceInfoCard({ device, className }: DeviceInfoCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 rounded-lg border border-border bg-white px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between",
+        "flex flex-col gap-g3 rounded-lg border border-border bg-white px-g4 py-g3 sm:flex-row sm:items-center sm:justify-between",
         "shadow-sm border-l-2 border-l-signal-light",
         className
       )}

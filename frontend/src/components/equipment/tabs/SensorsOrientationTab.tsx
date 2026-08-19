@@ -4,8 +4,9 @@ import { Radio, Plus, Trash2 } from "lucide-react";
 import { EquipmentFormData } from "@/types/equipment";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { Button } from "@/components/ui/Button";
-import { SelectInput, TextInput } from "@/components/ui/FormField";
+import { SelectInput, TextInput, inputBase } from "@/components/ui/FormField";
 import { SensorMountingDiagram } from "../SensorMountingDiagram";
+import { cn } from "@/lib/utils";
 
 const SENSOR_TYPES = [
   "IEPE Accelerometer", "MEMS Accelerometer", "Velocity Sensor", "Displacement Probe",
@@ -75,20 +76,20 @@ export function SensorsOrientationTab() {
               <table className="w-full text-base">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left text-lg font-semibold text-muted-foreground pb-4 pr-6">Location</th>
-                    <th className="text-left text-lg font-semibold text-muted-foreground pb-4 pr-6">Mounting Location</th>
-                    <th className="text-left text-lg font-semibold text-muted-foreground pb-4">Orientation</th>
+                    <th className="text-left text-table-header pb-g3 pr-g4">Location</th>
+                    <th className="text-left text-table-header pb-g3 pr-g4">Mounting Location</th>
+                    <th className="text-left text-table-header pb-g3">Orientation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {defaultRows.map((row, idx) => (
                     <tr key={row.label} className="py-2">
-                      <td className="py-2 pr-4">
-                        <span className="text-lg font-semibold text-foreground">{row.label}</span>
+                      <td className="py-g2 pr-g3">
+                        <span className="text-field-label">{row.label}</span>
                       </td>
-                      <td className="py-2 pr-4">
+                      <td className="py-g2 pr-g3">
                         <select
-                          className="w-full text-base px-4 py-3 border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/10"
+                          className={cn(inputBase, "appearance-none cursor-pointer")}
                           value={row.selectedMounting}
                           onChange={(e) => {
                             const updated = [...defaultRows];
@@ -101,9 +102,9 @@ export function SensorsOrientationTab() {
                           ))}
                         </select>
                       </td>
-                      <td className="py-2">
+                      <td className="py-g2">
                         <select
-                          className="w-full text-base px-4 py-3 border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/10"
+                          className={cn(inputBase, "appearance-none cursor-pointer")}
                           value={row.selectedOrientation}
                           onChange={(e) => {
                             const updated = [...defaultRows];
@@ -125,26 +126,26 @@ export function SensorsOrientationTab() {
         </div>
 
         {/* Diagram */}
-        <div className="bg-white rounded-xl border border-border shadow-sm p-5 flex items-center justify-center">
+        <div className="bg-white rounded-xl border border-border shadow-sm card-pad flex items-center justify-center">
           <SensorMountingDiagram orientations={diagramOrientations} />
         </div>
       </div>
 
       {/* Additional Sensors */}
       <SectionCard scrollBody title="Additional Sensors" icon={<Radio size={16} />}>
-        <div className="flex items-center justify-end mb-4">
+        <div className="flex items-center justify-end mb-g3">
           <Button type="button" size="sm" icon={<Plus size={14} />} onClick={addSensor}>
             Add Sensor
           </Button>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-g3">
           {fields.map((field, idx) => {
             const samplingRate = watch(`sensors.${idx}.sampling_rate`);
             const freqRange = watch(`sensors.${idx}.frequency_range`);
             return (
-              <div key={field.id} className="border border-border rounded-xl p-4 bg-white relative">
-                <div className="flex items-center justify-between mb-4">
+              <div key={field.id} className="border border-border rounded-xl card-pad bg-white relative">
+                <div className="flex items-center justify-between mb-g3">
                   <span className="text-lg font-semibold text-foreground">Sensor {idx + 1}</span>
                   <button
                     type="button"
@@ -155,7 +156,7 @@ export function SensorsOrientationTab() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-g4">
                   {/* Sensor Type */}
                   <div className="flex flex-col gap-1">
                     <label className="text-lg font-semibold text-foreground">Sensor Type *</label>

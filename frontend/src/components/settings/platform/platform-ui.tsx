@@ -6,8 +6,8 @@ export const platformTableWrapper =
   "overflow-x-auto rounded-lg border border-border bg-white";
 export const platformTable = "w-full min-w-[640px] text-sm";
 export const platformTh =
-  "px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-muted-foreground bg-warm border-b border-border whitespace-nowrap";
-export const platformTd = "px-4 py-3 align-middle border-b border-border/70";
+  "px-g4 py-g3 text-left text-xs font-bold uppercase tracking-wide text-muted-foreground bg-warm border-b border-border whitespace-nowrap";
+export const platformTd = "px-g4 py-g3 align-middle border-b border-border/70";
 
 interface StatusPillProps {
   tone: "healthy" | "muted" | "warning" | "danger";
@@ -59,7 +59,7 @@ export function LoadingRow({ colSpan }: { colSpan: number }) {
 
 export function ErrorNote({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+    <div className="rounded-lg border border-destructive/25 bg-destructive/5 px-g4 py-g3 text-sm text-destructive">
       {message}
     </div>
   );
@@ -107,7 +107,7 @@ export function SecretReveal({ label, secret, warning }: SecretRevealProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-3 rounded-lg border border-[#FFA500]/35 bg-[#FFA500]/8 px-4 py-3">
+      <div className="flex items-start gap-g2 rounded-lg border border-[#FFA500]/35 bg-[#FFA500]/8 px-g4 py-g3">
         <ShieldAlert size={18} className="mt-0.5 shrink-0 text-signal-dark" />
         <p className="text-sm text-foreground leading-relaxed">{warning}</p>
       </div>

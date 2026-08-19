@@ -58,7 +58,7 @@ export function StatusHealthTab({
   const featuresQueryError = dashboard.featuresQuery.error;
 
   return (
-    <div className={cn(analysisBodyStack, "space-y-4")}>
+    <div className={cn(analysisBodyStack, "space-y-g4")}>
       <HealthChannelSelector
         value={healthChannel}
         onChange={setHealthChannel}

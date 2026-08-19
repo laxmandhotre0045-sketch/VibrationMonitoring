@@ -210,7 +210,7 @@ export function EquipmentMasterList() {
       {/* Equipment Table */}
       <GlassCard className="overflow-hidden" delay={0.35}>
         {isLoading ? (
-          <div className={cn(cardSizing.stateCenter, "gap-4")}>
+          <div className={cn(cardSizing.stateCenter, "gap-g3")}>
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -230,7 +230,7 @@ export function EquipmentMasterList() {
             <img
               src={emptyEquipment}
               alt=""
-              className="w-24 h-24 mx-auto mb-4 opacity-80"
+              className="w-24 h-24 mx-auto mb-g3 opacity-80"
             />
             <p className="font-semibold text-foreground text-lg">
               No equipment found.

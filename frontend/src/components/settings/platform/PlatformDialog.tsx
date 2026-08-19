@@ -54,7 +54,7 @@ export function PlatformDialog({
           widthClassName
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border px-g4 py-4">
+        <div className="flex items-start justify-between gap-g3 border-b border-border px-g4 py-g3">
           <div className="min-w-0">
             <h3 className="text-lg font-bold text-brand leading-tight">{title}</h3>
             {description && (
@@ -71,10 +71,10 @@ export function PlatformDialog({
           </button>
         </div>
 
-        <div className="px-g4 py-5 space-y-4">{children}</div>
+        <div className="px-g4 py-g4 space-y-g3">{children}</div>
 
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-border px-g4 py-4">{footer}</div>
+          <div className="flex justify-end gap-g2 border-t border-border px-g4 py-g3">{footer}</div>
         )}
       </div>
     </div>

@@ -46,12 +46,12 @@ export function ThresholdConfigurationSection({
         <table className="w-full min-w-[920px] text-sm">
           <thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm border-b border-border">
             <tr className="text-left">
-              <th className="px-4 py-3 font-semibold text-muted-foreground">Channel</th>
+              <th className="px-g4 py-g3 font-semibold text-muted-foreground">Channel</th>
               <th className="px-3 py-3 font-semibold text-muted-foreground">Parameter</th>
               <th className="px-3 py-3 font-semibold text-muted-foreground">Warning Threshold</th>
               <th className="px-3 py-3 font-semibold text-muted-foreground">Danger Threshold</th>
               <th className="px-3 py-3 font-semibold text-muted-foreground">Enabled</th>
-              <th className="px-4 py-3 font-semibold text-muted-foreground">Actions</th>
+              <th className="px-g4 py-g3 font-semibold text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -74,7 +74,7 @@ export function ThresholdConfigurationSection({
                     showValidationError && "bg-destructive/[0.03]"
                   )}
                 >
-                  <td className="px-4 py-2.5 font-bold text-brand whitespace-nowrap">
+                  <td className="px-g4 py-g2 font-bold text-brand whitespace-nowrap">
                     {channelLabel(row.channelNo)}
                   </td>
                   <td className="px-3 py-2.5 font-medium text-foreground whitespace-nowrap">
@@ -136,7 +136,7 @@ export function ThresholdConfigurationSection({
                       onChange={(enabled) => onUpdate(row.channelNo, row.parameter, { enabled })}
                     />
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-g4 py-g2">
                     <div className="flex items-center gap-1.5">
                       <Button
                         type="button"

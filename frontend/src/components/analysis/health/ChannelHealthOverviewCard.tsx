@@ -26,7 +26,7 @@ export function ChannelHealthOverviewCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border border-l-2 border-l-signal-light bg-white p-4",
+        "rounded-xl border border-border border-l-2 border-l-signal-light bg-white card-pad",
         "shadow-sm",
         className
       )}
@@ -86,11 +86,11 @@ export function ChannelHealthOverviewSkeleton({ className }: { className?: strin
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-white p-4 min-h-[140px] animate-pulse",
+        "rounded-xl border border-border bg-white card-pad min-h-[140px] animate-pulse",
         className
       )}
     >
-      <div className="h-4 w-48 rounded bg-muted/60 mb-4" />
+      <div className="h-4 w-48 rounded bg-muted/60 mb-g3" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="h-16 rounded-lg bg-muted/40" />

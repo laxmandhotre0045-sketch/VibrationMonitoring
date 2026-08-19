@@ -384,7 +384,7 @@ export function VibrationAnalysisPage() {
               <div
                 className={cn(
                   "flex flex-1 min-w-0 items-center justify-between gap-3 rounded-lg border border-border",
-                  "border-l-2 border-l-signal-light bg-white px-4 py-3"
+                  "border-l-2 border-l-signal-light bg-white px-g4 py-g3"
                 )}
               >
                 <div className="min-w-0">

@@ -76,7 +76,7 @@ export function OperatingProcessTab() {
           </FormField>
         </div>
 
-        <div className="mt-g4">
+        <div className="mt-g5">
           <FormField label="Operating Environment">
             <Controller
               name="operating_environment"

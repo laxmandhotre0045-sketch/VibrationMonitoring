@@ -182,7 +182,7 @@ export function CaptureTimeline({
           No captures on the selected day.
         </p>
       ) : (
-        <div className="relative mx-0.5 pt-1 pb-5">
+        <div className="relative mx-0.5 pt-1 pb-g4">
           <div
             className="absolute left-0 right-0 top-4 h-px rounded-full bg-gradient-to-r from-signal-light/25 via-signal-light/70 to-signal-light/25"
             aria-hidden

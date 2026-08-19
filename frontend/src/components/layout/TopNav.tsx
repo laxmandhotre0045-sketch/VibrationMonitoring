@@ -34,7 +34,7 @@ export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
   const plantOptions = [ALL_PLANTS, ...(plants ?? [])];
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-g4 py-3 bg-warm border-b border-border shadow-nav">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-g3 px-g4 py-g3 bg-warm border-b border-border shadow-nav">
       {onMenuClick && (
         <button
           onClick={onMenuClick}

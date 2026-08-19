@@ -64,7 +64,7 @@ export function CaptureTimelinePanel({
 
   if (!sensorId) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-4">
+      <p className="text-sm text-muted-foreground text-center py-g3">
         Select a sensor above to browse capture history.
       </p>
     );

@@ -84,13 +84,13 @@ export function UsersSection() {
   }, [roles, isSuperAdmin]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-g4">
       <SettingsSectionCard
         title="Users & access"
         description="Who can sign in, and what each of them is allowed to change."
         icon={<Users size={18} />}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="flex flex-col gap-g2 sm:flex-row sm:items-center sm:justify-between mb-g3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center flex-1 min-w-0">
             <div className="relative flex-1 min-w-0 sm:max-w-xs">
               <Search

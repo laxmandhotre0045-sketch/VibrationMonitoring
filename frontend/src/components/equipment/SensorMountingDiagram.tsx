@@ -62,7 +62,7 @@ export function SensorMountingDiagram({ orientations = {} }: SensorMountingDiagr
           </marker>
         </defs>
       </svg>
-      <div className="flex gap-4 mt-2">
+      <div className="flex gap-g3 mt-g2">
         <div className="flex items-center gap-1">
           <div className="w-3 h-1 bg-primary rounded" />
           <span className="text-sm font-medium text-muted-foreground">NDE</span>

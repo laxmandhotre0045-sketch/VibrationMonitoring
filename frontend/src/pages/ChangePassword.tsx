@@ -22,7 +22,7 @@ export function ChangePasswordPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-brand mb-2">Password Change Required</h1>
-          <div className="brand-divider mx-auto mb-4" />
+          <div className="brand-divider mx-auto mb-g3" />
           <p className="text-base text-helper mb-2">
             Your administrator requires a password change before you can access the platform.
           </p>

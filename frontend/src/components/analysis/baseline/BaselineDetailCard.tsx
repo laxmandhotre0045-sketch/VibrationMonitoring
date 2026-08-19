@@ -17,7 +17,7 @@ export function BaselineDetailCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border border-l-2 border-l-signal-light bg-white px-4 py-4 shadow-sm",
+        "rounded-xl border border-border border-l-2 border-l-signal-light bg-white px-g4 py-g3 shadow-sm",
         className
       )}
     >
@@ -25,7 +25,7 @@ export function BaselineDetailCard({
         Baseline Information
       </p>
       <h4 className="mt-2 text-base font-bold text-foreground">{baseline.name}</h4>
-      <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <dl className="mt-g2 grid grid-cols-1 sm:grid-cols-2 gap-x-g3 gap-y-g1 text-sm">
         <div>
           <dt className="text-muted-foreground">Created</dt>
           <dd className="font-medium text-foreground">{formatDateTime(baseline.created_at)}</dd>

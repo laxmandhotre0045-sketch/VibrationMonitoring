@@ -53,7 +53,7 @@ function BaselineListSkeleton() {
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl border border-border bg-white px-4 py-4 animate-pulse space-y-3"
+          className="rounded-xl border border-border bg-white px-g4 py-g3 animate-pulse space-y-g2"
         >
           <div className="h-4 w-40 rounded bg-muted/60" />
           <div className="h-3 w-full max-w-md rounded bg-muted/40" />
@@ -109,7 +109,7 @@ export function BaselineManagementPanel({
         subtitle="View, search, set primary, and load saved baselines for waveform, FFT, envelope, and trend analysis."
       />
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-g3 space-y-g3">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="relative flex-1 min-w-0">
             <Search
@@ -141,7 +141,7 @@ export function BaselineManagementPanel({
         {isLoading && <BaselineListSkeleton />}
 
         {!isLoading && !!error && (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4">
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-g4 py-g3">
             <p className="text-sm font-semibold text-destructive">
               Unable to load baselines for this sensor.
             </p>
@@ -189,7 +189,7 @@ export function BaselineManagementPanel({
                 <article
                   key={baseline.id}
                   className={cn(
-                    "rounded-xl border bg-white px-4 py-4 shadow-sm transition-all duration-300",
+                    "rounded-xl border bg-white px-g4 py-g3 shadow-sm transition-all duration-300",
                     "hover:-translate-y-0.5 hover:shadow-md",
                     baseline.is_primary
                       ? "border-signal-light/50 border-l-2 border-l-signal-light bg-signal-light/5"
@@ -197,7 +197,7 @@ export function BaselineManagementPanel({
                     isSelected && "ring-2 ring-signal-light/40"
                   )}
                 >
-                  <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+                  <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-g3">
                     <button
                       type="button"
                       className="text-left flex-1 min-w-0"
@@ -217,7 +217,7 @@ export function BaselineManagementPanel({
                           </span>
                         )}
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <div className="mt-g2 flex flex-wrap items-center gap-x-g3 gap-y-g1 text-sm text-muted-foreground">
                         <span>Created: {formatDateTime(baseline.created_at)}</span>
                         <span>Samples: {baseline.sample_count.toLocaleString()}</span>
                         <span>Channels: {baseline.channel_count}</span>

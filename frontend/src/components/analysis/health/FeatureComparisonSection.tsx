@@ -146,7 +146,7 @@ export function FeatureComparisonSection({
       {selectedBaselineId && isLoading && <FeatureStatusTableSkeleton />}
 
       {selectedBaselineId && !isLoading && !!error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-g4 py-g3">
           <p className="text-sm font-semibold text-destructive">
             Unable to load feature comparison data.
           </p>

@@ -53,7 +53,7 @@ export function ChannelMappingOverview({ channels }: ChannelMappingOverviewProps
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Channel Mapping Severity
       </p>
-      <div className="mb-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
+      <div className="mb-g3 flex flex-wrap gap-g2 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-machine-healthy" />
           Fully Configured

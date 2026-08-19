@@ -122,7 +122,7 @@ export function MachineVisualizationPanel({ data, className }: MachineVisualizat
 
   return (
     <div className={cn("content-card card-auto rounded-lg", cardHover.soft, className)}>
-      <div className="px-4 py-2.5 border-b border-border">
+      <div className="px-g4 py-g2 border-b border-border">
         <p className="text-overline">
           Asset Preview
         </p>

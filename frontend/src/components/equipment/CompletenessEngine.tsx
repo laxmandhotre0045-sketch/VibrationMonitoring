@@ -13,7 +13,7 @@ interface CompletenessEngineProps {
 export function CompletenessEngine({ data }: CompletenessEngineProps) {
   return (
     <div className={cn("bg-card border border-border rounded-xl", cardHover.panel)}>
-      <div className="px-g5 py-5 border-b border-border flex items-center gap-3">
+      <div className="px-g4 py-g3 border-b border-border flex items-center gap-g2">
         <BarChart3 size={20} className="text-signal-dark" />
         <h3 className="text-section-title text-brand">Configuration Completeness</h3>
       </div>

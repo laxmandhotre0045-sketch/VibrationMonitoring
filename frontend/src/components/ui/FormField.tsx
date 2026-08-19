@@ -20,7 +20,7 @@ export function FormField({ label, required, error, hint, children, className, c
         className={cn(
           compact
             ? "text-sm font-semibold uppercase tracking-wide text-muted-foreground"
-            : "text-lg font-semibold text-foreground"
+            : "text-field-label"
         )}
       >
         {label}
@@ -28,17 +28,19 @@ export function FormField({ label, required, error, hint, children, className, c
       </label>
       {children}
       {hint && !error && (
-        <div className="flex items-start gap-2 px-3 py-2.5 bg-warm border border-border border-l-2 border-l-signal-light rounded-r-md">
+        <div className="flex items-start gap-g2 px-g3 py-g2 bg-warm border border-border border-l-2 border-l-signal-light rounded-r-md">
           <Info size={14} className="text-signal-dark shrink-0 mt-0.5" />
           <p className="text-helper">{hint}</p>
         </div>
       )}
-      {error && <p className="text-base text-destructive font-semibold">{error}</p>}
+      {error && <p className="text-sm text-destructive font-medium">{error}</p>}
     </div>
   );
 }
 
-const inputBase = cn(
+/** Canonical control geometry. Every field-sized control must use this so
+ * they line up in a form row — see MultiSelect, which used to be 11px shorter. */
+export const inputBase = cn(
   "w-full px-4 py-3 text-base font-normal rounded-lg transition-colors",
   "bg-white text-foreground border border-border",
   "placeholder:text-placeholder placeholder:font-normal",
@@ -135,7 +137,7 @@ export function RangeInput({
   type = "number",
 }: RangeInputProps) {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-g3">
       <div className="relative flex-1">
         <input type={type} value={valueMin ?? ""} onChange={(e) => onChangeMin?.(e.target.value)} placeholder="Min" className={inputBase} />
         {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base text-muted-foreground">{unit}</span>}

@@ -26,7 +26,7 @@ export function UnauthorizedPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-brand mb-2">Access Restricted</h1>
-          <div className="brand-divider mx-auto mb-4" />
+          <div className="brand-divider mx-auto mb-g3" />
           <p className="text-base text-helper mb-g5">
             You do not have permission to access this area.
           </p>

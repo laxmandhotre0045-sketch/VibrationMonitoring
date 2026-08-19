@@ -60,13 +60,13 @@ export function PlantsSection() {
   const [addingLineTo, setAddingLineTo] = useState<PlantArea | null>(null);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-g4">
       <SettingsSectionCard
         title="Plants, areas & lines"
         description="The hierarchy every equipment record is filed under. Renaming a plant updates the equipment already assigned to it."
         icon={<Factory size={18} />}
       >
-        <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center justify-between gap-g2 mb-g3">
           <p className="text-sm text-muted-foreground">
             {plants?.length ?? 0} plant{plants?.length === 1 ? "" : "s"} configured
           </p>
@@ -211,7 +211,7 @@ function PlantRow({
 
   return (
     <div className="rounded-lg border border-border bg-white overflow-hidden">
-      <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
+      <div className="flex items-center gap-g2 px-g4 py-g3">
         <button
           type="button"
           onClick={onToggle}
@@ -266,7 +266,7 @@ function PlantRow({
       </div>
 
       {expanded && (
-        <div className="border-t border-border bg-warm/50 px-3 py-3 sm:px-5">
+        <div className="border-t border-border bg-warm/50 px-g4 py-g3">
           {isLoading && (
             <p className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
               <Loader2 size={14} className="animate-spin" />

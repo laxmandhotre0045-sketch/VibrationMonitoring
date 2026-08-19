@@ -29,7 +29,7 @@ interface AssetIntelligencePanelProps {
 
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="px-5 py-4 border-b border-border last:border-0">
+    <div className="px-g4 py-g3 border-b border-border last:border-0">
       <h4 className="text-overline text-brand mb-3">{title}</h4>
       {children}
     </div>
@@ -58,7 +58,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
         "rounded-xl border border-border bg-white shadow-card overflow-hidden flex flex-col max-h-[calc(100vh-6rem)]",
         cardHover.panel
       )}>
-        <div className="px-5 py-4 bg-brand text-white shrink-0">
+        <div className="px-g4 py-g3 bg-brand text-white shrink-0">
           <div className="flex items-center gap-2">
             <Activity size={18} className="text-brand-accent" />
             <div>

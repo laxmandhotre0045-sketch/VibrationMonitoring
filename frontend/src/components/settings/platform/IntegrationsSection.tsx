@@ -45,7 +45,7 @@ import { WEBHOOK_SEVERITIES, type ApiKey, type Webhook, type WebhookSeverity } f
 
 export function IntegrationsSection() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-g4">
       <ApiKeysCard />
       <WebhooksCard />
     </div>
@@ -70,7 +70,7 @@ function ApiKeysCard() {
         description="Keys let a gateway or edge device push measurements without a user session. Send one as the X-API-Key header."
         icon={<KeyRound size={18} />}
       >
-        <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center justify-between gap-g2 mb-g3">
           <p className="text-sm text-muted-foreground">
             {keys?.filter((k) => k.is_active).length ?? 0} active of {keys?.length ?? 0}
           </p>
@@ -289,7 +289,7 @@ function WebhooksCard() {
         description="Every measurement that breaches a threshold is POSTed to these endpoints, signed with HMAC-SHA256 so the receiver can verify it came from here."
         icon={<WebhookIcon size={18} />}
       >
-        <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center justify-between gap-g2 mb-g3">
           <p className="text-sm text-muted-foreground">
             {webhooks?.filter((w) => w.is_active).length ?? 0} active of {webhooks?.length ?? 0}
           </p>
