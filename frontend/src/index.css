@@ -21,10 +21,12 @@
     --secondary-foreground: 214 67% 25%;
     --muted: 40 20% 96%;
     --surface: 40 12% 94%;
-    /* Card hover surfaces — perceptible on white cards, still enterprise-neutral */
-    --surface-hover-soft: 40 8% 96%;
-    --surface-hover: 40 10% 92%;
-    --surface-hover-kpi: 40 12% 90%;
+    /* Card hover surfaces — a light warm tint of the card white, not a grey wash.
+       Cards are pure white on a #FFFDF8 page, so hover stays in that same warm
+       family and only steps lightness down; the shadow lift does the signalling. */
+    --surface-hover-soft: 40 100% 98.5%; /* #FFFCF7 */
+    --surface-hover: 40 100% 97.5%;      /* #FFFBF2 */
+    --surface-hover-kpi: 40 100% 96%;    /* #FFF8EB */
     --muted-foreground: 215 18% 32%;
     --helper-foreground: 215 16% 36%;
     --placeholder-foreground: 215 14% 40%;

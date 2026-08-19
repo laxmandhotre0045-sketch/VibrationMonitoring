@@ -53,7 +53,7 @@ export function SaveBaselineModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-muted-foreground hover:bg-surface"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
             aria-label="Close"
           >
             <X size={18} />

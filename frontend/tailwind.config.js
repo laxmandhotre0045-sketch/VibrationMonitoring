@@ -31,6 +31,7 @@ export default {
         "helper-foreground": "hsl(var(--helper-foreground))",
         placeholder: "hsl(var(--placeholder-foreground))",
         surface: "hsl(var(--surface))",
+        "surface-hover": "hsl(var(--surface-hover))",
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",

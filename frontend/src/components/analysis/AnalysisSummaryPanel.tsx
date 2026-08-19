@@ -97,7 +97,7 @@ export function AnalysisSummaryPanel({
                 analysisChannelBtnClass,
                 activeChannel === i
                   ? "bg-cta text-cta-foreground"
-                  : "border border-border bg-white text-muted-foreground hover:bg-surface"
+                  : "border border-border bg-white text-muted-foreground hover:bg-surface-hover"
               )}
             >
               ch{i}
