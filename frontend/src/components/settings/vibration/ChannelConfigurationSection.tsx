@@ -104,7 +104,7 @@ export function ChannelConfigurationSection({
           </Button>
         </div>
       ) : (
-        <div className="overflow-x-auto max-h-[520px] overflow-y-auto rounded-b-xl">
+        <div className="overflow-x-auto max-h-[34rem] overflow-y-auto rounded-b-xl">
           <table className="w-full min-w-[1080px] text-sm">
             <thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm border-b border-border">
               <tr className="text-left">

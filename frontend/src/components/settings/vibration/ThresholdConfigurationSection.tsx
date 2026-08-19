@@ -42,7 +42,7 @@ export function ThresholdConfigurationSection({
       icon={<Gauge size={22} strokeWidth={2} />}
       bodyClassName="p-0 sm:p-0"
     >
-      <div className="overflow-x-auto max-h-[560px] overflow-y-auto rounded-b-xl">
+      <div className="overflow-x-auto max-h-[34rem] overflow-y-auto rounded-b-xl">
         <table className="w-full min-w-[920px] text-sm">
           <thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm border-b border-border">
             <tr className="text-left">

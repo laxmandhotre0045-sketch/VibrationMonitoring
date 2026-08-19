@@ -40,7 +40,7 @@ export function PlatformDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-g5"
+      className="fixed inset-0 m-0 z-50 flex items-center justify-center bg-black/40 px-4 py-g5"
       role="dialog"
       aria-modal="true"
       aria-label={title}

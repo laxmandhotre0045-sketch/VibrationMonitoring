@@ -10,6 +10,7 @@ import { ThresholdConfigurationSection } from "./ThresholdConfigurationSection";
 import { ThresholdCoverageMatrix } from "./ThresholdCoverageMatrix";
 import { SettingsPageActions } from "./SettingsPageActions";
 import { analysisPageStack } from "@/components/analysis/analysis-layout";
+import { PageSection } from "@/components/layout/PageSection";
 
 export function VibrationSettingsModule() {
   const { showToast } = useToast();
@@ -48,8 +49,8 @@ export function VibrationSettingsModule() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-border bg-white">
-        <div className="flex items-center gap-3 text-muted-foreground">
+      <div className="flex items-center justify-center py-g6 rounded-xl border border-border bg-white">
+        <div className="flex items-center gap-g2 text-muted-foreground">
           <Loader2 size={22} className="animate-spin text-brand" />
           <span className="text-sm font-medium">Loading vibration settings…</span>
         </div>
@@ -58,54 +59,50 @@ export function VibrationSettingsModule() {
   }
 
   return (
-    <div className={analysisPageStack}>
-      <header className="space-y-1">
-        <h2 className="text-section-title text-brand">Vibration Settings</h2>
-        <div className="brand-divider" />
-        <p className="text-sm text-muted-foreground max-w-3xl pt-1">
-          Configure device acquisition settings, channel mapping, and alarm thresholds for vibration
-          monitoring.
-        </p>
-      </header>
+    <PageSection
+      title="Vibration Settings"
+      description="Configure device acquisition settings, channel mapping, and alarm thresholds for vibration monitoring."
+    >
+      <div className={analysisPageStack}>
+        {error && (
+          <div className="flex items-start gap-g2 rounded-lg border border-destructive/25 bg-destructive/5 px-g3 py-g2 text-sm text-destructive">
+            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
 
-      {error && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          <AlertCircle size={18} className="shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
-      )}
+        <DeviceInfoCard device={draft.device} />
 
-      <DeviceInfoCard device={draft.device} />
+        <ChannelConfigurationSection
+          channels={draft.channels}
+          maxChannelCount={getDeviceMaxChannelCount(draft.device)}
+          editingChannels={editingChannels}
+          onUpdate={updateChannel}
+          onResetRow={resetChannelRow}
+          onToggleEdit={toggleChannelEdit}
+          onAddRow={addChannelRow}
+          onRemoveRow={removeChannelRow}
+        />
 
-      <ChannelConfigurationSection
-        channels={draft.channels}
-        maxChannelCount={getDeviceMaxChannelCount(draft.device)}
-        editingChannels={editingChannels}
-        onUpdate={updateChannel}
-        onResetRow={resetChannelRow}
-        onToggleEdit={toggleChannelEdit}
-        onAddRow={addChannelRow}
-        onRemoveRow={removeChannelRow}
-      />
+        <ChannelMappingOverview channels={draft.channels} />
 
-      <ChannelMappingOverview channels={draft.channels} />
+        <ThresholdConfigurationSection
+          thresholds={draft.thresholds}
+          editingThresholds={editingThresholds}
+          onUpdate={updateThreshold}
+          onResetRow={resetThresholdRow}
+          onToggleEdit={toggleThresholdEdit}
+        />
 
-      <ThresholdConfigurationSection
-        thresholds={draft.thresholds}
-        editingThresholds={editingThresholds}
-        onUpdate={updateThreshold}
-        onResetRow={resetThresholdRow}
-        onToggleEdit={toggleThresholdEdit}
-      />
+        <ThresholdCoverageMatrix thresholds={draft.thresholds} />
 
-      <ThresholdCoverageMatrix thresholds={draft.thresholds} />
-
-      <SettingsPageActions
-        isDirty={isDirty}
-        onSave={handleSave}
-        onReset={resetAll}
-        onCancel={cancel}
-      />
-    </div>
+        <SettingsPageActions
+          isDirty={isDirty}
+          onSave={handleSave}
+          onReset={resetAll}
+          onCancel={cancel}
+        />
+      </div>
+    </PageSection>
   );
 }
