@@ -32,26 +32,38 @@ export function Dashboard() {
   const fleet = data?.equipment_health ?? [];
   const alerts = data?.alerts ?? [];
 
-  // The two panels share a `grid-golden` row, but the backend caps alerts at 20
-  // while fleet health is unbounded. One column of 20 alerts made the row far
-  // taller than the fleet grid needed, leaving dead space under it. Page the
-  // alerts at one row per fleet row so both panels end level. The fleet grid is
-  // 2-up from Tailwind's `sm`, 1-up below it.
+  // Fleet Health Status and Maintenance Alerts share a `grid-golden` row, so
+  // they have to end level. Neither list is a safe height on its own: alerts are
+  // capped at 20 by the backend and equipment_health is not capped at all.
+  //
+  // Both panels therefore page to one shared row budget. The fleet grid is 2-up
+  // from Tailwind's `sm` and 1-up below it, so it takes `rows x cols` per page
+  // while the single-column alert list takes `rows`. Each renders its own pager
+  // only when its list overflows that budget.
+  const FLEET_ROW_CAP = 4;
   const fleetIsTwoUp = useMediaQuery("(min-width: 640px)");
-  const fleetRows = Math.ceil(fleet.length / (fleetIsTwoUp ? 2 : 1));
-  // When a pager shows it occupies a row of its own, so the list gives one back.
-  // Fits-on-one-page stays at the full count and renders no pager at all, which
-  // keeps this stable rather than oscillating between the two sizes.
-  const alertsPerPage = Math.max(3, alerts.length > fleetRows ? fleetRows - 1 : fleetRows);
-  const alertPageCount = Math.max(1, Math.ceil(alerts.length / alertsPerPage));
+  const fleetCols = fleetIsTwoUp ? 2 : 1;
+  // A floor of 3 stops a two-machine fleet from squeezing the alerts beside it
+  // down to a single row.
+  const listRows = Math.max(3, Math.min(FLEET_ROW_CAP, Math.ceil(fleet.length / fleetCols)));
 
+  const fleetPerPage = listRows * fleetCols;
+  const fleetPageCount = Math.max(1, Math.ceil(fleet.length / fleetPerPage));
+  const [fleetPage, setFleetPage] = useState(1);
+  useEffect(() => {
+    // Page size follows the viewport, so the current page can fall off the end
+    // without the user touching anything.
+    if (fleetPage > fleetPageCount) setFleetPage(fleetPageCount);
+  }, [fleetPage, fleetPageCount]);
+  const fleetOffset = (fleetPage - 1) * fleetPerPage;
+  const visibleFleet = fleet.slice(fleetOffset, fleetOffset + fleetPerPage);
+
+  const alertsPerPage = listRows;
+  const alertPageCount = Math.max(1, Math.ceil(alerts.length / alertsPerPage));
   const [alertPage, setAlertPage] = useState(1);
   useEffect(() => {
-    // Page size follows the viewport and the fleet size, so the current page can
-    // fall off the end without the user touching anything.
     if (alertPage > alertPageCount) setAlertPage(alertPageCount);
   }, [alertPage, alertPageCount]);
-
   const alertOffset = (alertPage - 1) * alertsPerPage;
   const visibleAlerts = alerts.slice(alertOffset, alertOffset + alertsPerPage);
 
@@ -153,33 +165,42 @@ export function Dashboard() {
               <h3 className="text-card-title text-brand">Fleet Health Status</h3>
             </div>
             {fleet.length > 0 ? (
-              <div className={cn(cardSizing.scrollFill, "grid grid-cols-1 sm:grid-cols-2 gap-g2 content-start")}>
-                {fleet.map((eq) => {
-                  const meta = STATUS_META[eq.status];
-                  return (
-                    <Link
-                      key={eq.equipment_id}
-                      to={`/equipment/${eq.equipment_id}/edit`}
-                      className={cn(
-                        "rounded-lg border px-g3 py-g2 transition-all hover:-translate-y-0.5 hover:shadow-md",
-                        meta.box
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-g2">
-                        <p className="font-semibold text-brand truncate">{eq.machine_name}</p>
-                        <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", meta.dot)} />
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate mt-g1">
-                        {eq.plant_name} · {eq.area}
-                      </p>
-                      <div className="flex items-center justify-between mt-g2">
-                        <span className={cn("text-xs font-semibold", meta.text)}>{meta.label}</span>
-                        <span className="text-xs text-muted-foreground">{relativeTime(eq.last_upload_at)}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+              <>
+                <div className={cn(cardSizing.scrollFill, "grid grid-cols-1 sm:grid-cols-2 gap-g2 content-start")}>
+                  {visibleFleet.map((eq) => {
+                    const meta = STATUS_META[eq.status];
+                    return (
+                      <Link
+                        key={eq.equipment_id}
+                        to={`/equipment/${eq.equipment_id}/edit`}
+                        className={cn(
+                          "rounded-lg border px-g3 py-g2 transition-all hover:-translate-y-0.5 hover:shadow-md",
+                          meta.box
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-g2">
+                          <p className="font-semibold text-brand truncate">{eq.machine_name}</p>
+                          <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", meta.dot)} />
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-g1">
+                          {eq.plant_name} · {eq.area}
+                        </p>
+                        <div className="flex items-center justify-between mt-g2">
+                          <span className={cn("text-xs font-semibold", meta.text)}>{meta.label}</span>
+                          <span className="text-xs text-muted-foreground">{relativeTime(eq.last_upload_at)}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+                <PanelPagination
+                  page={fleetPage}
+                  pageSize={fleetPerPage}
+                  total={fleet.length}
+                  onPageChange={setFleetPage}
+                  label="machines"
+                />
+              </>
             ) : (
               <IndustrialEmptyState message="Loading fleet health data…" />
             )}
