@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -14,10 +14,12 @@ import { PageSection } from "@/components/layout/PageSection";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { IndustrialEmptyState } from "@/components/equipment/industrial/IndustrialEmptyState";
+import { PanelPagination } from "@/components/ui/PanelPagination";
 import { cardSizing } from "@/lib/card-sizing";
 import { cardPad, gridGolden, gridMetrics, pageStack } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { STATUS_META, relativeTime } from "@/lib/alert-status";
 import type { EquipmentHealthStatus } from "@/types/dashboard";
 
@@ -26,6 +28,32 @@ export function Dashboard() {
 
   const counts = data?.counts;
   const hasFleet = (counts?.total ?? 0) > 0;
+
+  const fleet = data?.equipment_health ?? [];
+  const alerts = data?.alerts ?? [];
+
+  // The two panels share a `grid-golden` row, but the backend caps alerts at 20
+  // while fleet health is unbounded. One column of 20 alerts made the row far
+  // taller than the fleet grid needed, leaving dead space under it. Page the
+  // alerts at one row per fleet row so both panels end level. The fleet grid is
+  // 2-up from Tailwind's `sm`, 1-up below it.
+  const fleetIsTwoUp = useMediaQuery("(min-width: 640px)");
+  const fleetRows = Math.ceil(fleet.length / (fleetIsTwoUp ? 2 : 1));
+  // When a pager shows it occupies a row of its own, so the list gives one back.
+  // Fits-on-one-page stays at the full count and renders no pager at all, which
+  // keeps this stable rather than oscillating between the two sizes.
+  const alertsPerPage = Math.max(3, alerts.length > fleetRows ? fleetRows - 1 : fleetRows);
+  const alertPageCount = Math.max(1, Math.ceil(alerts.length / alertsPerPage));
+
+  const [alertPage, setAlertPage] = useState(1);
+  useEffect(() => {
+    // Page size follows the viewport and the fleet size, so the current page can
+    // fall off the end without the user touching anything.
+    if (alertPage > alertPageCount) setAlertPage(alertPageCount);
+  }, [alertPage, alertPageCount]);
+
+  const alertOffset = (alertPage - 1) * alertsPerPage;
+  const visibleAlerts = alerts.slice(alertOffset, alertOffset + alertsPerPage);
 
   const kpis = [
     {
@@ -109,9 +137,9 @@ export function Dashboard() {
               <Cpu size={16} className="text-brand" />
               <h3 className="text-card-title text-brand">Fleet Health Status</h3>
             </div>
-            {data && data.equipment_health.length > 0 ? (
+            {fleet.length > 0 ? (
               <div className={cn(cardSizing.scrollFill, "grid grid-cols-1 sm:grid-cols-2 gap-g2 content-start")}>
-                {data.equipment_health.map((eq) => {
+                {fleet.map((eq) => {
                   const meta = STATUS_META[eq.status];
                   return (
                     <Link
@@ -147,28 +175,37 @@ export function Dashboard() {
               <AlertTriangle size={16} className="text-machine-warning" />
               <h3 className="text-card-title text-brand">Maintenance Alerts</h3>
             </div>
-            {data && data.alerts.length > 0 ? (
-              <div className={cn(cardSizing.scrollFill, "space-y-g2 pr-1")}>
-                {data.alerts.map((alert, i) => {
-                  const meta = STATUS_META[alert.status as EquipmentHealthStatus] ?? STATUS_META.no_baseline;
-                  return (
-                    <div
-                      key={`${alert.equipment_id}-${alert.channel}-${alert.feature_code}-${i}`}
-                      className={cn("rounded-lg border px-g3 py-g2", meta.box)}
-                    >
-                      <div className="flex items-center justify-between gap-g2">
-                        <p className="font-semibold text-brand text-sm truncate">{alert.machine_name}</p>
-                        <span className={cn("text-xs font-semibold shrink-0", meta.text)}>{meta.label}</span>
+            {alerts.length > 0 ? (
+              <>
+                <div className={cn(cardSizing.scrollFill, "space-y-g2 pr-1")}>
+                  {visibleAlerts.map((alert, i) => {
+                    const meta = STATUS_META[alert.status as EquipmentHealthStatus] ?? STATUS_META.no_baseline;
+                    return (
+                      <div
+                        key={`${alert.equipment_id}-${alert.channel}-${alert.feature_code}-${alertOffset + i}`}
+                        className={cn("rounded-lg border px-g3 py-g2", meta.box)}
+                      >
+                        <div className="flex items-center justify-between gap-g2">
+                          <p className="font-semibold text-brand text-sm truncate">{alert.machine_name}</p>
+                          <span className={cn("text-xs font-semibold shrink-0", meta.text)}>{meta.label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-g1">
+                          {alert.feature_name ?? alert.feature_code} · CH-{alert.channel + 1} ·{" "}
+                          {alert.value.toFixed(2)} {alert.unit}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-g1">{relativeTime(alert.computed_at)}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-g1">
-                        {alert.feature_name ?? alert.feature_code} · CH-{alert.channel + 1} ·{" "}
-                        {alert.value.toFixed(2)} {alert.unit}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-g1">{relativeTime(alert.computed_at)}</p>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+                <PanelPagination
+                  page={alertPage}
+                  pageSize={alertsPerPage}
+                  total={alerts.length}
+                  onPageChange={setAlertPage}
+                  label="alerts"
+                />
+              </>
             ) : (
               <IndustrialEmptyState message="No active alerts — fleet is within normal thresholds." />
             )}
