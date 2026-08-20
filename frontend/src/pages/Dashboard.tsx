@@ -55,6 +55,21 @@ export function Dashboard() {
   const alertOffset = (alertPage - 1) * alertsPerPage;
   const visibleAlerts = alerts.slice(alertOffset, alertOffset + alertsPerPage);
 
+  // The feed is full width with no neighbour to match, so its page size is just
+  // a height budget: half the backend's cap of 10, which keeps the card near the
+  // height of the golden row above it instead of running past the fold.
+  const activity = data?.recent_activity ?? [];
+  const ACTIVITY_PER_PAGE = 5;
+  const activityPageCount = Math.max(1, Math.ceil(activity.length / ACTIVITY_PER_PAGE));
+
+  const [activityPage, setActivityPage] = useState(1);
+  useEffect(() => {
+    if (activityPage > activityPageCount) setActivityPage(activityPageCount);
+  }, [activityPage, activityPageCount]);
+
+  const activityOffset = (activityPage - 1) * ACTIVITY_PER_PAGE;
+  const visibleActivity = activity.slice(activityOffset, activityOffset + ACTIVITY_PER_PAGE);
+
   const kpis = [
     {
       label: "Fleet Health",
@@ -219,28 +234,37 @@ export function Dashboard() {
             <Radio size={16} className="text-signal-dark" />
             <h3 className="text-card-title text-brand">Signal Analytics Feed</h3>
           </div>
-          {data && data.recent_activity.length > 0 ? (
-            <div className="space-y-g2">
-              {data.recent_activity.map((activity) => (
-                <div
-                  key={activity.upload_id}
-                  className="flex items-center justify-between gap-g3 px-g3 py-g2 rounded-lg bg-warm border border-border"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-brand truncate">{activity.machine_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {activity.mounting_location} · {activity.original_filename ?? "manual capture"}
-                    </p>
+          {activity.length > 0 ? (
+            <>
+              <div className="space-y-g2">
+                {visibleActivity.map((entry) => (
+                  <div
+                    key={entry.upload_id}
+                    className="flex items-center justify-between gap-g3 px-g3 py-g2 rounded-lg bg-warm border border-border"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-brand truncate">{entry.machine_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {entry.mounting_location} · {entry.original_filename ?? "manual capture"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-g3 shrink-0">
+                      <span className="text-xs font-medium text-muted-foreground capitalize">
+                        {entry.features_status}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{relativeTime(entry.created_at)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-g3 shrink-0">
-                    <span className="text-xs font-medium text-muted-foreground capitalize">
-                      {activity.features_status}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{relativeTime(activity.created_at)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <PanelPagination
+                page={activityPage}
+                pageSize={ACTIVITY_PER_PAGE}
+                total={activity.length}
+                onPageChange={setActivityPage}
+                label="uploads"
+              />
+            </>
           ) : (
             <IndustrialEmptyState message="No signal uploads yet. Upload sensor data from Equipment Master to see activity here." />
           )}
