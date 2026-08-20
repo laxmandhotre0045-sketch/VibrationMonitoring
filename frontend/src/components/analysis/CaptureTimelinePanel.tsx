@@ -71,7 +71,7 @@ export function CaptureTimelinePanel({
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-g2">
       <CompactDateRangeBar
         fromDate={fromDate}
         toDate={toDate}

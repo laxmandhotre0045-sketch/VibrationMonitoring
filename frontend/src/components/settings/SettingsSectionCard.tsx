@@ -33,7 +33,7 @@ export function SettingsSectionCard({
         <div className="min-w-0">
           <h2 className="text-base font-bold text-brand leading-tight">{title}</h2>
           {description && (
-            <p className="mt-1 text-sm text-muted-foreground leading-snug">{description}</p>
+            <p className="mt-g1 text-sm text-muted-foreground leading-snug">{description}</p>
           )}
         </div>
       </div>

@@ -49,7 +49,7 @@ export function PlatformSettingsModule() {
           <Lock size={22} />
         </span>
         <h2 className="text-base font-bold text-brand">Administrator access required</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground leading-relaxed">
+        <p className="mx-auto mt-g2 max-w-md text-sm text-muted-foreground leading-relaxed">
           User accounts, the plant hierarchy and integration credentials can only be managed by an
           administrator. Ask one of your platform admins if you need a change here.
         </p>

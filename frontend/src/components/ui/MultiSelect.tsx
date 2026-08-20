@@ -57,7 +57,7 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
       </div>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-card-hover max-h-52 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-g1 bg-white border border-border rounded-lg shadow-card-hover max-h-52 overflow-y-auto">
           {options.map((opt) => (
             <div
               key={opt}

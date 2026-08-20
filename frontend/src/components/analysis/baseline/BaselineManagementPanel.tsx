@@ -49,7 +49,7 @@ const FILTER_OPTIONS: { value: BaselineListFilter; label: string }[] = [
 
 function BaselineListSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-g3">
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
@@ -148,7 +148,7 @@ export function BaselineManagementPanel({
             <Button
               size="sm"
               variant="secondary"
-              className="mt-3"
+              className="mt-g3"
               icon={<RefreshCw size={14} />}
               onClick={onRetry}
             >
@@ -162,7 +162,7 @@ export function BaselineManagementPanel({
             <p className="text-sm font-semibold text-foreground">
               No baselines available for this sensor.
             </p>
-            <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
+            <p className="mt-g2 text-sm text-muted-foreground max-w-lg mx-auto">
               Select a timeline capture, open Detailed Analysis, and use Save as Baseline to create
               your first reference capture for health monitoring and comparison.
             </p>
@@ -176,7 +176,7 @@ export function BaselineManagementPanel({
         )}
 
         {!isLoading && !error && filteredBaselines.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-g3">
             {filteredBaselines.map((baseline) => {
               const isSelected = detailBaselineId
                 ? baseline.id === detailBaselineId
@@ -272,7 +272,7 @@ export function BaselineManagementPanel({
               />
               Selected Baseline Details
             </summary>
-            <div className="mt-3">
+            <div className="mt-g3">
               <BaselineDetailCard baseline={detailBaseline} formatDateTime={formatDateTime} />
             </div>
           </details>

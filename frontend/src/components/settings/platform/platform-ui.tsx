@@ -106,14 +106,14 @@ export function SecretReveal({ label, secret, warning }: SecretRevealProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-g3">
       <div className="flex items-start gap-g2 rounded-lg border border-[#FFA500]/35 bg-[#FFA500]/8 px-g4 py-g3">
         <ShieldAlert size={18} className="mt-0.5 shrink-0 text-signal-dark" />
         <p className="text-sm text-foreground leading-relaxed">{warning}</p>
       </div>
 
       <div>
-        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="mb-g1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
         <div className="flex items-stretch gap-2">

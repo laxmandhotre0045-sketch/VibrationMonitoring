@@ -71,7 +71,7 @@ export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-1 w-56 z-20 py-1 rounded-lg bg-white border border-border shadow-card-hover"
+                  className="absolute right-0 top-full mt-g1 w-56 z-20 py-1 rounded-lg bg-white border border-border shadow-card-hover"
                 >
                   {plantOptions.map((plant) => (
                     <button
@@ -120,12 +120,12 @@ export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-1 w-64 z-20 py-2 rounded-lg bg-white border border-border shadow-card-hover"
+                  className="absolute right-0 top-full mt-g1 w-64 z-20 py-2 rounded-lg bg-white border border-border shadow-card-hover"
                 >
                   <div className="px-4 py-2.5 border-b border-border">
                     <p className="text-sm font-semibold text-brand truncate">{user?.full_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                    <span className="inline-block mt-2 text-xs font-bold tracking-wide px-2 py-0.5 rounded-md bg-white text-brand border border-signal-light/50 uppercase">
+                    <span className="inline-block mt-g2 text-xs font-bold tracking-wide px-2 py-0.5 rounded-md bg-white text-brand border border-signal-light/50 uppercase">
                       {badge}
                     </span>
                   </div>

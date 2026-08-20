@@ -19,7 +19,7 @@ export function SensorThresholdConfig({
   className,
 }: SensorThresholdConfigProps) {
   return (
-    <div className={cn("rounded-md border border-border border-l-2 border-l-signal-light bg-white p-3 space-y-2", className)}>
+    <div className={cn("rounded-md border border-border border-l-2 border-l-signal-light bg-white p-3 space-y-g2", className)}>
       <div className="flex items-center gap-2">
         <SlidersHorizontal size={22} className="text-signal-dark" aria-hidden />
         <h3 className="text-sm font-bold text-foreground">Sensor Threshold Configuration</h3>
@@ -33,7 +33,7 @@ export function SensorThresholdConfig({
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Caution Limit
             </p>
-            <p className="mt-1 font-semibold text-foreground">
+            <p className="mt-g1 font-semibold text-foreground">
               {cautionThreshold !== undefined
                 ? formatHealthMetricDisplay(cautionThreshold, "")
                 : "—"}
@@ -43,7 +43,7 @@ export function SensorThresholdConfig({
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Warning Limit
             </p>
-            <p className="mt-1 font-semibold text-foreground">
+            <p className="mt-g1 font-semibold text-foreground">
               {warningThreshold !== undefined
                 ? formatHealthMetricDisplay(warningThreshold, "")
                 : "—"}

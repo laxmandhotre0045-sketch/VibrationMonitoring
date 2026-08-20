@@ -42,7 +42,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full mt-1 w-[340px] z-20 rounded-lg bg-white border border-border shadow-card-hover"
+              className="absolute right-0 top-full mt-g1 w-[340px] z-20 rounded-lg bg-white border border-border shadow-card-hover"
             >
               <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border">
                 <p className="text-sm font-semibold text-brand">Notifications</p>
@@ -68,7 +68,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                     </p>
                   </div>
                 ) : (
-                  <div className="p-2 space-y-2">
+                  <div className="p-2 space-y-g2">
                     {alerts.map((alert, i) => {
                       const meta =
                         STATUS_META[alert.status as EquipmentHealthStatus] ?? STATUS_META.no_baseline;
@@ -90,11 +90,11 @@ export function NotificationBell({ className }: NotificationBellProps) {
                               {meta.label}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-g1">
                             {alert.feature_name ?? alert.feature_code} · CH-{alert.channel + 1} ·{" "}
                             {alert.value.toFixed(2)} {alert.unit}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground mt-g1">
                             {relativeTime(alert.computed_at)}
                           </p>
                         </Link>

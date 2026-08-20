@@ -50,7 +50,7 @@ export function ChannelMappingOverview({ channels }: ChannelMappingOverviewProps
       description="Quick visual summary of channel configuration readiness."
       icon={<LayoutGrid size={22} strokeWidth={2} />}
     >
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="mb-g2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Channel Mapping Severity
       </p>
       <div className="mb-g3 flex flex-wrap gap-g2 text-xs text-muted-foreground">
@@ -92,23 +92,23 @@ export function ChannelMappingOverview({ channels }: ChannelMappingOverviewProps
                   styles.badge
                 )}
               >
-                <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center justify-between gap-2 mb-g2">
                   <span className="text-sm font-bold">{channelLabel(channel.channelNo)}</span>
                   <span className={cn("h-2 w-2 rounded-full shrink-0", styles.dot)} />
                 </div>
                 <p className="text-xs font-semibold leading-snug">{formatAxis(channel.axis)}</p>
-                <p className="text-xs leading-snug mt-0.5 opacity-90">
+                <p className="text-xs leading-snug mt-g1 opacity-90">
                   {formatDataType(channel.dataType)}
                 </p>
                 {channel.measurementPointName && (
                   <p
-                    className="text-[11px] mt-1.5 truncate opacity-80"
+                    className="text-[11px] mt-g1 truncate opacity-80"
                     title={channel.measurementPointName}
                   >
                     {channel.measurementPointName}
                   </p>
                 )}
-                <p className="text-[10px] font-semibold uppercase tracking-wide mt-2 opacity-75">
+                <p className="text-[10px] font-semibold uppercase tracking-wide mt-g2 opacity-75">
                   {styles.label}
                 </p>
               </div>

@@ -681,7 +681,7 @@ function DeliveryLogDialog({
                   {delivery.succeeded ? (
                     <StatusPill tone="healthy">{delivery.status_code}</StatusPill>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-g1">
                       <StatusPill tone="danger">
                         {delivery.status_code ?? "No response"}
                       </StatusPill>

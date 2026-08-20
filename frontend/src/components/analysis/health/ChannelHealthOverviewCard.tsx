@@ -31,7 +31,7 @@ export function ChannelHealthOverviewCard({
         className
       )}
     >
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-g3">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFA500]/10 text-[#FFA500]">
           <Activity size={20} aria-hidden />
         </span>
@@ -72,7 +72,7 @@ function OverviewItem({
       </p>
       <p
         className={cn(
-          "mt-1 text-sm leading-snug",
+          "mt-g1 text-sm leading-snug",
           emphasize ? "font-bold text-brand" : "font-semibold text-foreground"
         )}
       >

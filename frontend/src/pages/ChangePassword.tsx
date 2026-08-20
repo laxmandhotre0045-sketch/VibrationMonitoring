@@ -21,9 +21,9 @@ export function ChangePasswordPage() {
             <KeyRound size={28} className="text-signal-dark" />
           </div>
 
-          <h1 className="text-2xl font-bold text-brand mb-2">Password Change Required</h1>
+          <h1 className="text-2xl font-bold text-brand mb-g2">Password Change Required</h1>
           <div className="brand-divider mx-auto mb-g3" />
-          <p className="text-base text-helper mb-2">
+          <p className="text-base text-helper mb-g2">
             Your administrator requires a password change before you can access the platform.
           </p>
           {user && (

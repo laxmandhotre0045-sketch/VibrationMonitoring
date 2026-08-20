@@ -148,7 +148,7 @@ function EchartsDiagnosticChartInner({
 
   const statisticsPanel = useMemo(
     () => (
-      <div className="space-y-2">
+      <div className="space-y-g2">
         <GraphStatisticsPanel stats={statistics} amplitudeUnit={amplitudeUnit || undefined} />
         <ThresholdZoneLegend visible={showThresholds} />
       </div>

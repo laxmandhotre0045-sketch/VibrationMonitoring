@@ -24,7 +24,7 @@ export function DeviceInfoCard({ device, className }: DeviceInfoCardProps) {
         <div className="min-w-0">
           <p className="text-overline text-muted-foreground">Device</p>
           <p className="text-sm font-semibold text-foreground truncate">{device.deviceLabel}</p>
-          <p className="text-xs text-muted-foreground mt-0.5 font-mono">{device.deviceId}</p>
+          <p className="text-xs text-muted-foreground mt-g1 font-mono">{device.deviceId}</p>
         </div>
       </div>
 

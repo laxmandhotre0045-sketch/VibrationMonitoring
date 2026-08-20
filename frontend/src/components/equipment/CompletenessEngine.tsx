@@ -21,7 +21,7 @@ export function CompletenessEngine({ data }: CompletenessEngineProps) {
         {COMPLETENESS_SECTIONS.map((section) => {
           const pct = getStepCompletion(data, section.id);
           return (
-            <div key={section.key} className="space-y-2">
+            <div key={section.key} className="space-y-g2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-lg font-semibold text-brand truncate">{section.label}</span>
                 <span

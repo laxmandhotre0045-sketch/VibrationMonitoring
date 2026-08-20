@@ -14,7 +14,7 @@ export function TrendAnalysisTab({ selectedUploadId }: TrendAnalysisTabProps) {
           <LineChart size={24} aria-hidden />
         </div>
         <h3 className="mt-g3 text-base font-bold text-foreground">Factor trends moved to Status (Health)</h3>
-        <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
+        <p className="mt-g2 text-sm text-muted-foreground max-w-lg mx-auto">
           Per-capture feature values, status tables, baseline comparison, and segment trend charts
           are now on the Status (Health) tab for the selected timeline capture.
         </p>

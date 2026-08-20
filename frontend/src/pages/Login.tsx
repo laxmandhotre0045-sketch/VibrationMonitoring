@@ -123,15 +123,15 @@ export function LoginPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <p className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white tracking-tight leading-none mb-4">
+            <p className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white tracking-tight leading-none mb-g3">
               Sensovibe
             </p>
 
-            <p className="text-base font-semibold text-[#FF6B00] tracking-wide mb-2">{TAGLINE}</p>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
+            <p className="text-base font-semibold text-[#FF6B00] tracking-wide mb-g2">{TAGLINE}</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mb-g3 leading-tight">
               Intelligent Machine Health Monitoring
             </h1>
-            <div className="brand-divider mb-3 max-w-[120px]" />
+            <div className="brand-divider mb-g3 max-w-[120px]" />
             <p className="text-sm sm:text-base text-white/85 max-w-lg leading-relaxed">
               Monitor machine vibration, equipment health, FFT analysis, and predictive
               maintenance from a single industrial platform.

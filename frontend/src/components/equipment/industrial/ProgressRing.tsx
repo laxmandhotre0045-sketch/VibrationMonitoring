@@ -50,7 +50,7 @@ export function ProgressRing({
       </div>
       <div className="min-w-0">
         <p className="text-lg font-semibold text-brand leading-tight">{label}</p>
-        {sublabel && <p className="text-helper mt-0.5">{sublabel}</p>}
+        {sublabel && <p className="text-helper mt-g1">{sublabel}</p>}
       </div>
     </div>
   );

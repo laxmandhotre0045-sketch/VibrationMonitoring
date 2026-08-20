@@ -135,7 +135,7 @@ export function CaptureTimeline({
   return (
     <div
       className={cn(
-        "rounded-md border border-border bg-surface/30 px-3 py-2.5 space-y-2.5",
+        "rounded-md border border-border bg-surface/30 px-3 py-2.5 space-y-g2",
         className
       )}
     >

@@ -101,7 +101,7 @@ export function StatusHealthTab({
             />
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-g2">
             <h3 className="text-sm font-bold text-foreground">Feature Status Table</h3>
             {featureItems.length > 0 ? (
               <FeatureStatusTable items={featureItems} />

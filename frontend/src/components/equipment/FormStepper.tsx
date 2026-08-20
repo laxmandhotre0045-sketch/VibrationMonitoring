@@ -47,6 +47,8 @@ export function FormStepper({ activeStep, completedSteps, onStepClick }: FormSte
                 {index > 0 && (
                   <div
                     className={cn(
+                      // mt-4 is not spacing — it centres the connector against the 32px step
+                      // circle. Snapping it to the ladder would knock the line off-axis.
                       "flex-1 h-0.5 mt-4 min-w-[12px] rounded-full transition-colors",
                       step.id <= activeStep || isCompleted
                         ? "bg-[#FF6B00]/40"

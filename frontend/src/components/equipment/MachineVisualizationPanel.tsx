@@ -126,7 +126,7 @@ export function MachineVisualizationPanel({ data, className }: MachineVisualizat
         <p className="text-overline">
           Asset Preview
         </p>
-        <p className="text-base font-semibold text-brand truncate mt-0.5">
+        <p className="text-base font-semibold text-brand truncate mt-g1">
           {machineType || "No type selected"}
           {data.machine_name && (
             <span className="text-muted-foreground font-normal"> · {data.machine_name}</span>

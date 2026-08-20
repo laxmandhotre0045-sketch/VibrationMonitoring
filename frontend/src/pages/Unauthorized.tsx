@@ -25,7 +25,7 @@ export function UnauthorizedPage() {
             <ShieldAlert size={36} className="text-signal-dark" />
           </div>
 
-          <h1 className="text-2xl font-bold text-brand mb-2">Access Restricted</h1>
+          <h1 className="text-2xl font-bold text-brand mb-g2">Access Restricted</h1>
           <div className="brand-divider mx-auto mb-g3" />
           <p className="text-base text-helper mb-g5">
             You do not have permission to access this area.

@@ -84,7 +84,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   TM
                 </span>
               </div>
-              <p className="mt-1.5 text-sm font-medium text-brand/70 tracking-wide leading-snug">
+              <p className="mt-g1 text-sm font-medium text-brand/70 tracking-wide leading-snug">
                 {TAGLINE}
               </p>
             </motion.div>
@@ -93,9 +93,9 @@ export function Sidebar({ onClose }: SidebarProps) {
         <div className="sidebar-logo-divider" aria-hidden />
       </div>
 
-      <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 px-3 py-3 space-y-g1 overflow-y-auto scrollbar-thin">
         {!sidebarCollapsed && (
-          <p className="px-3 mb-2 text-overline text-[#FFA500]/85">
+          <p className="px-3 mb-g2 text-overline text-[#FFA500]/85">
             Modules
           </p>
         )}

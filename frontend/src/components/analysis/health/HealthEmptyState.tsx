@@ -18,7 +18,7 @@ export function HealthEmptyState({
         className
       )}
     >
-      <BarChart2 size={28} className="mx-auto mb-2 text-muted-foreground" aria-hidden />
+      <BarChart2 size={28} className="mx-auto mb-g2 text-muted-foreground" aria-hidden />
       <p className="text-sm font-medium text-muted-foreground">{message}</p>
     </div>
   );

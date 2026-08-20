@@ -80,7 +80,7 @@ export function SettingsTabNav({ activeModule, onModuleChange, className }: Sett
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block">{tab.label}</span>
-                <span className="block text-xs font-medium text-muted-foreground mt-0.5">
+                <span className="block text-xs font-medium text-muted-foreground mt-g1">
                   {tab.description}
                   {!tab.available && " · Coming soon"}
                 </span>

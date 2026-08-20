@@ -221,7 +221,7 @@ export function EquipmentMasterList() {
         ) : isError ? (
           <div className={cn(cardSizing.stateCenter, "text-center")}>
             <p className="font-bold text-destructive">Failed to load equipment.</p>
-            <p className="text-helper mt-2">
+            <p className="text-helper mt-g2">
               Make sure the backend is running on port 8000.
             </p>
           </div>
@@ -235,7 +235,7 @@ export function EquipmentMasterList() {
             <p className="font-semibold text-foreground text-lg">
               No equipment found.
             </p>
-            <p className="text-helper mt-1">
+            <p className="text-helper mt-g1">
               Add your first equipment to begin AI readiness configuration.
             </p>
             {canWrite && (
@@ -274,7 +274,7 @@ export function EquipmentMasterList() {
                       className="border-b border-border/50 hover:bg-warm transition-colors group"
                     >
                       <td className="px-g4 py-g3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-g3">
                           <div className="w-9 h-9 rounded-lg bg-white border border-border flex items-center justify-center shrink-0 group-hover:border-signal-light/50 transition-colors">
                             <Cpu size={16} className="text-brand" />
                           </div>
@@ -330,7 +330,7 @@ export function EquipmentMasterList() {
                         </span>
                       </td>
                       <td className="px-g4 py-g3">
-                        <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-g1 opacity-60 group-hover:opacity-100 transition-opacity">
                           {canWrite && (
                             <>
                               <motion.button

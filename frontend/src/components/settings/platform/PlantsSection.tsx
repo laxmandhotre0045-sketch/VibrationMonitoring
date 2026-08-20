@@ -87,13 +87,13 @@ export function PlantsSection() {
         {!isLoading && !plants?.length && (
           <div className="rounded-lg border border-dashed border-border bg-warm px-g4 py-g6 text-center">
             <p className="text-sm font-semibold text-foreground">No plants yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-g1 text-sm text-muted-foreground">
               Add a plant to start filing equipment under a hierarchy.
             </p>
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-g2">
           {plants?.map((plant) => (
             <PlantRow
               key={plant.id}
@@ -234,7 +234,7 @@ function PlantRow({
               )}
               {!plant.is_active && <StatusPill tone="muted">Inactive</StatusPill>}
             </span>
-            <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+            <span className="mt-g1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
               {plant.location && (
                 <span className="inline-flex items-center gap-1">
                   <MapPin size={11} />
@@ -280,7 +280,7 @@ function PlantRow({
             </p>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-g2">
             {detail?.areas.map((area) => (
               <div key={area.id} className="rounded-lg border border-border bg-white">
                 <div className="flex items-center gap-2.5 px-3 py-2.5">

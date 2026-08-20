@@ -58,7 +58,7 @@ export function PlatformDialog({
           <div className="min-w-0">
             <h3 className="text-lg font-bold text-brand leading-tight">{title}</h3>
             {description && (
-              <p className="mt-1 text-sm text-muted-foreground leading-snug">{description}</p>
+              <p className="mt-g1 text-sm text-muted-foreground leading-snug">{description}</p>
             )}
           </div>
           <button

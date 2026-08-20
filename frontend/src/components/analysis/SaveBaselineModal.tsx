@@ -46,7 +46,7 @@ export function SaveBaselineModal({
             <h3 id="save-baseline-title" className="text-lg font-bold text-brand">
               Save as baseline
             </h3>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-g1">
               Adds a new baseline record.
             </p>
           </div>

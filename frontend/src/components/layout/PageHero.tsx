@@ -42,7 +42,7 @@ export function PageHero({
 
       <div className={cn("relative z-10", vibrationBg && "card-pad")}>
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1.5 mb-g2 text-sm font-medium">
+          <nav className="flex items-center gap-g1 mb-g2 text-sm font-medium">
             {breadcrumbs.map((crumb, i) => (
               <React.Fragment key={crumb.label}>
                 {i > 0 && <ChevronRight size={14} className="text-muted-foreground" />}
@@ -59,24 +59,28 @@ export function PageHero({
         )}
 
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-g4">
-          <div className="space-y-1">
+          <div className="min-w-0">
             <h1 className="text-page-title lg:text-4xl">{title}</h1>
-            <div className="brand-divider" />
-            <p className="text-helper max-w-2xl pt-g1">{subtitle}</p>
+            <div className="brand-divider mt-g1" />
+            <p className="text-helper max-w-2xl mt-g2">{subtitle}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-g2">
-            {equipmentCount !== undefined && (
-              <div className="flex items-center gap-g2 px-g3 py-g2 rounded-lg bg-white/90 border border-border shadow-card backdrop-blur-[2px]">
-                <div>
-                  <p className="text-overline">Equipment</p>
-                  <p className="text-kpi-value text-brand">{equipmentCount.toLocaleString()}</p>
+          {/* Four of the five heroes pass neither actions nor a count. Rendering
+              the container unconditionally cost them a full gap-g4 of dead space
+              once the row stacked on mobile. */}
+          {(equipmentCount !== undefined || actions) && (
+            <div className="flex flex-wrap items-center gap-g2">
+              {equipmentCount !== undefined && (
+                <div className="flex items-center gap-g2 px-g3 py-g2 rounded-lg bg-white/90 border border-border shadow-card backdrop-blur-[2px]">
+                  <div>
+                    <p className="text-overline">Equipment</p>
+                    <p className="text-kpi-value text-brand">{equipmentCount.toLocaleString()}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {actions}
-          </div>
+              )}
+              {actions}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

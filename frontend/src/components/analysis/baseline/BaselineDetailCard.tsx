@@ -24,7 +24,7 @@ export function BaselineDetailCard({
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Baseline Information
       </p>
-      <h4 className="mt-2 text-base font-bold text-foreground">{baseline.name}</h4>
+      <h4 className="mt-g2 text-base font-bold text-foreground">{baseline.name}</h4>
       <dl className="mt-g2 grid grid-cols-1 sm:grid-cols-2 gap-x-g3 gap-y-g1 text-sm">
         <div>
           <dt className="text-muted-foreground">Created</dt>
@@ -40,7 +40,7 @@ export function BaselineDetailCard({
         </div>
         <div>
           <dt className="text-muted-foreground">Plot Status</dt>
-          <dd className="mt-0.5">
+          <dd className="mt-g1">
             <BaselinePlotStatusBadge status={baseline.plots_status} />
           </dd>
         </div>

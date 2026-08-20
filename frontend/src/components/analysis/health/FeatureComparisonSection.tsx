@@ -112,7 +112,7 @@ export function FeatureComparisonSection({
   const groups = groupFeatureCompareItems(items);
 
   return (
-    <section className={cn("space-y-3", className)}>
+    <section className={cn("space-y-g3", className)}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h3 className="text-sm font-bold text-foreground">Feature Comparison vs Baseline</h3>
         {baselineOptions.length > 0 && (
@@ -153,7 +153,7 @@ export function FeatureComparisonSection({
           <Button
             size="sm"
             variant="secondary"
-            className="mt-3"
+            className="mt-g3"
             icon={<RefreshCw size={14} />}
             onClick={onRetry}
           >

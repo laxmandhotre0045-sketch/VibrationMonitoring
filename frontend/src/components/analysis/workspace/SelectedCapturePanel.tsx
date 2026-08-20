@@ -41,11 +41,11 @@ export function SelectedCapturePanel({ selectedUpload }: SelectedCapturePanelPro
           Select a capture on the timeline to view capture details.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-g3">
           <div className="rounded-md border border-border border-l-2 border-l-signal-light bg-white px-3 py-2">
             <p className={analysisKpiLabelClass}>Capture</p>
             <p
-              className="text-sm font-medium text-foreground mt-1 leading-snug"
+              className="text-sm font-medium text-foreground mt-g1 leading-snug"
               title={formatCaptureSelection(selectedUpload)}
             >
               {formatCaptureSelection(selectedUpload)}

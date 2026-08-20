@@ -81,7 +81,7 @@ export function ChannelConfigurationSection({
           icon={<Plus size={14} />}
           disabled={!canAdd}
           onClick={onAddRow}
-          className="mt-2 sm:mt-0"
+          className="mt-g2 sm:mt-0"
         >
           Add Channel Row
         </Button>

@@ -19,7 +19,7 @@ export function AnalysisSectionHeader({
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 mb-3 pb-2 border-b border-border",
+        "flex items-center gap-g2 mb-g3 pb-g2 border-b border-border",
         className
       )}
     >
@@ -29,7 +29,7 @@ export function AnalysisSectionHeader({
       <div className="min-w-0">
         <h2 className="text-base font-bold text-foreground leading-tight">{title}</h2>
         {subtitle && (
-          <p className="text-sm text-muted-foreground mt-0.5 leading-snug">{subtitle}</p>
+          <p className="text-sm text-muted-foreground mt-g1 leading-snug">{subtitle}</p>
         )}
       </div>
     </div>

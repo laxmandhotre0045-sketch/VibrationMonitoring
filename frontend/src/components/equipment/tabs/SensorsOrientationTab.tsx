@@ -245,7 +245,7 @@ export function SensorsOrientationTab() {
                       )}
                     />
                     {samplingRate === "Custom" && (
-                      <div className="flex items-center gap-1 mt-1">
+                      <div className="flex items-center gap-1 mt-g1">
                         <input
                           type="number"
                           min="1"
@@ -269,7 +269,7 @@ export function SensorsOrientationTab() {
                       )}
                     />
                     {freqRange === "Custom" && (
-                      <div className="flex items-center gap-1 mt-1">
+                      <div className="flex items-center gap-1 mt-g1">
                         <input
                           type="number"
                           min="0"

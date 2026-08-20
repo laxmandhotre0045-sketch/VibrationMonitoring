@@ -44,10 +44,10 @@ export function FeatureTrendCardsSection({
     (isPending || isLoading || isFetching || featuresStatus === "computing");
 
   return (
-    <section className={cn("space-y-3", className)}>
+    <section className={cn("space-y-g3", className)}>
       <div>
         <h3 className="text-sm font-bold text-foreground">Feature Trend Monitoring</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-g1 text-sm text-muted-foreground">
           Segment trends for all 10 vibration features within the selected capture.
         </p>
       </div>
