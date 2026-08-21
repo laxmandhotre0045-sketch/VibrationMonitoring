@@ -7,6 +7,9 @@ import type {
   SensorDataUpload,
 } from "@/types/measurements";
 import type { UploadFactorTrendsResponse } from "@/types/factor-trends";
+import type { WaterfallQuery, WaterfallResponse } from "@/types/waterfall";
+import type { VibrationVectorQuery, VibrationVectorResponse } from "@/types/vector";
+import type { CasingOrbitQuery, CasingOrbitResponse } from "@/types/orbit";
 import type { FeatureCompareResponse, UploadFeaturesResponse } from "@/types/features";
 import {
   normalizeFeatureCompareResponse,
@@ -112,6 +115,93 @@ export async function getSinglePlot(
 export async function getPlotTypes(): Promise<string[]> {
   const res = await api.get("/api/v1/measurements/plot-types");
   return res.data.plot_types;
+}
+
+/** Stacked FFT spectra across captures for the 3D waterfall. */
+export async function getWaterfall(query: WaterfallQuery): Promise<WaterfallResponse> {
+  const res = await api.get("/api/v1/measurements/waterfall", {
+    params: {
+      sensor_id: query.sensorId,
+      channel: query.channel,
+      count: query.count,
+      mode: query.mode,
+      plot_type: query.plotType,
+      ...(query.maxPoints !== undefined ? { max_points: query.maxPoints } : {}),
+      ...(query.maxPeaks !== undefined ? { max_peaks: query.maxPeaks } : {}),
+      ...(query.seed !== undefined ? { seed: query.seed } : {}),
+    },
+    timeout: 120_000,
+  });
+  return res.data;
+}
+
+/**
+ * Casing orbit X(t) vs Y(t) from two synchronously-sampled channels of one capture.
+ * Values are double-integrated displacement in micrometres.
+ */
+export async function getCasingOrbit(query: CasingOrbitQuery): Promise<CasingOrbitResponse> {
+  const res = await api.get(`/api/v1/measurements/uploads/${query.uploadId}/orbit`, {
+    params: {
+      x_channel: query.xChannel,
+      y_channel: query.yChannel,
+      harmonic: query.harmonic,
+      bandwidth_percent: query.bandwidthPercent,
+      display_revolutions: query.displayRevolutions,
+      include_unfiltered: query.includeUnfiltered,
+      ...(query.filterRevolutions !== undefined
+        ? { filter_revolutions: query.filterRevolutions }
+        : {}),
+    },
+    timeout: 120_000,
+  });
+  return res.data;
+}
+
+/**
+ * Amplitude + self-referenced phase at one frequency, block by block, for one capture.
+ * Backed by a read-only endpoint that re-runs the FFT purely to keep the complex value.
+ */
+export async function getVibrationVector(
+  query: VibrationVectorQuery
+): Promise<VibrationVectorResponse> {
+  const res = await api.get(
+    `/api/v1/measurements/uploads/${query.uploadId}/vector`,
+    {
+      params: {
+        channel: query.channel,
+        ...(query.targetHz !== undefined ? { target_hz: query.targetHz } : {}),
+        ...(query.blockSize !== undefined ? { block_size: query.blockSize } : {}),
+        ...(query.overlap !== undefined ? { overlap: query.overlap } : {}),
+      },
+      timeout: 120_000,
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Estimated shaft speed (Hz) for one capture/channel.
+ *
+ * Read raw rather than through getUploadFeatures: the normalizer drops feature metadata,
+ * and estimated_shaft_hz lives in the 1X feature's metadata. This is a derived estimate
+ * (largest FFT bin in the 5-120 Hz band), never a measured tachometer reading.
+ * Returns null whenever the value is absent.
+ */
+export async function getEstimatedShaftHz(
+  uploadId: string,
+  channel: number
+): Promise<number | null> {
+  const res = await api.get(`/api/v1/measurements/uploads/${uploadId}/features`, {
+    params: { channel },
+    timeout: 30_000,
+  });
+  const items: Array<{ feature_code?: string; metadata?: Record<string, unknown> }> =
+    res.data?.items ?? [];
+  for (const item of items) {
+    const value = item?.metadata?.estimated_shaft_hz;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
 }
 
 export async function getUploadFactorTrends(

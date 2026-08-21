@@ -85,10 +85,22 @@ export function LoginPage() {
       }
     } catch (err) {
       setFailedAttempts((n) => n + 1);
-      let message = "Sign in failed. Please check your credentials.";
+      let message = "Sign in failed. Please try again.";
       if (axios.isAxiosError(err)) {
         const detail = err.response?.data?.detail;
-        if (typeof detail === "string") message = detail;
+        if (!err.response) {
+          // No response at all: server down, wrong API URL, or the browser blocked
+          // the request (CORS). Saying "check your credentials" here sends people
+          // hunting for a password problem that does not exist.
+          message =
+            "Cannot reach the server. Check that the API is running and that this address is allowed by CORS_ORIGINS.";
+        } else if (typeof detail === "string") {
+          message = detail;
+        } else if (err.response.status === 401) {
+          message = "Incorrect email or password.";
+        } else {
+          message = `Sign in failed (HTTP ${err.response.status}).`;
+        }
       }
       setError(message);
     } finally {

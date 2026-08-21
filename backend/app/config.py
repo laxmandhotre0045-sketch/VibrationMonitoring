@@ -1,5 +1,15 @@
 from pydantic_settings import BaseSettings
 
+#: Origins always allowed, matching the Vite dev server and preview ports.
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:4173",
+    "http://127.0.0.1:3000",
+]
+
 
 class Settings(BaseSettings):
     database_url: str
@@ -26,9 +36,24 @@ class Settings(BaseSettings):
     seed_user_password: str = ""
     seed_user_name: str = "Read Only User"
 
+    #: Extra browser origins allowed to call the API, comma-separated.
+    #: Needed whenever the UI is opened on anything other than localhost —
+    #: e.g. CORS_ORIGINS=http://192.168.1.51:4173
+    cors_origins: str = ""
+
     @property
     def effective_jwt_secret(self) -> str:
         return self.jwt_secret or self.secret_key
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Local dev origins plus anything configured via CORS_ORIGINS."""
+        origins = list(DEFAULT_CORS_ORIGINS)
+        for origin in self.cors_origins.split(","):
+            cleaned = origin.strip().rstrip("/")
+            if cleaned and cleaned not in origins:
+                origins.append(cleaned)
+        return origins
 
     class Config:
         env_file = ".env"

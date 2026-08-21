@@ -44,6 +44,29 @@ import { cn } from "@/lib/utils";
 
 type PlotSource = "upload" | "baseline";
 
+/**
+ * Loaded on demand — this tab pulls in echarts-gl (WebGL), which no other view needs.
+ * Keeps it out of the initial bundle.
+ */
+const WaterfallTab = React.lazy(() =>
+  import("@/components/analysis/workspace/WaterfallTab").then((m) => ({
+    default: m.WaterfallTab,
+  }))
+);
+
+/** Lazy for the same reason: only this tab needs the polar chart code. */
+const VectorTab = React.lazy(() =>
+  import("@/components/analysis/workspace/VectorTab").then((m) => ({
+    default: m.VectorTab,
+  }))
+);
+
+const OrbitTab = React.lazy(() =>
+  import("@/components/analysis/workspace/OrbitTab").then((m) => ({
+    default: m.OrbitTab,
+  }))
+);
+
 const selectClass = analysisSelectClass;
 
 function formatDateTime(iso: string) {
@@ -466,6 +489,50 @@ export function VibrationAnalysisPage() {
             selectedUploadId={selectedUploadId}
             selectedBaselineId={selectedBaselineId}
           />
+        </div>
+        <div hidden={activeTab !== "waterfall"}>
+          {activeTab === "waterfall" && (
+            <React.Suspense
+              fallback={
+                <p className="text-sm text-muted-foreground">Loading 3D waterfall…</p>
+              }
+            >
+              <WaterfallTab
+                sensorId={sensorId}
+                channelCount={plotChannelCount}
+                defaultChannel={activeChannel}
+              />
+            </React.Suspense>
+          )}
+        </div>
+        <div hidden={activeTab !== "vector"}>
+          {activeTab === "vector" && (
+            <React.Suspense
+              fallback={
+                <p className="text-sm text-muted-foreground">Loading vibration vector…</p>
+              }
+            >
+              <VectorTab
+                selectedUploadId={selectedUploadId}
+                sensorId={sensorId}
+                channelCount={plotChannelCount}
+                defaultChannel={activeChannel}
+              />
+            </React.Suspense>
+          )}
+        </div>
+        <div hidden={activeTab !== "orbit"}>
+          {activeTab === "orbit" && (
+            <React.Suspense
+              fallback={<p className="text-sm text-muted-foreground">Loading casing orbit…</p>}
+            >
+              <OrbitTab
+                selectedUploadId={selectedUploadId}
+                sensorId={sensorId}
+                channelCount={plotChannelCount}
+              />
+            </React.Suspense>
+          )}
         </div>
         <div hidden={activeTab !== "statistics"}>
           <StatisticsTab
