@@ -9,6 +9,7 @@ import {
   ChannelHealthOverviewSkeleton,
 } from "./ChannelHealthOverviewCard";
 import { FeatureStatusTable, FeatureStatusTableSkeleton } from "./FeatureStatusTable";
+import { FeatureThresholdLimitsSection } from "./FeatureThresholdLimitsSection";
 import { FeatureComparisonSection } from "./FeatureComparisonSection";
 import { FeatureTrendCardsSection } from "./FeatureTrendCardsSection";
 import { HealthEmptyState } from "./HealthEmptyState";
@@ -109,6 +110,14 @@ export function StatusHealthTab({
               <HealthEmptyState />
             )}
           </div>
+
+          <FeatureThresholdLimitsSection
+            uploadId={selectedUploadId}
+            channel={healthChannel}
+            channelLabel={channelLabel}
+            baselineId={compareBaselineId || primaryBaseline?.id}
+            enabled={enabled}
+          />
 
           <FeatureComparisonSection
             items={compareItems}
