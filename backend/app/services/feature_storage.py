@@ -85,8 +85,9 @@ def persist_upload_features_and_trends(
     sampling_rate_hz: float,
 ) -> tuple[int, int]:
     """Extract scalars + segment trends for all channels. Returns (feature_rows, trend_rows)."""
-    rules = feature_crud.get_active_threshold_rules(db)
-    rules_map = {r.feature_code: r for r in rules}
+    # Keyed by (channel, code): a channel with its own override uses it, every
+    # other channel falls back to the global rule. See crud.feature.resolve_rule.
+    rules_map = feature_crud.get_resolved_rule_map(db)
     baseline_refs = _baseline_ref_map(db, upload.sensor_id)
 
     scalars = extract_all_channels(parsed_data, upload.channel_count, sampling_rate_hz)
@@ -110,7 +111,7 @@ def persist_upload_features_and_trends(
             payload = features.get(code)
             if not payload:
                 continue
-            rule = rules_map.get(code)
+            rule = feature_crud.resolve_rule(rules_map, channel, code)
             baseline_val = baseline_refs.get((channel, code))
             status = "normal"
             if rule:

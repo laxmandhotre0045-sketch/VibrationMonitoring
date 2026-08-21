@@ -208,12 +208,17 @@ class FeatureThresholdRule(Base):
     feature_code = Column(String(40), ForeignKey("feature_definitions.code"), nullable=False)
     rule_type = Column(String(30), nullable=False)
     machine_type = Column(String(80), nullable=True)
+    # NULL means the rule applies to every channel; a row with a channel set
+    # overrides the global one for that channel only.
+    channel = Column(Integer, nullable=True)
     normal_max = Column(Numeric(18, 8), nullable=True)
     warning_max = Column(Numeric(18, 8), nullable=True)
     normal_min = Column(Numeric(18, 8), nullable=True)
     warning_min = Column(Numeric(18, 8), nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
     is_active = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
 class MeasurementChannelFeature(Base):
