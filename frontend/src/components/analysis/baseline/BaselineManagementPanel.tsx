@@ -102,7 +102,7 @@ export function BaselineManagementPanel({
   if (!sensorId) return null;
 
   return (
-    <GlassCard className={analysisCardPad} delay={0.06}>
+    <GlassCard hover={false} className={analysisCardPad} delay={0.06}>
       <AnalysisSectionHeader
         icon={Bookmark}
         title="Baseline Management"

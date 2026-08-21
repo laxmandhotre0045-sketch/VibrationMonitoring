@@ -159,7 +159,7 @@ export function Dashboard() {
         </GlassCard>
       ) : (
         <div className={gridGolden}>
-          <GlassCard equalHeight className={cardPad} delay={0.3}>
+          <GlassCard equalHeight hover={false} className={cardPad} delay={0.3}>
             <div className="flex items-center gap-g2 mb-g3">
               <Cpu size={16} className="text-brand" />
               <h3 className="text-card-title text-brand">Fleet Health Status</h3>
@@ -206,7 +206,7 @@ export function Dashboard() {
             )}
           </GlassCard>
 
-          <GlassCard equalHeight className={cardPad} delay={0.35}>
+          <GlassCard equalHeight hover={false} className={cardPad} delay={0.35}>
             <div className="flex items-center gap-g2 mb-g3">
               <AlertTriangle size={16} className="text-machine-warning" />
               <h3 className="text-card-title text-brand">Maintenance Alerts</h3>
@@ -219,7 +219,10 @@ export function Dashboard() {
                     return (
                       <div
                         key={`${alert.equipment_id}-${alert.channel}-${alert.feature_code}-${alertOffset + i}`}
-                        className={cn("rounded-lg border px-g3 py-g2", meta.box)}
+                        className={cn(
+                          "rounded-lg border px-g3 py-g2 transition-all hover:-translate-y-0.5 hover:shadow-md",
+                          meta.box
+                        )}
                       >
                         <div className="flex items-center justify-between gap-g2">
                           <p className="font-semibold text-brand text-sm truncate">{alert.machine_name}</p>
@@ -250,7 +253,7 @@ export function Dashboard() {
       )}
 
       {hasFleet && (
-        <GlassCard className={cardPad} delay={0.4}>
+        <GlassCard hover={false} className={cardPad} delay={0.4}>
           <div className="flex items-center gap-g2 mb-g3">
             <Radio size={16} className="text-signal-dark" />
             <h3 className="text-card-title text-brand">Signal Analytics Feed</h3>
@@ -261,7 +264,7 @@ export function Dashboard() {
                 {visibleActivity.map((entry) => (
                   <div
                     key={entry.upload_id}
-                    className="flex items-center justify-between gap-g3 px-g3 py-g2 rounded-lg bg-warm border border-border"
+                    className="flex items-center justify-between gap-g3 px-g3 py-g2 rounded-lg bg-warm border border-border transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-signal-light/50"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-brand truncate">{entry.machine_name}</p>

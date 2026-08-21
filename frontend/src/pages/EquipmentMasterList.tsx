@@ -208,7 +208,7 @@ export function EquipmentMasterList() {
       </GlassCard>
 
       {/* Equipment Table */}
-      <GlassCard className="overflow-hidden" delay={0.35}>
+      <GlassCard hover={false} className="overflow-hidden" delay={0.35}>
         {isLoading ? (
           <div className={cn(cardSizing.stateCenter, "gap-g3")}>
             <motion.div
