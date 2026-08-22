@@ -156,6 +156,20 @@ def acceleration_to_displacement_um(
     return displacement_m * M_TO_UM
 
 
+def displacement_um_from_acceleration_g(amplitude_g: float, frequency_hz: float) -> float:
+    """
+    Scalar form of the same conversion the orbit path uses on whole spectra:
+
+        x = a / (2*pi*f)^2,  a in m/s^2, x in metres
+
+    Returns 0.0 for a non-positive or non-finite frequency rather than dividing by zero.
+    """
+    if not math.isfinite(amplitude_g) or not math.isfinite(frequency_hz) or frequency_hz <= 0:
+        return 0.0
+    omega = 2.0 * math.pi * frequency_hz
+    return (amplitude_g * G_TO_MS2) / (omega * omega) * M_TO_UM
+
+
 def _decimate(values: np.ndarray, max_points: int) -> np.ndarray:
     if values.size <= max_points:
         return values

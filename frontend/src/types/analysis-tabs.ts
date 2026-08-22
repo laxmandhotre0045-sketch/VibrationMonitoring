@@ -1,5 +1,14 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Box, CircleDot, Compass, HeartPulse, LineChart, TrendingUp } from "lucide-react";
+import {
+  BarChart3,
+  Box,
+  CircleDot,
+  Compass,
+  HeartPulse,
+  LineChart,
+  Move3D,
+  TrendingUp,
+} from "lucide-react";
 
 export type AnalysisTabId =
   | "health"
@@ -8,6 +17,7 @@ export type AnalysisTabId =
   | "waterfall"
   | "vector"
   | "orbit"
+  | "migration"
   | "statistics";
 
 export const ANALYSIS_TABS: {
@@ -21,5 +31,6 @@ export const ANALYSIS_TABS: {
   { id: "waterfall", label: "Waterfall & Cascade", icon: Box },
   { id: "vector", label: "Vibration Vector", icon: Compass },
   { id: "orbit", label: "Casing Orbit", icon: CircleDot },
+  { id: "migration", label: "1× Amplitude Migration", icon: Move3D },
   { id: "statistics", label: "Statistics", icon: BarChart3 },
 ];

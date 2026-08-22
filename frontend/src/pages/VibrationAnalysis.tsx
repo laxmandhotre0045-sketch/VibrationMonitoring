@@ -67,6 +67,12 @@ const OrbitTab = React.lazy(() =>
   }))
 );
 
+const MigrationTab = React.lazy(() =>
+  import("@/components/analysis/workspace/MigrationTab").then((m) => ({
+    default: m.MigrationTab,
+  }))
+);
+
 const selectClass = analysisSelectClass;
 
 function formatDateTime(iso: string) {
@@ -531,6 +537,15 @@ export function VibrationAnalysisPage() {
                 sensorId={sensorId}
                 channelCount={plotChannelCount}
               />
+            </React.Suspense>
+          )}
+        </div>
+        <div hidden={activeTab !== "migration"}>
+          {activeTab === "migration" && (
+            <React.Suspense
+              fallback={<p className="text-sm text-muted-foreground">Calculating 1× response…</p>}
+            >
+              <MigrationTab sensorId={sensorId} channelCount={plotChannelCount} />
             </React.Suspense>
           )}
         </div>

@@ -27,7 +27,16 @@ from app.schemas.acquisition import EdgeAcquisitionConfigOut
 from app.schemas.waterfall import SELECTION_MODES, WaterfallOut
 from app.schemas.vector import VibrationVectorOut
 from app.schemas.orbit import CasingOrbitOut
+from app.schemas.migration import MigrationSummaryOut, OneXMigrationOut
 from app.services.casing_orbit import build_casing_orbit
+from app.services.one_x_migration import (
+    AMPLITUDE_UNIT,
+    SOURCE_UNIT,
+    SPEED_SOURCE_ESTIMATED,
+    SPEED_SOURCE_OVERRIDE,
+    build_migration_point,
+    summarise_migration,
+)
 from app.services.acquisition_config import build_edge_acquisition_config
 from app.services.waterfall import (
     DEFAULT_MAX_PEAKS,
@@ -36,6 +45,7 @@ from app.services.waterfall import (
     amplitude_axis_label,
     build_waterfall,
     detect_spectrum_peaks,
+    select_uploads,
 )
 from app.services.vibration_vector import (
     DEFAULT_OVERLAP,
@@ -647,6 +657,136 @@ def get_vibration_vector(
         mounting_location=sensor.mounting_location if sensor else None,
         candidates=candidates,
         **result,
+    )
+
+
+# ── 1x amplitude migration (one point per capture, across captures) ──────────
+
+@router.get(
+    "/one-x-migration",
+    response_model=OneXMigrationOut,
+    summary="1x amplitude migration: Vertical vs Horizontal 1x response across captures",
+)
+def get_one_x_migration(
+    sensor_id: UUID = Query(..., description="Sensor UUID"),
+    x_channel: int = Query(0, ge=0, le=31, description="Vertical channel"),
+    y_channel: int = Query(1, ge=0, le=31, description="Horizontal channel"),
+    count: int = Query(40, ge=2, le=200, description="How many captures to trend"),
+    mode: str = Query("last", description="last | oldest | random"),
+    shaft_hz: float | None = Query(
+        None, gt=0, description="Override the per-capture FFT shaft estimate"
+    ),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Read-only. One point per capture: X = vertical 1x amplitude, Y = horizontal 1x
+    amplitude, both as double-integrated displacement.
+
+    Each capture uses its OWN estimated shaft frequency — a fixed bin would turn ordinary
+    speed drift into fake migration.
+
+    This is NOT a shaft-centreline plot. The sensors are AC accelerometers on the casing;
+    static shaft position, attitude angle, eccentricity and bearing clearance require
+    DC-capable proximity probes and are neither computed nor reported.
+    """
+    if x_channel == y_channel:
+        raise HTTPException(status_code=400, detail="X and Y must be different channels")
+    if mode not in SELECTION_MODES:
+        raise HTTPException(status_code=400, detail=f"mode must be one of {SELECTION_MODES}")
+    if from_date is not None and to_date is not None and from_date > to_date:
+        raise HTTPException(status_code=400, detail="from_date must be on or before to_date")
+
+    sensor = crud.get_sensor_by_id(db, sensor_id)
+    if not sensor:
+        raise HTTPException(status_code=404, detail="Sensor not found")
+
+    cfg = measurement_crud.get_plot_config_by_sensor(db, sensor_id)
+    cfg = (
+        measurement_crud.config_to_dict(cfg)
+        if cfg
+        else measurement_crud.default_config_dict(max(x_channel, y_channel) + 1)
+    )
+    sampling_rate = float(cfg["sampling_rate_hz"])
+
+    uploads, total_parsed = measurement_crud.list_uploads_by_sensor(
+        db,
+        sensor_id,
+        from_date=from_date,
+        to_date=to_date,
+        parse_status="parsed",
+        page=1,
+        page_size=WATERFALL_POOL_LIMIT,
+    )
+    # Same selection helper the waterfall uses: returns oldest -> newest.
+    selected, _pool = select_uploads(uploads, mode, count)
+
+    points: list[dict] = []
+    skipped = 0
+    for index, upload in enumerate(selected):
+        try:
+            parsed = _load_parsed_for_upload(db, upload)
+            channels = parsed.get("channels") or {}
+            samples_x = channels.get(f"ch{x_channel}")
+            samples_y = channels.get(f"ch{y_channel}")
+        except Exception:
+            samples_x = samples_y = None
+
+        resolved_shaft = shaft_hz or _stored_estimated_shaft_hz(db, upload.id, x_channel)
+        point = build_migration_point(
+            upload_id=upload.id,
+            captured_at=upload.created_at,
+            sequence=index + 1,
+            samples_x=samples_x,
+            samples_y=samples_y,
+            sampling_rate_hz=sampling_rate,
+            shaft_hz=resolved_shaft,
+            speed_source=SPEED_SOURCE_OVERRIDE if shaft_hz else SPEED_SOURCE_ESTIMATED,
+            x_channel=x_channel,
+            y_channel=y_channel,
+        )
+        if point["quality"] == "invalid":
+            skipped += 1
+        points.append(point)
+
+    summary = summarise_migration(points)
+
+    warnings: list[str] = []
+    if summary["valid_count"] < 2:
+        warnings.append("At least two valid captures are required to show migration.")
+    if summary["shaft_hz_min"] and summary["shaft_hz_max"]:
+        drift = summary["shaft_hz_max"] - summary["shaft_hz_min"]
+        if drift > 0:
+            warnings.append(
+                f"Shaft estimate varies {summary['shaft_hz_min']:.2f}-{summary['shaft_hz_max']:.2f} Hz "
+                "across the selection; each capture is tracked at its own 1x."
+            )
+
+    return OneXMigrationOut(
+        sensor_id=sensor_id,
+        x_channel=x_channel,
+        y_channel=y_channel,
+        amplitude_unit=AMPLITUDE_UNIT,
+        source_unit=SOURCE_UNIT,
+        selection_mode=mode,
+        requested_count=count,
+        returned_count=len(points),
+        total_available=total_parsed,
+        skipped_count=skipped,
+        sampling_rate_hz=sampling_rate,
+        sensor_label=sensor.sensor_type,
+        sensor_orientation=sensor.orientation,
+        mounting_location=sensor.mounting_location,
+        points=points,
+        summary=MigrationSummaryOut(
+            valid_count=summary["valid_count"],
+            x_max=summary["x_max"],
+            y_max=summary["y_max"],
+            shaft_hz_min=summary["shaft_hz_min"],
+            shaft_hz_max=summary["shaft_hz_max"],
+        ),
+        warnings=warnings,
     )
 
 

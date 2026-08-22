@@ -10,6 +10,7 @@ import type { UploadFactorTrendsResponse } from "@/types/factor-trends";
 import type { WaterfallQuery, WaterfallResponse } from "@/types/waterfall";
 import type { VibrationVectorQuery, VibrationVectorResponse } from "@/types/vector";
 import type { CasingOrbitQuery, CasingOrbitResponse } from "@/types/orbit";
+import type { OneXMigrationQuery, OneXMigrationResponse } from "@/types/migration";
 import type { FeatureCompareResponse, UploadFeaturesResponse } from "@/types/features";
 import {
   normalizeFeatureCompareResponse,
@@ -131,6 +132,26 @@ export async function getWaterfall(query: WaterfallQuery): Promise<WaterfallResp
       ...(query.seed !== undefined ? { seed: query.seed } : {}),
     },
     timeout: 120_000,
+  });
+  return res.data;
+}
+
+/**
+ * 1x amplitude migration: one point per capture, X = vertical 1x amplitude,
+ * Y = horizontal 1x amplitude, each capture tracked at its own shaft frequency.
+ */
+export async function getOneXMigration(
+  query: OneXMigrationQuery
+): Promise<OneXMigrationResponse> {
+  const res = await api.get("/api/v1/measurements/one-x-migration", {
+    params: {
+      sensor_id: query.sensorId,
+      x_channel: query.xChannel,
+      y_channel: query.yChannel,
+      count: query.count,
+      mode: query.mode,
+    },
+    timeout: 180_000,
   });
   return res.data;
 }
