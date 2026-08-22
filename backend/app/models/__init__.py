@@ -1,4 +1,6 @@
 from app.models.equipment import Equipment
+from app.models.plant import Plant, Area, Line
+from app.models.integration import ApiKey, Webhook, WebhookDelivery
 from app.models.sensor import SensorConfiguration
 from app.models.measurement import (
     BaselineChannelFeature,

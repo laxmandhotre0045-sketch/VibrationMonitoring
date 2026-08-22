@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.dependencies.auth import get_current_user
+from app.models.plant import Plant
 
 router = APIRouter(
     prefix="/api/v1/lookups",
@@ -64,9 +67,31 @@ LOOKUPS = {
 }
 
 
+def plant_names(db: Session) -> list[str]:
+    """Active plant names from the registry.
+
+    Reads the plants table rather than DISTINCT plant_name off equipment, so a
+    plant appears in the dropdown as soon as it is registered — before any
+    equipment has been assigned to it.
+    """
+    rows = (
+        db.query(Plant.name)
+        .filter(Plant.is_active.is_(True))
+        .order_by(Plant.name.asc())
+        .all()
+    )
+    return [row[0] for row in rows if (row[0] or "").strip()]
+
+
 @router.get("/")
-def get_all_lookups():
-    return LOOKUPS
+def get_all_lookups(db: Session = Depends(get_db)):
+    return {**LOOKUPS, "plants": plant_names(db)}
+
+
+# Declared before /{lookup_name} so the catch-all does not swallow it.
+@router.get("/plants")
+def get_plants(db: Session = Depends(get_db)):
+    return {"lookup": "plants", "values": plant_names(db)}
 
 
 @router.get("/{lookup_name}")

@@ -69,7 +69,7 @@ export function ChannelConfigurationSection({
       icon={<SlidersHorizontal size={22} strokeWidth={2} />}
       bodyClassName="p-0 sm:p-0"
     >
-      <div className="flex flex-col gap-0 sm:flex-row sm:items-center sm:justify-between border-b border-border px-4 py-3 sm:px-5">
+      <div className="flex flex-col gap-0 sm:flex-row sm:items-center sm:justify-between border-b border-border px-g4 py-g3">
         <p className="text-xs font-medium text-muted-foreground">
           {channels.length} of {maxChannelCount} channel{maxChannelCount === 1 ? "" : "s"}{" "}
           configured
@@ -81,14 +81,14 @@ export function ChannelConfigurationSection({
           icon={<Plus size={14} />}
           disabled={!canAdd}
           onClick={onAddRow}
-          className="mt-2 sm:mt-0"
+          className="mt-g2 sm:mt-0"
         >
           Add Channel Row
         </Button>
       </div>
 
       {channels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-g2 px-g4 py-g6 text-center">
           <p className="text-sm text-muted-foreground">
             No channel mappings configured. Add a row to begin mapping device channels.
           </p>
@@ -104,11 +104,11 @@ export function ChannelConfigurationSection({
           </Button>
         </div>
       ) : (
-        <div className="overflow-x-auto max-h-[520px] overflow-y-auto rounded-b-xl">
+        <div className="overflow-x-auto max-h-[34rem] overflow-y-auto rounded-b-xl">
           <table className="w-full min-w-[1080px] text-sm">
             <thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm border-b border-border">
               <tr className="text-left">
-                <th className="px-4 py-3 font-semibold text-muted-foreground">Channel No</th>
+                <th className="px-g4 py-g3 font-semibold text-muted-foreground">Channel No</th>
                 <th className="px-3 py-3 font-semibold text-muted-foreground">Axis</th>
                 <th className="px-3 py-3 font-semibold text-muted-foreground">Data Type</th>
                 <th className="px-3 py-3 font-semibold text-muted-foreground">Engineering Unit</th>
@@ -116,7 +116,7 @@ export function ChannelConfigurationSection({
                   Measurement Point Name
                 </th>
                 <th className="px-3 py-3 font-semibold text-muted-foreground">Active</th>
-                <th className="px-4 py-3 font-semibold text-muted-foreground">Actions</th>
+                <th className="px-g4 py-g3 font-semibold text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -133,7 +133,7 @@ export function ChannelConfigurationSection({
                       isEditing && "bg-signal-light/5"
                     )}
                   >
-                    <td className="px-4 py-2.5 font-bold text-brand whitespace-nowrap">
+                    <td className="px-g4 py-g2 font-bold text-brand whitespace-nowrap">
                       {channelLabel(channel.channelNo)}
                     </td>
                     <td className="px-3 py-2.5">
@@ -219,7 +219,7 @@ export function ChannelConfigurationSection({
                         onChange={(active) => onUpdate(channel.channelNo, { active })}
                       />
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-g4 py-g2">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <Button
                           type="button"

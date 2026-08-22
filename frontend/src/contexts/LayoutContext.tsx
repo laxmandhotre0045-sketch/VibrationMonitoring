@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+import { ALL_PLANTS } from "@/components/layout/nav-config";
 
 interface LayoutContextValue {
   sidebarCollapsed: boolean;
@@ -10,13 +11,13 @@ interface LayoutContextValue {
 const LayoutContext = createContext<LayoutContextValue>({
   sidebarCollapsed: false,
   toggleSidebar: () => {},
-  selectedPlant: "All Plants",
+  selectedPlant: ALL_PLANTS,
   setSelectedPlant: () => {},
 });
 
 export function LayoutProvider({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedPlant, setSelectedPlant] = useState("All Plants");
+  const [selectedPlant, setSelectedPlant] = useState(ALL_PLANTS);
 
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 

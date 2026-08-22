@@ -27,7 +27,7 @@ export function ProgressRing({
   const offset = circumference - (value / 100) * circumference;
 
   return (
-    <div className={cn("flex items-center gap-4", className)}>
+    <div className={cn("flex items-center gap-g3", className)}>
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
           <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} />
@@ -50,7 +50,7 @@ export function ProgressRing({
       </div>
       <div className="min-w-0">
         <p className="text-lg font-semibold text-brand leading-tight">{label}</p>
-        {sublabel && <p className="text-helper mt-0.5">{sublabel}</p>}
+        {sublabel && <p className="text-helper mt-g1">{sublabel}</p>}
       </div>
     </div>
   );

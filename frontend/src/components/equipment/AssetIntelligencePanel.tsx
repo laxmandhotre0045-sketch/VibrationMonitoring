@@ -29,8 +29,8 @@ interface AssetIntelligencePanelProps {
 
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="px-5 py-4 border-b border-border last:border-0">
-      <h4 className="text-overline text-brand mb-3">{title}</h4>
+    <div className="px-g4 py-g3 border-b border-border last:border-0">
+      <h4 className="text-overline text-brand mb-g3">{title}</h4>
       {children}
     </div>
   );
@@ -58,21 +58,21 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
         "rounded-xl border border-border bg-white shadow-card overflow-hidden flex flex-col max-h-[calc(100vh-6rem)]",
         cardHover.panel
       )}>
-        <div className="px-5 py-4 bg-brand text-white shrink-0">
+        <div className="px-g4 py-g3 bg-brand text-white shrink-0">
           <div className="flex items-center gap-2">
             <Activity size={18} className="text-brand-accent" />
             <div>
               <h3 className="text-base font-bold">Asset Intelligence Panel</h3>
-              <p className="text-sm font-medium text-white/85 mt-0.5">Real-time profile analysis</p>
+              <p className="text-sm font-medium text-white/85 mt-g1">Real-time profile analysis</p>
             </div>
           </div>
         </div>
 
         <div className={cardSizing.scrollFill}>
         <PanelSection title="AI Readiness Score">
-          <div className="flex items-end justify-between mb-2">
+          <div className="flex items-end justify-between mb-g2">
             <span className="text-3xl font-bold text-brand-accent-dark">{aiScore}%</span>
-            <TrendingUp size={20} className="text-brand-accent mb-1" />
+            <TrendingUp size={20} className="text-brand-accent mb-g1" />
           </div>
           <div className="h-2 bg-border rounded-full overflow-hidden">
             <div
@@ -80,13 +80,13 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
               style={{ width: `${aiScore}%` }}
             />
           </div>
-          <p className="text-sm font-medium text-muted-foreground mt-2">
+          <p className="text-sm font-medium text-muted-foreground mt-g2">
             {aiScore >= 70 ? "Ready for vibration intelligence" : "Additional data needed for AI diagnostics"}
           </p>
         </PanelSection>
 
         <PanelSection title="Form Completion">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-g2">
             <span className="text-2xl font-bold text-brand">{completion}%</span>
             <span className="text-sm font-medium text-muted-foreground">of profile complete</span>
           </div>
@@ -123,7 +123,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
             )}
           </div>
           {data.machine_criticality && (
-            <p className="text-sm font-medium text-muted-foreground mt-2">
+            <p className="text-sm font-medium text-muted-foreground mt-g2">
               Criticality: <span className="font-semibold text-foreground">{data.machine_criticality}</span>
             </p>
           )}
@@ -142,7 +142,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
 
         {alerts.length > 0 && (
           <PanelSection title="Missing Information">
-            <ul className="space-y-2">
+            <ul className="space-y-g2">
               {alerts.slice(0, 5).map((alert) => (
                 <li key={alert} className="flex items-start gap-2 text-sm font-medium text-foreground/90">
                   <AlertTriangle size={13} className="text-brand-accent shrink-0 mt-0.5" />
@@ -157,7 +157,7 @@ export function AssetIntelligencePanel({ activeStep }: AssetIntelligencePanelPro
         )}
 
         <PanelSection title="Recommended Next Actions">
-          <ul className="space-y-2.5">
+          <ul className="space-y-g2">
             {actions.map((action, i) => (
               <li key={i} className="flex items-start gap-2 text-sm font-medium text-foreground leading-relaxed">
                 <Lightbulb size={13} className="text-brand-accent shrink-0 mt-0.5" />

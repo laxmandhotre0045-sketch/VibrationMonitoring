@@ -12,3 +12,4 @@ uploads/
 *.egg-info/
 .pytest_cache/
 alembic/versions/__pycache__/
+.claude/scheduled_tasks.lock

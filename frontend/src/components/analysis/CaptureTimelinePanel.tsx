@@ -64,14 +64,14 @@ export function CaptureTimelinePanel({
 
   if (!sensorId) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-4">
+      <p className="text-sm text-muted-foreground text-center py-g3">
         Select a sensor above to browse capture history.
       </p>
     );
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-g2">
       <CompactDateRangeBar
         fromDate={fromDate}
         toDate={toDate}

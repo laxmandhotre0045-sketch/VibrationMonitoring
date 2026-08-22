@@ -8,7 +8,7 @@ import type { EquipmentFormData } from "@/types/equipment";
 
 function LoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center py-32 gap-4">
+    <div className="flex flex-col items-center justify-center py-g6 gap-g3">
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -21,7 +21,7 @@ function LoadingState() {
 
 function ErrorState() {
   return (
-    <div className="flex flex-col items-center justify-center py-32 gap-3">
+    <div className="flex flex-col items-center justify-center py-g6 gap-g2">
       <p className="text-destructive font-bold">Failed to load equipment.</p>
       <p className="text-helper">Please try again.</p>
     </div>

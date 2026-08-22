@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { inputBase } from "./FormField";
 
 interface MultiSelectProps {
   options: string[];
@@ -35,8 +36,12 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
     <div ref={ref} className="relative">
       <div
         className={cn(
-          "min-h-[38px] w-full px-3 py-1.5 text-base border rounded-lg bg-white cursor-pointer flex flex-wrap gap-1 items-center",
-          error ? "border-destructive/50" : "border-border hover:border-signal-light/60",
+          inputBase,
+          // Matches an empty TextInput exactly: 23px line-height + 12px x2 (py-3)
+          // + 2px border = 49px. py-3 relaxes to py-g2 so chip rows stay compact.
+          "min-h-[49px] py-g2 flex flex-wrap items-center gap-g1 cursor-pointer",
+          "hover:border-signal-light/60",
+          error && "border-destructive/50 bg-destructive/5",
           open && "border-signal-light ring-2 ring-[rgba(245,166,35,0.22)]"
         )}
         onClick={() => setOpen(!open)}
@@ -52,12 +57,12 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
       </div>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-card-hover max-h-52 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-g1 bg-white border border-border rounded-lg shadow-card-hover max-h-52 overflow-y-auto">
           {options.map((opt) => (
             <div
               key={opt}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 text-base cursor-pointer hover:bg-background transition-colors",
+                "flex items-center gap-g2 px-g3 py-g2 text-base cursor-pointer hover:bg-background transition-colors",
                 value.includes(opt) && "bg-warm text-brand font-medium border-l-2 border-l-signal-dark"
               )}
               onClick={() => toggle(opt)}

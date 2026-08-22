@@ -14,7 +14,7 @@ export function ThresholdZoneLegend({ visible = true, className }: ThresholdZone
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground",
+        "flex flex-wrap items-center gap-x-g3 gap-y-g1 text-[10px] text-muted-foreground",
         className
       )}
       aria-label="Threshold zone legend"

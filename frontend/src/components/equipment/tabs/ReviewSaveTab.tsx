@@ -13,7 +13,7 @@ const ASSET_STATUS = ["Active", "Inactive", "Under Maintenance", "Decommissioned
 function ReviewRow({ label, value }: { label: string; value?: string | number | null }) {
   if (!value && value !== 0) return null;
   return (
-    <div className="flex items-start gap-4 py-3 border-b border-border last:border-0">
+    <div className="flex items-start gap-g3 py-g2 border-b border-border last:border-0">
       <span className="text-lg font-medium text-muted-foreground w-44 shrink-0">{label}</span>
       <span className="text-lg font-semibold text-foreground">{String(value)}</span>
     </div>
@@ -33,13 +33,13 @@ function ReviewSection({
 }) {
   return (
     <div className={cn("content-card card-auto", cardHover.soft, scrollBody && "overflow-hidden")}>
-      <div className="px-8 py-5 border-b border-border">
+      <div className="px-g4 py-g3 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-brand">{icon}</span>
           <span className="text-section-title">{title}</span>
         </div>
       </div>
-      <div className={cn("px-8 py-6", scrollBody && cardSizing.scrollSm)}>{children}</div>
+      <div className={cn("px-g5 py-g4", scrollBody && cardSizing.scrollSm)}>{children}</div>
     </div>
   );
 }
@@ -49,8 +49,8 @@ export function ReviewSaveTab() {
   const data = watch();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-11">
-      <div className="lg:col-span-2 flex flex-col gap-11">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-g5">
+      <div className="lg:col-span-2 flex flex-col gap-g5">
         <ReviewSection title="Location & Identity" icon={<MapPin size={14} />}>
           <ReviewRow label="Plant Name" value={data.plant_name} />
           <ReviewRow label="Area" value={data.area} />
@@ -107,7 +107,7 @@ export function ReviewSaveTab() {
           <ReviewRow label="Installation Date" value={data.installation_date} />
           <ReviewRow label="Last Maintenance" value={data.last_maintenance_date} />
           {(data.operating_environment?.length || 0) > 0 && (
-            <div className="flex items-start gap-4 py-3">
+            <div className="flex items-start gap-g3 py-g2">
               <span className="text-base text-muted-foreground w-44 shrink-0">Environment</span>
               <div className="flex flex-wrap gap-1">
                 {data.operating_environment?.map((e) => (
@@ -137,7 +137,7 @@ export function ReviewSaveTab() {
       </div>
 
       <SectionCard title="Asset Configuration" icon={<ClipboardCheck size={16} />}>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-g3">
           <div className="flex flex-col gap-1">
             <label className="text-lg font-semibold text-foreground">Asset Status</label>
             <Controller

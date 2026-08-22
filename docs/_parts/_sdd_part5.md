@@ -195,7 +195,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 | `channel_count` | `INTEGER` | NO | `1` | 1–32 |
 | `active_channel` | `INTEGER` | NO | `0` | Default channel for plot reads; clamped on read |
 | `sampling_rate_hz` | `NUMERIC(12,4)` | NO | `25600` | Governs the FFT frequency axis and all trend time axes |
-| `fft_lines` | `INTEGER` | NO | `1600` | Sample count truncation before the FFT (64–65536) |
+| `fft_lines` | `INTEGER` | NO | `1600` | Lines of resolution; the FFT block is `2 × fft_lines` samples (64–65536) |
 | `frequency_max_hz` | `NUMERIC(12,4)` | YES | `NULL` | Optional spectrum cut-off |
 | `data_type` | `VARCHAR(30)` | NO | `'acceleration'` | acceleration / velocity / displacement |
 | `enabled_plots` | `JSONB` | NO | `'[]'` | Array of plot-type strings; an empty array is treated as "all five" on read |
@@ -274,7 +274,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 | `y_label` | `VARCHAR(80)` | NO | — | Axis label |
 | `x_data` | `JSONB` | NO | — | X array |
 | `y_data` | `JSONB` | NO | — | Y array |
-| `metadata` | `JSONB` | NO | `'{}'` | Plot-specific extras (`plot_style`, `fft_lines`, `sampling_rate_hz`, `num_segments`, `samples`); mapped to `metadata_` in Python |
+| `metadata` | `JSONB` | NO | `'{}'` | Plot-specific extras (`plot_style`, `fft_lines`, `block_size`, `averages`, `sampling_rate_hz`, `num_segments`, `samples`); mapped to `metadata_` in Python |
 | `point_count` | `INTEGER` | NO | — | `len(x)`, stored for cheap size inspection |
 | `sampling_rate_hz` | `NUMERIC(12,4)` | NO | — | Rate used at computation time |
 | `fft_lines` | `INTEGER` | YES | — | Lines used |
@@ -653,7 +653,7 @@ The schema is essentially in **Third Normal Form**, with four deliberate, docume
 | 3 | `users.role` alongside `user_roles` | A single scalar avoids a join on every authenticated request and is `CHECK`-constrained | Two sources of truth; `_user_role` prefers the scalar and falls back to the relationship |
 | 4 | `sampling_rate_hz`, `fft_lines`, `frequency_max_hz` copied onto every plot row | Makes each cached row self-describing and auditable without reading `plot_configurations` | Redundant storage (negligible relative to the arrays) |
 
-**Missing normalisation, noted honestly.** `plant_name`, `area`, and `line` are free-text strings on every equipment row rather than a normalised plant hierarchy. This is why the `PLANTS` list in the frontend is hard-coded and why plant selection filters nothing — there is no plant entity to filter on.
+**Missing normalisation, noted honestly.** `plant_name`, `area`, and `line` are free-text strings on every equipment row rather than a normalised plant hierarchy. The plant selector works around this by deriving its options from `SELECT DISTINCT plant_name` over the equipment master (`GET /api/v1/lookups/plants`) and filtering on an exact case-insensitive match, so it does filter real data. But with no plant entity there is nothing to enforce spelling: a typo on one equipment row silently becomes a new plant in the dropdown, and renaming a plant means updating every row carrying the old string.
 
 ## 6.8 Data-Volume Model
 

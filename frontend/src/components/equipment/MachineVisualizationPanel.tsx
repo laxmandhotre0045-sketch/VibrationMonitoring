@@ -122,11 +122,11 @@ export function MachineVisualizationPanel({ data, className }: MachineVisualizat
 
   return (
     <div className={cn("content-card card-auto rounded-lg", cardHover.soft, className)}>
-      <div className="px-4 py-2.5 border-b border-border">
+      <div className="px-g4 py-g2 border-b border-border">
         <p className="text-overline">
           Asset Preview
         </p>
-        <p className="text-base font-semibold text-brand truncate mt-0.5">
+        <p className="text-base font-semibold text-brand truncate mt-g1">
           {machineType || "No type selected"}
           {data.machine_name && (
             <span className="text-muted-foreground font-normal"> · {data.machine_name}</span>

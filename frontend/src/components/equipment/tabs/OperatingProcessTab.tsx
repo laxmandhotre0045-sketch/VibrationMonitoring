@@ -17,10 +17,10 @@ export function OperatingProcessTab() {
   const { control } = useFormContext<EquipmentFormData>();
 
   return (
-    <div className="flex flex-col gap-11">
+    <div className="flex flex-col gap-g5">
       <SectionCard title="Operating & Process" icon={<Activity size={15} />}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-g5">
+          <div className="flex flex-col gap-g4">
             <FormField label="Operating Speed Range (RPM)">
               <Controller
                 name="operating_speed_min"
@@ -76,7 +76,7 @@ export function OperatingProcessTab() {
           </FormField>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-g5">
           <FormField label="Operating Environment">
             <Controller
               name="operating_environment"
@@ -90,7 +90,7 @@ export function OperatingProcessTab() {
       </SectionCard>
 
       <SectionCard title="Lubrication & Maintenance" icon={<Wrench size={15} />}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-g4">
           <FormField label="Lubrication Type">
             <Controller
               name="lubrication_type"

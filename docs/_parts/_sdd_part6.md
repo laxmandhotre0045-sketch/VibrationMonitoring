@@ -147,7 +147,8 @@ flowchart TD
 | BR-5.1 | Plots are computed for **every** available channel, then read per channel | `persist_all_plot_results` |
 | BR-5.2 | A cache entry is valid only when the stored plot-type set exactly equals the enabled set for the current fingerprint | `get_or_load_all_plots` |
 | BR-5.3 | The fingerprint excludes `active_channel` and `channel_count` so channel switching never invalidates the cache | `compute_config_fingerprint` |
-| BR-5.4 | FFT and envelope spectra apply a Hann window and single-sided `2/n` scaling | `compute_fft_spectrum` |
+| BR-5.4 | FFT and envelope spectra apply a Hann window and single-sided `2 / window.sum()` scaling, so the window's coherent gain — not the sample count — sets the amplitude | `compute_fft_spectrum` |
+| BR-5.4a | `fft_lines` is a line count: the FFT block is `2 × fft_lines` samples, and a capture longer than one block is averaged over 50 %-overlapping blocks rather than truncated | `compute_fft_spectrum` |
 | BR-5.5 | The envelope spectrum removes the envelope's mean before the FFT to suppress the DC pedestal | `compute_envelope_spectrum` |
 | BR-5.6 | Circular waveform and trend plots need at least 4 samples; FFT needs at least 4 | `compute_*` guards |
 | BR-5.7 | The trend plot uses 32 equal segments with RMS per segment | `compute_trend_plot` |

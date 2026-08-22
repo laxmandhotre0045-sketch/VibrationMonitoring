@@ -1,26 +1,49 @@
 import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, ChevronDown, Building2, LogOut, User } from "lucide-react";
+import { Search, ChevronDown, Building2, LogOut, User, Menu, X } from "lucide-react";
 import { useLayout } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { PLANTS } from "./nav-config";
+import { getLookup } from "@/api/equipment";
+import { NotificationBell } from "./NotificationBell";
+import { ALL_PLANTS } from "./nav-config";
 import { primaryRole, roleLabel } from "@/lib/role-access";
 import { cn } from "@/lib/utils";
 
 const navBtn = "bg-white border border-border hover:border-signal-light transition-colors rounded-lg";
 
-export function TopNav() {
+interface TopNavProps {
+  onMenuClick?: () => void;
+  menuOpen?: boolean;
+}
+
+export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
   const { selectedPlant, setSelectedPlant } = useLayout();
   const { user, roles, logout } = useAuth();
   const [searchFocused, setSearchFocused] = useState(false);
   const [plantOpen, setPlantOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const [notifications] = useState(3);
 
   const badge = roleLabel(primaryRole(roles));
 
+  const { data: plants } = useQuery({
+    queryKey: ["lookup", "plants"],
+    queryFn: () => getLookup("plants"),
+    staleTime: 5 * 60_000,
+  });
+  const plantOptions = [ALL_PLANTS, ...(plants ?? [])];
+
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-6 py-3 bg-warm border-b border-border shadow-nav">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-g3 px-g4 py-g3 bg-warm border-b border-border shadow-nav">
+      {onMenuClick && (
+        <button
+          onClick={onMenuClick}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          className={cn("md:hidden flex items-center justify-center p-2 shrink-0", navBtn)}
+        >
+          {menuOpen ? <X size={20} className="text-brand" /> : <Menu size={20} className="text-brand" />}
+        </button>
+      )}
       <div className={cn("relative hidden md:block transition-all duration-200", searchFocused ? "w-[400px]" : "w-80")}>
         <Search size={16} className={cn("absolute left-3 top-1/2 -translate-y-1/2", searchFocused ? "text-signal-light" : "text-muted-foreground")} />
         <input
@@ -48,9 +71,9 @@ export function TopNav() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-1 w-56 z-20 py-1 rounded-lg bg-white border border-border shadow-card-hover"
+                  className="absolute right-0 top-full mt-g1 w-56 z-20 py-1 rounded-lg bg-white border border-border shadow-card-hover"
                 >
-                  {PLANTS.map((plant) => (
+                  {plantOptions.map((plant) => (
                     <button
                       key={plant}
                       onClick={() => { setSelectedPlant(plant); setPlantOpen(false); }}
@@ -68,14 +91,7 @@ export function TopNav() {
           </AnimatePresence>
         </div>
 
-        <button className={cn("relative p-2", navBtn)}>
-          <Bell size={18} className="text-brand" />
-          {notifications > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[10px] font-bold text-white bg-signal-dark rounded-full">
-              {notifications}
-            </span>
-          )}
-        </button>
+        <NotificationBell className={navBtn} />
 
         <div className="relative">
           <button
@@ -104,12 +120,12 @@ export function TopNav() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-1 w-64 z-20 py-2 rounded-lg bg-white border border-border shadow-card-hover"
+                  className="absolute right-0 top-full mt-g1 w-64 z-20 py-2 rounded-lg bg-white border border-border shadow-card-hover"
                 >
                   <div className="px-4 py-2.5 border-b border-border">
                     <p className="text-sm font-semibold text-brand truncate">{user?.full_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                    <span className="inline-block mt-2 text-xs font-bold tracking-wide px-2 py-0.5 rounded-md bg-white text-brand border border-signal-light/50 uppercase">
+                    <span className="inline-block mt-g2 text-xs font-bold tracking-wide px-2 py-0.5 rounded-md bg-white text-brand border border-signal-light/50 uppercase">
                       {badge}
                     </span>
                   </div>

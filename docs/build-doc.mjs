@@ -21,8 +21,10 @@ const PARTS = [1, 2, 3, 4, 5, 6, 7].map((n) =>
 const OUT_MD = path.join(DOCS, "SensoVibe_Technical_Documentation.md");
 const OUT_HTML = path.join(DOCS, "SensoVibe_Technical_Documentation.html");
 
-const DOC_VERSION = "1.0";
+const DOC_VERSION = "1.1";
+// Date the 1.0 baseline was cut; the 0.x revision-history rows all belong to it.
 const DOC_DATE = "26 July 2026";
+const REVISION_DATE = "17 August 2026";
 const PROJECT_VERSION = "Backend 1.1.0 · Frontend 1.0.0 · Schema rev 011";
 
 // ---------------------------------------------------------------- slugger ---
@@ -168,7 +170,7 @@ const front = `<a id="cover"></a>
 | **Document scope** | Frontend + Backend + Database + Configuration + Assets + APIs + Project Structure |
 | **Source of truth** | Extracted exclusively from the source code in this repository |
 | **Source branch** | \`laxman-dev\` |
-| **Date** | ${DOC_DATE} |
+| **Date** | ${REVISION_DATE} |
 | **Prepared by** | Engineering — SensoVibe Platform Team |
 | **Reviewed by** | _pending_ |
 | **Approved by** | _pending_ |
@@ -231,7 +233,8 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
 | 0.5 | ${DOC_DATE} | Engineering | Added Database Documentation and Authentication & Security (§6–§7) | Superseded |
 | 0.6 | ${DOC_DATE} | Engineering | Added Business Logic, User Flows and Module Documentation (§8–§10) | Superseded |
 | 0.7 | ${DOC_DATE} | Engineering | Added Configuration, Deployment, Testing, Performance, Troubleshooting, Appendix and References (§11–§17) | Superseded |
-| **${DOC_VERSION}** | **${DOC_DATE}** | **Engineering** | **Consolidated master document: merged all parts, added cover page, document control, revision history, clickable table of contents, list of figures, list of tables, sequential figure and table numbering, and page-break formatting for PDF export.** | **Current** |
+| 1.0 | ${DOC_DATE} | Engineering | Consolidated master document: merged all parts, added cover page, document control, revision history, clickable table of contents, list of figures, list of tables, sequential figure and table numbering, and page-break formatting for PDF export. | Superseded |
+| **${DOC_VERSION}** | **${REVISION_DATE}** | **Engineering** | **Corrected the signal-processing description: Hann amplitude scaling is \`2 / window.sum()\`, \`fft_lines\` is a line count (block = \`2 × fft_lines\`) with 50 %-overlap averaging, and the acquisition formula sizes captures at \`2 × lor\`. Documented \`GET /api/v1/dashboard/summary\` and \`GET /api/v1/lookups/plants\`, and rewrote the plant-selector and notification-bell entries, which are now wired to real data.** | **Current** |
 
 ## Document baseline
 
@@ -241,7 +244,7 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
 | Backend version | 1.1.0 (\`backend/app/main.py\`) |
 | Frontend version | 1.0.0 (\`frontend/package.json\`) |
 | Database schema | Alembic revision \`011\` |
-| Endpoints documented | 46 |
+| Endpoints documented | 48 |
 | Database tables documented | 17 |
 | Database columns documented | 215 |
 | Figures | ${figures.length} |

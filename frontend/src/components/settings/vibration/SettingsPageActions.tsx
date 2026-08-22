@@ -21,7 +21,7 @@ export function SettingsPageActions({
   return (
     <div
       className={cn(
-        "sticky bottom-0 z-20 -mx-1 mt-2 rounded-xl border border-border bg-white/95 px-4 py-3 backdrop-blur-sm",
+        "sticky bottom-0 z-20 -mx-1 mt-g2 rounded-xl border border-border bg-white/95 px-g4 py-g3 backdrop-blur-sm",
         "shadow-[0_-4px_24px_rgba(21,54,109,0.08)]",
         className
       )}

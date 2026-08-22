@@ -48,7 +48,7 @@ export function GraphStatisticsPanel({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-[#FAFAF8] px-3 py-2.5 space-y-2",
+        "rounded-lg border border-border bg-[#FAFAF8] px-3 py-2.5 space-y-g2",
         className
       )}
     >
@@ -77,7 +77,7 @@ export function GraphStatisticsPanel({
               </p>
               <p
                 className={cn(
-                  "mt-0.5 font-bold text-foreground tabular-nums truncate",
+                  "mt-g1 font-bold text-foreground tabular-nums truncate",
                   isPrimary ? "text-sm" : "text-xs"
                 )}
               >

@@ -58,9 +58,23 @@ class SensorDataUpload(Base):
     features_error = Column(Text, nullable=True)
     features_computed_at = Column(DateTime, nullable=True)
     original_filename = Column(String(255), nullable=True)
+    # "manual" for an operator upload, "device" for an authenticated ingest post.
     source = Column(String(20), nullable=False, default="manual")
 
+    # Which credential delivered this, when it came from a device. Nulled rather
+    # than cascaded if the key is deleted — the reading outlives the credential.
+    api_key_id = Column(
+        UUID(as_uuid=True), ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True
+    )
+    # Actual shaft speed at capture. Nameplate rated_rpm on the equipment is not
+    # a substitute: fault frequencies are multiples of the speed on the day.
+    rotation_speed_rpm = Column(Numeric(10, 2), nullable=True)
+
+    # created_at is server receipt; measured_at is the device's own capture
+    # clock. Devices buffer across dropped links, so these routinely differ and
+    # only measured_at orders a trend correctly.
     created_at = Column(DateTime, default=datetime.utcnow)
+    measured_at = Column(DateTime(timezone=True), nullable=True)
     parsed_at = Column(DateTime, nullable=True)
 
     sensor = relationship("SensorConfiguration", backref="data_uploads")
@@ -194,12 +208,17 @@ class FeatureThresholdRule(Base):
     feature_code = Column(String(40), ForeignKey("feature_definitions.code"), nullable=False)
     rule_type = Column(String(30), nullable=False)
     machine_type = Column(String(80), nullable=True)
+    # NULL means the rule applies to every channel; a row with a channel set
+    # overrides the global one for that channel only.
+    channel = Column(Integer, nullable=True)
     normal_max = Column(Numeric(18, 8), nullable=True)
     warning_max = Column(Numeric(18, 8), nullable=True)
     normal_min = Column(Numeric(18, 8), nullable=True)
     warning_min = Column(Numeric(18, 8), nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
     is_active = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
 class MeasurementChannelFeature(Base):

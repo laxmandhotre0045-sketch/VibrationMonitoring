@@ -8,19 +8,19 @@
 
 ### Software Design & Technical Documentation
 
-**Document version 1.0**
+**Document version 1.1**
 
 | | |
 |---|---|
 | **Project** | SensoVibe — AI Powered Industrial Vibration Intelligence Platform |
 | **Repository** | `VibrationMonitoring` |
 | **Product version** | Backend 1.1.0 · Frontend 1.0.0 · Schema rev 011 |
-| **Document version** | 1.0 |
+| **Document version** | 1.1 |
 | **Document type** | Software Design Document (SDD) / Complete Technical Documentation |
 | **Document scope** | Frontend + Backend + Database + Configuration + Assets + APIs + Project Structure |
 | **Source of truth** | Extracted exclusively from the source code in this repository |
 | **Source branch** | `laxman-dev` |
-| **Date** | 26 July 2026 |
+| **Date** | 17 August 2026 |
 | **Prepared by** | Engineering — SensoVibe Platform Team |
 | **Reviewed by** | _pending_ |
 | **Approved by** | _pending_ |
@@ -83,7 +83,8 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
 | 0.5 | 26 July 2026 | Engineering | Added Database Documentation and Authentication & Security (§6–§7) | Superseded |
 | 0.6 | 26 July 2026 | Engineering | Added Business Logic, User Flows and Module Documentation (§8–§10) | Superseded |
 | 0.7 | 26 July 2026 | Engineering | Added Configuration, Deployment, Testing, Performance, Troubleshooting, Appendix and References (§11–§17) | Superseded |
-| **1.0** | **26 July 2026** | **Engineering** | **Consolidated master document: merged all parts, added cover page, document control, revision history, clickable table of contents, list of figures, list of tables, sequential figure and table numbering, and page-break formatting for PDF export.** | **Current** |
+| 1.0 | 26 July 2026 | Engineering | Consolidated master document: merged all parts, added cover page, document control, revision history, clickable table of contents, list of figures, list of tables, sequential figure and table numbering, and page-break formatting for PDF export. | Superseded |
+| **1.1** | **17 August 2026** | **Engineering** | **Corrected the signal-processing description: Hann amplitude scaling is `2 / window.sum()`, `fft_lines` is a line count (block = `2 × fft_lines`) with 50 %-overlap averaging, and the acquisition formula sizes captures at `2 × lor`. Documented `GET /api/v1/dashboard/summary` and `GET /api/v1/lookups/plants`, and rewrote the plant-selector and notification-bell entries, which are now wired to real data.** | **Current** |
 
 ## Document baseline
 
@@ -93,11 +94,11 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
 | Backend version | 1.1.0 (`backend/app/main.py`) |
 | Frontend version | 1.0.0 (`frontend/package.json`) |
 | Database schema | Alembic revision `011` |
-| Endpoints documented | 46 |
+| Endpoints documented | 48 |
 | Database tables documented | 17 |
 | Database columns documented | 215 |
 | Figures | 40 |
-| Tables | 214 |
+| Tables | 216 |
 
 <div class="page-break"></div>
 
@@ -271,7 +272,7 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
   - [4.20 Edge Acquisition Script — scripts/vibration.py](#420-edge-acquisition-script-scriptsvibrationpy)
 - [5.0 REST API Documentation](#50-rest-api-documentation)
   - [5.1 Conventions](#51-conventions)
-  - [5.2 Complete Endpoint Index (46 endpoints)](#52-complete-endpoint-index-46-endpoints)
+  - [5.2 Complete Endpoint Index (48 endpoints)](#52-complete-endpoint-index-48-endpoints)
   - [5.3 Health](#53-health)
     - [5.3.1 GET /health](#531-get-health)
   - [5.4 Authentication API](#54-authentication-api)
@@ -293,7 +294,8 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
     - [5.5.10 GET /api/v1/equipment/{equipment_id}/ai-readiness](#5510-get-apiv1equipmentequipment_idai-readiness)
   - [5.6 Lookups API](#56-lookups-api)
     - [5.6.1 GET /api/v1/lookups/](#561-get-apiv1lookups)
-    - [5.6.2 GET /api/v1/lookups/{lookup_name}](#562-get-apiv1lookupslookup_name)
+    - [5.6.2 GET /api/v1/lookups/plants](#562-get-apiv1lookupsplants)
+    - [5.6.3 GET /api/v1/lookups/{lookup_name}](#563-get-apiv1lookupslookup_name)
   - [5.7 Measurements API](#57-measurements-api)
     - [5.7.1 POST /api/v1/measurements/configure](#571-post-apiv1measurementsconfigure)
     - [5.7.2 GET /api/v1/measurements/configure/{sensor_id}](#572-get-apiv1measurementsconfiguresensor_id)
@@ -318,10 +320,12 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
     - [5.8.7 GET /api/v1/baselines/{baseline_id}/plots](#587-get-apiv1baselinesbaseline_idplots)
     - [5.8.8 GET /api/v1/baselines/{baseline_id}/plots/{plot_type}](#588-get-apiv1baselinesbaseline_idplotsplot_type)
     - [5.8.9 GET /api/v1/baselines/{baseline_id}/features](#589-get-apiv1baselinesbaseline_idfeatures)
-  - [5.9 Cross-Cutting API Behaviour](#59-cross-cutting-api-behaviour)
-    - [5.9.1 Which endpoints require write access](#591-which-endpoints-require-write-access)
-    - [5.9.2 Validation-rule summary](#592-validation-rule-summary)
-    - [5.9.3 Endpoint → table matrix](#593-endpoint-table-matrix)
+  - [5.9 Dashboard API](#59-dashboard-api)
+    - [5.9.1 GET /api/v1/dashboard/summary](#591-get-apiv1dashboardsummary)
+  - [5.10 Cross-Cutting API Behaviour](#510-cross-cutting-api-behaviour)
+    - [5.10.1 Which endpoints require write access](#5101-which-endpoints-require-write-access)
+    - [5.10.2 Validation-rule summary](#5102-validation-rule-summary)
+    - [5.10.3 Endpoint → table matrix](#5103-endpoint-table-matrix)
 - [6.0 Database Documentation](#60-database-documentation)
   - [6.1 Database Identity](#61-database-identity)
   - [6.2 Entity Relationship Diagram](#62-entity-relationship-diagram)
@@ -621,7 +625,7 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
 | 71 | 4.18 Alembic Migrations |
 | 72 | 4.19 Backend Utility Scripts |
 | 73 | 5.1 Conventions |
-| 74 | 5.2 Complete Endpoint Index (46 endpoints) |
+| 74 | 5.2 Complete Endpoint Index (48 endpoints) |
 | 75 | 5.4.1 POST /api/v1/auth/login |
 | 76 | 5.4.1 POST /api/v1/auth/login |
 | 77 | 5.4.1 POST /api/v1/auth/login |
@@ -647,121 +651,123 @@ Page numbers are applied by the PDF renderer at export time; section, figure, an
 | 97 | 5.7.13 GET /api/v1/measurements/uploads/{upload_id}/features/compare |
 | 98 | 5.8.5 POST /api/v1/baselines/upload |
 | 99 | 5.8.6 POST /api/v1/baselines/from-upload/{upload_id} |
-| 100 | 5.9.1 Which endpoints require write access |
-| 101 | 5.9.2 Validation-rule summary |
-| 102 | 5.9.3 Endpoint → table matrix |
-| 103 | 6.1 Database Identity |
-| 104 | 6.3 Relationship Catalogue |
-| 105 | 6.4.1 equipment_masters |
-| 106 | 6.4.2 sensor_configurations |
-| 107 | 6.4.3 plot_configurations |
-| 108 | 6.4.4 sensor_data_uploads |
-| 109 | 6.4.5 measurement_upload_data |
-| 110 | 6.4.6 plot_results |
-| 111 | 6.4.7 sensor_baselines |
-| 112 | 6.4.8 baseline_plot_results |
-| 113 | 6.4.9 feature_definitions |
-| 114 | 6.4.9 feature_definitions |
-| 115 | 6.4.10 feature_threshold_rules |
-| 116 | 6.4.10 feature_threshold_rules |
-| 117 | 6.4.11 measurement_channel_features |
-| 118 | 6.4.12 measurement_channel_feature_trends |
-| 119 | 6.4.13 baseline_channel_features |
-| 120 | 6.4.14 roles |
-| 121 | 6.4.15 users |
-| 122 | 6.4.16 user_roles |
-| 123 | 6.4.17 refresh_tokens |
-| 124 | 6.5.2 Unique constraints and unique indexes |
-| 125 | 6.5.3 Check constraints |
-| 126 | 6.5.4 Default values |
-| 127 | 6.5.5 Complete index inventory (24 indexes) |
-| 128 | 6.6 Triggers, Views, Stored Procedures, Functions |
-| 129 | 6.7 Normalisation Analysis |
-| 130 | 6.7 Normalisation Analysis |
-| 131 | 6.8 Data-Volume Model |
-| 132 | 6.10 Performance Considerations (database) |
-| 133 | 6.11 Backup and Recovery |
-| 134 | 6.13 Data Dictionary Quick Reference |
-| 135 | 7.1 Authentication Model |
-| 136 | 7.1.2 Refresh-token design |
-| 137 | 7.2.1 Role hierarchy |
-| 138 | 7.2.3 Client-side gating inventory |
-| 139 | 7.3 Sessions and Cookies |
-| 140 | 7.4 Password Storage |
-| 141 | 7.5 Encryption |
-| 142 | 7.6 Role and Permission Management |
-| 143 | 7.7 Security Filters and Middleware |
-| 144 | 7.10 Rate Limiting and Brute-Force Resistance |
-| 145 | 7.11.2 Cross-site scripting |
-| 146 | 7.11.3 File-upload validation |
-| 147 | 7.11.4 Other validation surfaces |
-| 148 | 7.12 Security Posture Summary |
-| 149 | 8.1 Module BL-1 — Identity and Session Management |
-| 150 | 8.2 Module BL-2 — Equipment Master Data |
-| 151 | 8.3 Module BL-3 — Sensor and Acquisition Configuration |
-| 152 | 8.4 Module BL-4 — Measurement Ingestion |
-| 153 | 8.5 Module BL-5 — Signal Processing and Plot Generation |
-| 154 | 8.5 Module BL-5 — Signal Processing and Plot Generation |
-| 155 | 8.6 Module BL-6 — Feature Extraction and Health Evaluation |
-| 156 | 8.6 Module BL-6 — Feature Extraction and Health Evaluation |
-| 157 | 8.7 Module BL-7 — Baseline Management |
-| 158 | 8.8 Module BL-8 — Vibration Settings (client-side) |
-| 159 | 8.9 Module BL-9 — Data Visualisation and Interaction |
-| 160 | 9.2 UF-1 — Login |
-| 161 | 9.3 UF-2 — Create equipment |
-| 162 | 9.6 UF-5 — Create and use a baseline |
-| 163 | 9.8 UF-7 — Search, filter, and paginate the register |
-| 164 | 9.12 UF-11 — Read-only user journey |
-| 165 | 10.1 Module inventory |
-| 166 | 10.12 UI Element Catalogue |
-| 167 | 11.1 Configuration file inventory |
-| 168 | 11.2 .env — complete reference |
-| 169 | 11.3 docker-compose.yml |
-| 170 | 11.5 frontend/Dockerfile |
-| 171 | 11.7 frontend/vite.config.ts |
-| 172 | 11.8 frontend/tsconfig.json |
-| 173 | 11.9 frontend/tailwind.config.js |
-| 174 | 12.3 Full container deployment |
-| 175 | 12.5 Production readiness checklist |
-| 176 | 12.7 Cloud deployment notes |
-| 177 | 13.1 Current state — stated plainly |
-| 178 | 13.3 Implicit quality gates |
-| 179 | 13.4.1 Authentication |
-| 180 | 13.4.2 Authorisation |
-| 181 | 13.4.3 Equipment |
-| 182 | 13.4.4 Measurement and analysis |
-| 183 | 13.4.5 Features and health |
-| 184 | 13.4.6 Baselines |
-| 185 | 13.4.7 Settings |
-| 186 | 13.4.8 Responsive and accessibility |
-| 187 | 13.5 Recommended automated test suite |
-| 188 | 13.5 Recommended automated test suite |
-| 189 | 14.1 Implemented optimisations |
-| 190 | 14.2 Not implemented |
-| 191 | 14.4 Payload sizes |
-| 192 | 14.5 Frontend rendering |
-| 193 | 14.6 Known query weaknesses |
-| 194 | 14.8 Scalability profile |
-| 195 | 15.2 Backend error catalogue |
-| 196 | 15.3 Frontend error surfaces |
-| 197 | 15.4 Diagnostic runbook |
-| 198 | 15.5 Log locations |
-| 199 | 16.1 Glossary |
-| 200 | 16.2 Abbreviations |
-| 201 | 16.3 API summary table |
-| 202 | 16.4 Database summary table |
-| 203 | 16.5 Backend class / module summary |
-| 204 | 16.6 Frontend component summary |
-| 205 | 16.7 Folder-by-folder file index |
-| 206 | 16.8.1 Backend |
-| 207 | 16.8.2 Frontend — runtime |
-| 208 | 16.8.3 Frontend — development |
-| 209 | 16.8.4 Infrastructure images |
-| 210 | 16.9 Constants quick reference |
-| 211 | 16.10 Diagram index |
-| 212 | 17.1 Domain and standards references cited in the code |
-| 213 | 17.2 Technology documentation |
-| 214 | 17.3 Internal source references |
+| 100 | 5.9.1 GET /api/v1/dashboard/summary |
+| 101 | 5.9.1 GET /api/v1/dashboard/summary |
+| 102 | 5.10.1 Which endpoints require write access |
+| 103 | 5.10.2 Validation-rule summary |
+| 104 | 5.10.3 Endpoint → table matrix |
+| 105 | 6.1 Database Identity |
+| 106 | 6.3 Relationship Catalogue |
+| 107 | 6.4.1 equipment_masters |
+| 108 | 6.4.2 sensor_configurations |
+| 109 | 6.4.3 plot_configurations |
+| 110 | 6.4.4 sensor_data_uploads |
+| 111 | 6.4.5 measurement_upload_data |
+| 112 | 6.4.6 plot_results |
+| 113 | 6.4.7 sensor_baselines |
+| 114 | 6.4.8 baseline_plot_results |
+| 115 | 6.4.9 feature_definitions |
+| 116 | 6.4.9 feature_definitions |
+| 117 | 6.4.10 feature_threshold_rules |
+| 118 | 6.4.10 feature_threshold_rules |
+| 119 | 6.4.11 measurement_channel_features |
+| 120 | 6.4.12 measurement_channel_feature_trends |
+| 121 | 6.4.13 baseline_channel_features |
+| 122 | 6.4.14 roles |
+| 123 | 6.4.15 users |
+| 124 | 6.4.16 user_roles |
+| 125 | 6.4.17 refresh_tokens |
+| 126 | 6.5.2 Unique constraints and unique indexes |
+| 127 | 6.5.3 Check constraints |
+| 128 | 6.5.4 Default values |
+| 129 | 6.5.5 Complete index inventory (24 indexes) |
+| 130 | 6.6 Triggers, Views, Stored Procedures, Functions |
+| 131 | 6.7 Normalisation Analysis |
+| 132 | 6.7 Normalisation Analysis |
+| 133 | 6.8 Data-Volume Model |
+| 134 | 6.10 Performance Considerations (database) |
+| 135 | 6.11 Backup and Recovery |
+| 136 | 6.13 Data Dictionary Quick Reference |
+| 137 | 7.1 Authentication Model |
+| 138 | 7.1.2 Refresh-token design |
+| 139 | 7.2.1 Role hierarchy |
+| 140 | 7.2.3 Client-side gating inventory |
+| 141 | 7.3 Sessions and Cookies |
+| 142 | 7.4 Password Storage |
+| 143 | 7.5 Encryption |
+| 144 | 7.6 Role and Permission Management |
+| 145 | 7.7 Security Filters and Middleware |
+| 146 | 7.10 Rate Limiting and Brute-Force Resistance |
+| 147 | 7.11.2 Cross-site scripting |
+| 148 | 7.11.3 File-upload validation |
+| 149 | 7.11.4 Other validation surfaces |
+| 150 | 7.12 Security Posture Summary |
+| 151 | 8.1 Module BL-1 — Identity and Session Management |
+| 152 | 8.2 Module BL-2 — Equipment Master Data |
+| 153 | 8.3 Module BL-3 — Sensor and Acquisition Configuration |
+| 154 | 8.4 Module BL-4 — Measurement Ingestion |
+| 155 | 8.5 Module BL-5 — Signal Processing and Plot Generation |
+| 156 | 8.5 Module BL-5 — Signal Processing and Plot Generation |
+| 157 | 8.6 Module BL-6 — Feature Extraction and Health Evaluation |
+| 158 | 8.6 Module BL-6 — Feature Extraction and Health Evaluation |
+| 159 | 8.7 Module BL-7 — Baseline Management |
+| 160 | 8.8 Module BL-8 — Vibration Settings (client-side) |
+| 161 | 8.9 Module BL-9 — Data Visualisation and Interaction |
+| 162 | 9.2 UF-1 — Login |
+| 163 | 9.3 UF-2 — Create equipment |
+| 164 | 9.6 UF-5 — Create and use a baseline |
+| 165 | 9.8 UF-7 — Search, filter, and paginate the register |
+| 166 | 9.12 UF-11 — Read-only user journey |
+| 167 | 10.1 Module inventory |
+| 168 | 10.12 UI Element Catalogue |
+| 169 | 11.1 Configuration file inventory |
+| 170 | 11.2 .env — complete reference |
+| 171 | 11.3 docker-compose.yml |
+| 172 | 11.5 frontend/Dockerfile |
+| 173 | 11.7 frontend/vite.config.ts |
+| 174 | 11.8 frontend/tsconfig.json |
+| 175 | 11.9 frontend/tailwind.config.js |
+| 176 | 12.3 Full container deployment |
+| 177 | 12.5 Production readiness checklist |
+| 178 | 12.7 Cloud deployment notes |
+| 179 | 13.1 Current state — stated plainly |
+| 180 | 13.3 Implicit quality gates |
+| 181 | 13.4.1 Authentication |
+| 182 | 13.4.2 Authorisation |
+| 183 | 13.4.3 Equipment |
+| 184 | 13.4.4 Measurement and analysis |
+| 185 | 13.4.5 Features and health |
+| 186 | 13.4.6 Baselines |
+| 187 | 13.4.7 Settings |
+| 188 | 13.4.8 Responsive and accessibility |
+| 189 | 13.5 Recommended automated test suite |
+| 190 | 13.5 Recommended automated test suite |
+| 191 | 14.1 Implemented optimisations |
+| 192 | 14.2 Not implemented |
+| 193 | 14.4 Payload sizes |
+| 194 | 14.5 Frontend rendering |
+| 195 | 14.6 Known query weaknesses |
+| 196 | 14.8 Scalability profile |
+| 197 | 15.2 Backend error catalogue |
+| 198 | 15.3 Frontend error surfaces |
+| 199 | 15.4 Diagnostic runbook |
+| 200 | 15.5 Log locations |
+| 201 | 16.1 Glossary |
+| 202 | 16.2 Abbreviations |
+| 203 | 16.3 API summary table |
+| 204 | 16.4 Database summary table |
+| 205 | 16.5 Backend class / module summary |
+| 206 | 16.6 Frontend component summary |
+| 207 | 16.7 Folder-by-folder file index |
+| 208 | 16.8.1 Backend |
+| 209 | 16.8.2 Frontend — runtime |
+| 210 | 16.8.3 Frontend — development |
+| 211 | 16.8.4 Infrastructure images |
+| 212 | 16.9 Constants quick reference |
+| 213 | 16.10 Diagram index |
+| 214 | 17.1 Domain and standards references cited in the code |
+| 215 | 17.2 Technology documentation |
+| 216 | 17.3 Internal source references |
 
 <div class="page-break"></div>
 
@@ -840,7 +846,7 @@ Derived from the code structure and docstrings:
 | F-08 | Equipment image upload / fetch / delete | `tabs/BasicDetailsTab.tsx` | `POST|GET|DELETE /api/v1/equipment/{id}/image` |
 | F-09 | Sensor configuration CRUD (nested under equipment) | `tabs/SensorsOrientationTab.tsx` | `/api/v1/equipment/{id}/sensors...` |
 | F-10 | AI readiness scoring (5 checks → percentage) | `AssetHealthPanel.tsx` (client-side), backend endpoint | `GET /api/v1/equipment/{id}/ai-readiness` |
-| F-11 | Dropdown lookup catalogue (18 lists) | `api/equipment.ts` `getLookup` | `GET /api/v1/lookups/` |
+| F-11 | Dropdown lookup catalogue (18 static lists plus a `plants` list derived from the equipment master) | `api/equipment.ts` `getLookup` | `GET /api/v1/lookups/`, `/plants`, `/{lookup_name}` |
 | F-12 | Plot configuration upsert per sensor | `DetailedAnalysisTab.tsx` | `POST|GET|PUT /api/v1/measurements/configure` |
 | F-13 | Edge acquisition JSON generation | — (machine-facing) | `GET /api/v1/measurements/acquisition` |
 | F-14 | CSV/PDF measurement upload with synchronous parse → plots → features pipeline | `pages/VibrationAnalysis.tsx` | `POST /api/v1/measurements/upload` |
@@ -868,12 +874,10 @@ Documented here because the code shows them explicitly:
 | Item | Evidence |
 |------|----------|
 | Change Password | `pages/ChangePassword.tsx` renders the text *"Password change API is not yet available. Contact your administrator."* No backend endpoint exists. |
-| Operations Dashboard | `pages/Dashboard.tsx` renders `<ComingSoon>` and four KPI tiles whose values are literal `"—"`. |
 | Platform Settings module | `settings/SettingsTabNav.tsx` marks the `platform` tab `available: false`. |
 | Trend Analysis tab | `workspace/TrendAnalysisTab.tsx` renders a notice that factor trends moved to Status (Health). |
 | Global search box | `layout/TopNav.tsx` renders an input with no submit handler. |
-| Notification bell | `layout/TopNav.tsx` shows a hard-coded count of `3`. |
-| Plant selector | `layout/nav-config.ts` `PLANTS` is a hard-coded array; selection updates `LayoutContext` only and filters nothing. |
+| Per-user plant scoping | `services/auth_service.py` always returns `"plants": []`; every authenticated user sees every plant in the selector. |
 | `useHistoricalTrendData` hook | Fully implemented (`hooks/useHistoricalTrendData.ts`) but not imported by any component. |
 | `AssetHealthPanel`, `CompletenessEngine`, `AssetIntelligencePanel`, `StatusHealthSection`, `BaselineSelectionPanel`, `IndustrialEmptyState`, `CriticalityIndicator`, `SectionCard`-based review helpers | Present and functional but not currently wired into the active render tree (verified by import graph). |
 
@@ -1169,7 +1173,7 @@ VibrationMonitoring/
 │   │   │   ├── auth.py               # 5 endpoints
 │   │   │   ├── baselines.py          # 8 endpoints
 │   │   │   ├── equipment.py          # 13 endpoints
-│   │   │   ├── lookups.py            # 2 endpoints + LOOKUPS dictionary (18 lists)
+│   │   │   ├── lookups.py            # 3 endpoints + LOOKUPS dictionary (18 lists)
 │   │   │   └── measurements.py       # 14 endpoints
 │   │   │
 │   │   └── services/                 # Business logic
@@ -2548,9 +2552,13 @@ Centred `GlassCard`: `KeyRound` icon, "Password Change Required", the signed-in 
 
 **`AppShell`** — `flex h-screen overflow-hidden`; `Sidebar` (fixed) + a column containing `TopNav` (sticky) and a scrollable `<main class="page-bg">` wrapping `<Outlet/>` in a fade-in `motion.div` with `px-6 lg:px-8 py-6`.
 
-**`Sidebar`** — animated width 320 ↔ 80 px; logo zone showing the full JPEG logo + a superscript "TM" + tagline when expanded and the SVG mark when collapsed; a "Modules" overline; role-filtered nav items with an active orange rail, an icon tile, and a "Coming Soon" sub-label for items whose `active` flag is false (currently only Dashboard); a Collapse toggle at the bottom.
+**`Sidebar`** — animated width 320 ↔ 80 px; logo zone showing the full JPEG logo + a superscript "TM" + tagline when expanded and the SVG mark when collapsed; a "Modules" overline; role-filtered nav items with an active orange rail and an icon tile; a Collapse toggle at the bottom.
 
-**`TopNav`** — search input (`hidden md:block`, widens on focus, non-functional), plant dropdown over `PLANTS`, notification bell with a hard-coded badge of 3, and a user menu showing full name, role badge (`roleLabel(primaryRole(roles))`), email, and Sign Out. Both dropdowns use a full-screen transparent click-catcher plus `AnimatePresence`.
+**`TopNav`** — search input (`hidden md:block`, widens on focus, non-functional), plant dropdown, `NotificationBell`, and a user menu showing full name, role badge (`roleLabel(primaryRole(roles))`), email, and Sign Out. All dropdowns use a full-screen transparent click-catcher plus `AnimatePresence`.
+
+The plant dropdown lists `ALL_PLANTS` followed by the names from `GET /api/v1/lookups/plants` (a 5-minute `staleTime` query), and writes the choice to `LayoutContext`. Dashboard, Equipment Master, Vibration Analysis, and `NotificationBell` all read `selectedPlant` from that context and pass it as `plant_name`, so one dropdown scopes every view; `ALL_PLANTS` means "send no filter".
+
+**`NotificationBell`** — drives its badge and panel from `useDashboardSummary()`, so the count is the live alert count for the selected plant (rendered as `9+` above nine) rather than a fixed number. The panel lists each alert with its status chip, feature, channel, value, and relative time, links to the equipment editor, shows a "no active alerts" state when the fleet is clean, and shares `STATUS_META` / `relativeTime` with the Dashboard through `lib/alert-status.ts`.
 
 `[SCREENSHOT: Sidebar expanded]` `[SCREENSHOT: Sidebar collapsed]` `[SCREENSHOT: TopNav user menu]`
 
@@ -3130,7 +3138,7 @@ The `× 0.01` test catches the common case where every row in a batch shares one
 |----------|--------|
 | `compute_time_waveform(ts, samples, fs)` | `{x: resolved time (s), y: samples, x_label:"Time (s)", y_label:"Amplitude", title:"Time Waveform", metadata:{plot_style:"line"}}` |
 | `compute_circular_time_waveform(ts, samples, max_points=2048)` | Decimates by striding, then maps `θ = linspace(0, 2π, n, endpoint=False)`, `x = A·cos θ`, `y = A·sin θ`. Requires ≥4 samples |
-| `compute_fft_spectrum(samples, fs, fft_lines, frequency_max_hz)` | Truncates to `min(fft_lines, n)`, applies a **Hann window** (`np.hanning`), computes `abs(fft(windowed))[:n//2] × 2/n` (single-sided amplitude scaling), builds `fftfreq(n, 1/fs)[:n//2]`, optionally masks to `frequency_max_hz`. Metadata records `fft_lines` and `sampling_rate_hz` |
+| `compute_fft_spectrum(samples, fs, fft_lines, frequency_max_hz)` | Treats `fft_lines` as **lines of resolution**: a block of `SAMPLES_PER_LINE × fft_lines` samples (capped at `n`, floored at 4) yields `block//2` lines. A capture longer than one block is split into 50 %-overlapping blocks whose magnitude spectra are averaged, so the whole capture contributes instead of only its first block. Each block is **Hann**-windowed (`np.hanning`) and the averaged magnitude is scaled by `2 / window.sum()` — the window's coherent gain, not the sample count, so peak amplitudes match the input signal. Builds `fftfreq(block, 1/fs)[:block//2]`, optionally masks to `frequency_max_hz`. Metadata records `fft_lines` (the realised line count), `block_size`, `averages`, and `sampling_rate_hz` |
 | `compute_envelope_spectrum(...)` | Hilbert transform → `abs(analytic)` → subtract the mean (removes the DC pedestal) → FFT of the envelope. Retitled "Envelope Spectrum", y-label "Envelope Magnitude" |
 | `compute_trend_plot(ts, samples, fs, num_segments=32)` | Splits into 32 equal segments, computes RMS per segment, and places each point at the segment mid-time |
 
@@ -3283,17 +3291,19 @@ Four status constants (`normal`, `warning`, `critical`, `no_baseline`) and a `Th
 
 Defaults used when a sensor has no plot configuration: `DEFAULT_SAMPLE_RATE_HZ = 256_000.0`, `DEFAULT_LOR = 51_200`, `DEFAULT_FMAX_HZ = 15_000.0`, `DEFAULT_CHANNEL_COUNT = 8`, `DEFAULT_WINDOW = "HANNING"`, `DEFAULT_MINUTES = "1"`, `DEFAULT_AVERAGING = 1`, `DEFAULT_OVERLAP = 0`.
 
+`lor` is a **line count**, so the device must capture `requiredSamples = lor × SAMPLES_PER_LINE` samples per block. That constant is imported from `signal_processing`, which is the same factor `compute_fft_spectrum` uses to size its block — the two sides cannot drift apart.
+
 `compute_acquisition_formula(sample_rate, lor, overlap, average_count)` returns:
 
 *Table 64 — 4.9.11 acquisition_config.py*
 
 | Field | Formula |
 |-------|---------|
-| `frequencyResolutionHz` | `sample_rate / lor` |
-| `blockTimeSeconds` | `lor / sample_rate` |
-| `requiredSamples` | `lor` |
+| `requiredSamples` | `lor × SAMPLES_PER_LINE` (= `2 × lor`) |
+| `frequencyResolutionHz` | `sample_rate / requiredSamples` |
+| `blockTimeSeconds` | `requiredSamples / sample_rate` |
 | `totalAcquisitionTimeSeconds` | `blockTime × averageCount` |
-| `stepSizeSamples` | `lor × (1 − overlap)`, floored at `lor` when the result is ≤ 0 |
+| `stepSizeSamples` | `requiredSamples × (1 − overlap)`, floored at `requiredSamples` when the result is ≤ 0 |
 | `sampleRateHz`, `overlapDecimal`, `averageCount`, `fmaxHz`, `lor` | Pass-through |
 
 `_axis_from_orientation` maps the sensor's orientation to `HORIZONTAL` / `AXIAL` / `VERTICAL` (default). `build_channels` emits one entry per channel with `channelIndex` starting at **1** (edge convention) while the platform's own channels are 0-based (`ch0`).
@@ -3509,10 +3519,10 @@ This script demonstrates the acquisition side of the contract that `/api/v1/meas
 
 **Authentication column legend.** *Public* = no token. *Auth* = any valid token. *Write* = `super_admin` or `admin` only (role `user` receives 403).
 
-<a id="52-complete-endpoint-index-46-endpoints"></a>
-## 5.2 Complete Endpoint Index (46 endpoints)
+<a id="52-complete-endpoint-index-48-endpoints"></a>
+## 5.2 Complete Endpoint Index (48 endpoints)
 
-*Table 74 — 5.2 Complete Endpoint Index (46 endpoints)*
+*Table 74 — 5.2 Complete Endpoint Index (48 endpoints)*
 
 | # | Method | Path | Auth | Purpose |
 |---|--------|------|------|---------|
@@ -3536,7 +3546,8 @@ This script demonstrates the acquisition side of the contract that `/api/v1/meas
 | 18 | PUT | `/api/v1/equipment/{equipment_id}/sensors/{sensor_id}` | Write | Update sensor |
 | 19 | DELETE | `/api/v1/equipment/{equipment_id}/sensors/{sensor_id}` | Write | Delete sensor |
 | 20 | GET | `/api/v1/equipment/{equipment_id}/ai-readiness` | Auth | Readiness score |
-| 21 | GET | `/api/v1/lookups/` | Auth | All 18 lookup lists |
+| 21 | GET | `/api/v1/lookups/` | Auth | All 18 lookup lists + derived `plants` |
+| 21a | GET | `/api/v1/lookups/plants` | Auth | Distinct plant names in the equipment master |
 | 22 | GET | `/api/v1/lookups/{lookup_name}` | Auth | One lookup list |
 | 23 | POST | `/api/v1/measurements/configure` | Write | Upsert plot configuration |
 | 24 | GET | `/api/v1/measurements/configure/{sensor_id}` | Auth | Read plot configuration |
@@ -3562,6 +3573,7 @@ This script demonstrates the acquisition side of the contract that `/api/v1/meas
 | 44 | GET | `/api/v1/baselines/{baseline_id}/plots` | Auth | Baseline plots |
 | 45 | GET | `/api/v1/baselines/{baseline_id}/plots/{plot_type}` | Auth | One baseline plot |
 | 46 | GET | `/api/v1/baselines/{baseline_id}/features` | Auth | Baseline feature values |
+| 47 | GET | `/api/v1/dashboard/summary` | Auth | Fleet KPIs, per-equipment health, alerts, recent activity; optional `plant_name` filter |
 
 ---
 
@@ -3928,7 +3940,7 @@ Status 204. Removes the file when present, then sets `equipment_image_path = NUL
 <a id="561-get-apiv1lookups"></a>
 ### 5.6.1 `GET /api/v1/lookups/`
 
-Returns the entire `LOOKUPS` dictionary — a static, in-code catalogue with no database access.
+Returns the entire `LOOKUPS` dictionary — a static, in-code catalogue — plus one derived key, `plants`, which is the only entry that touches the database.
 
 *Table 86 — 5.6.1 GET /api/v1/lookups/*
 
@@ -3952,13 +3964,21 @@ Returns the entire `LOOKUPS` dictionary — a static, in-code catalogue with no 
 | `sampling-rates` | 9 | 512 Hz … 65536 Hz, Custom |
 | `frequency-ranges` | 7 | 0-500 Hz … 0-20000 Hz, Custom |
 | `asset-status` | 4 | Active, Inactive, Under Maintenance, Decommissioned |
+| `plants` | *varies* | `SELECT DISTINCT plant_name FROM equipment_master`, ascending, blanks dropped |
 
-<a id="562-get-apiv1lookupslookup_name"></a>
-### 5.6.2 `GET /api/v1/lookups/{lookup_name}`
+<a id="562-get-apiv1lookupsplants"></a>
+### 5.6.2 `GET /api/v1/lookups/plants`
 
-Returns `{"lookup": "<name>", "values": [...]}`; 404 `"Lookup '<name>' not found"` for an unknown key.
+Returns `{"lookup": "plants", "values": [...]}` — the distinct, non-blank `plant_name` values in the equipment master, ascending. Because it feeds the header plant selector, the dropdown can only ever offer plants that some equipment actually belongs to.
 
-> The frontend currently hard-codes the same option lists inside its tab components rather than calling these endpoints, although `getLookup`/`getAllLookups` exist in `api/equipment.ts`. Keeping both in sync is a maintenance obligation.
+This route is **declared before `/{lookup_name}`** in `routers/lookups.py`. FastAPI matches in declaration order, so registering it after the catch-all would make `/plants` resolve to `get_lookup("plants")` and 404.
+
+<a id="563-get-apiv1lookupslookup_name"></a>
+### 5.6.3 `GET /api/v1/lookups/{lookup_name}`
+
+Returns `{"lookup": "<name>", "values": [...]}`; 404 `"Lookup '<name>' not found"` for an unknown key. This handler reads `LOOKUPS` only — it has no database session and therefore cannot serve `plants`.
+
+> The frontend currently hard-codes the same option lists inside its tab components rather than calling these endpoints, although `getLookup`/`getAllLookups` exist in `api/equipment.ts`. Keeping both in sync is a maintenance obligation. The plant selector is the exception: it calls `getLookup("plants")` precisely because the values cannot be known at build time.
 
 ---
 
@@ -4024,11 +4044,11 @@ Three shapes of the same operation:
 ```json
 {
   "acquisitionFormula": {
-    "frequencyResolutionHz": 16.0, "blockTimeSeconds": 0.0625,
-    "sampleRateHz": 25600.0, "requiredSamples": 1600.0,
-    "overlapDecimal": 0.0, "totalAcquisitionTimeSeconds": 0.0625,
+    "frequencyResolutionHz": 8.0, "blockTimeSeconds": 0.125,
+    "sampleRateHz": 25600.0, "requiredSamples": 3200.0,
+    "overlapDecimal": 0.0, "totalAcquisitionTimeSeconds": 0.125,
     "averageCount": 1.0, "fmaxHz": 15000.0, "lor": 1600.0,
-    "stepSizeSamples": 1600.0
+    "stepSizeSamples": 3200.0
   },
   "minutes": "1", "averaging": 1, "sensitivityMvPerG": 100.0,
   "totalChannelCount": 8, "averageCount": 1,
@@ -4161,9 +4181,10 @@ Each `plots[]` entry is a `PlotSeriesOut`: `{plot_type, title, x_label, y_label,
       "channel":0,"metadata":{"plot_style":"line"} },
     { "plot_type":"fft_spectrum","title":"FFT Spectrum",
       "x_label":"Frequency (Hz)","y_label":"Magnitude",
-      "x":[0.0,16.0,32.0,"..."],"y":[0.0001,0.0342,"..."],
+      "x":[0.0,8.0,16.0,"..."],"y":[0.0001,0.0342,"..."],
       "channel":0,
-      "metadata":{"plot_style":"line","fft_lines":1600,"sampling_rate_hz":25600.0} }
+      "metadata":{"plot_style":"line","fft_lines":1600,"block_size":3200,
+                  "averages":63,"sampling_rate_hz":25600.0} }
   ]
 }
 ```
@@ -4404,13 +4425,48 @@ Query `channel: int?`. Returns `BaselineFeaturesOut` with `items` and a `summary
 
 ---
 
-<a id="59-cross-cutting-api-behaviour"></a>
-## 5.9 Cross-Cutting API Behaviour
+<a id="59-dashboard-api"></a>
+## 5.9 Dashboard API
 
-<a id="591-which-endpoints-require-write-access"></a>
-### 5.9.1 Which endpoints require write access
+<a id="591-get-apiv1dashboardsummary"></a>
+### 5.9.1 `GET /api/v1/dashboard/summary`
 
-*Table 100 — 5.9.1 Which endpoints require write access*
+One authenticated read that backs both the Operations Dashboard and the header `NotificationBell`.
+
+**Query parameters**
+
+*Table 100 — 5.9.1 GET /api/v1/dashboard/summary*
+
+| Name | Type | Default | Meaning |
+|------|------|---------|---------|
+| `plant_name` | string? | `null` | Restricts the whole response to one plant. Matched **exactly**, case-insensitively, against `equipment_masters.plant_name` (trimmed) |
+
+A substring match was rejected deliberately: `"mumbai"` would otherwise also select `"navi mumbai"` and leak one plant's equipment into another's view. The same exact-match rule is applied by `crud/equipment.py`, so the dashboard and the equipment list can never disagree about which machines belong to a plant.
+
+The filter cascades. Equipment is filtered first; sensors are then reduced to those belonging to the surviving equipment, and because alerts and recent activity are both derived from that sensor set, they are scoped too — a plant's dashboard never shows another plant's alerts or uploads.
+
+**Response — `DashboardSummaryOut`**
+
+*Table 101 — 5.9.1 GET /api/v1/dashboard/summary*
+
+| Field | Contents |
+|-------|----------|
+| `counts` | `total`, `critical`, `warning`, `normal`, `no_data`, `average_health_score` |
+| `equipment_health` | One row per machine: identity fields, worst status across the latest upload's features, `health_score`, `last_upload_at`, `worst_feature_name` |
+| `alerts` | Every feature row at `warning` or `critical`, sorted by severity then recency, capped at `alert_limit` (20) |
+| `recent_activity` | The most recent `activity_limit` (10) uploads with machine, mounting location, filename, and parse/feature status |
+
+Health scoring is a fixed map — `normal → 100`, `warning → 60`, `critical → 20` — averaged over machines that have a scoreable status; `average_health_score` is `null` when none do. A machine whose worst status is `no_baseline` counts toward `no_data`, not toward the average, because a threshold was never evaluated for it.
+
+---
+
+<a id="510-cross-cutting-api-behaviour"></a>
+## 5.10 Cross-Cutting API Behaviour
+
+<a id="5101-which-endpoints-require-write-access"></a>
+### 5.10.1 Which endpoints require write access
+
+*Table 102 — 5.10.1 Which endpoints require write access*
 
 | Router | Write endpoints |
 |--------|-----------------|
@@ -4421,10 +4477,10 @@ Query `channel: int?`. Returns `BaselineFeaturesOut` with `items` and a `summary
 
 Everything else is readable by all three roles.
 
-<a id="592-validation-rule-summary"></a>
-### 5.9.2 Validation-rule summary
+<a id="5102-validation-rule-summary"></a>
+### 5.10.2 Validation-rule summary
 
-*Table 101 — 5.9.2 Validation-rule summary*
+*Table 103 — 5.10.2 Validation-rule summary*
 
 | Constraint | Endpoints |
 |------------|-----------|
@@ -4443,16 +4499,17 @@ Everything else is readable by all three roles.
 | Measurement file ≤ 50 MB, `.csv`/`.pdf` | upload, baseline upload |
 | `from_date ≤ to_date` | uploads list |
 
-<a id="593-endpoint-table-matrix"></a>
-### 5.9.3 Endpoint → table matrix
+<a id="5103-endpoint-table-matrix"></a>
+### 5.10.3 Endpoint → table matrix
 
-*Table 102 — 5.9.3 Endpoint → table matrix*
+*Table 104 — 5.10.3 Endpoint → table matrix*
 
 | Endpoint group | Tables read | Tables written |
 |----------------|-------------|----------------|
 | Auth | `users`, `roles`, `user_roles`, `refresh_tokens` | `users.last_login_at`, `refresh_tokens` |
 | Equipment | `equipment_masters`, `sensor_configurations` | both |
-| Lookups | — | — |
+| Lookups | `equipment_masters` (`plants` only) | — |
+| Dashboard | `equipment_masters`, `sensor_configurations`, `sensor_data_uploads`, `measurement_channel_features`, `feature_definitions` | — |
 | Configure | `sensor_configurations` | `plot_configurations` |
 | Acquisition | `sensor_configurations`, `plot_configurations` | — |
 | Upload | `sensor_configurations`, `plot_configurations`, `feature_definitions`, `feature_threshold_rules`, `sensor_baselines`, `baseline_channel_features` | `sensor_data_uploads`, `measurement_upload_data`, `plot_results`, `measurement_channel_features`, `measurement_channel_feature_trends` |
@@ -4470,7 +4527,7 @@ Everything else is readable by all three roles.
 <a id="61-database-identity"></a>
 ## 6.1 Database Identity
 
-*Table 103 — 6.1 Database Identity*
+*Table 105 — 6.1 Database Identity*
 
 | Property | Value | Source |
 |----------|-------|--------|
@@ -4529,7 +4586,7 @@ erDiagram
 <a id="63-relationship-catalogue"></a>
 ## 6.3 Relationship Catalogue
 
-*Table 104 — 6.3 Relationship Catalogue*
+*Table 106 — 6.3 Relationship Catalogue*
 
 | # | Parent | Child | FK column | Cardinality | On delete | Declared in |
 |---|--------|-------|-----------|-------------|-----------|-------------|
@@ -4576,7 +4633,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 **Used by.** `crud/equipment.py`; endpoints 7–20; the Equipment Master pages; the analysis page's equipment/sensor selectors.
 **CRUD.** Create (`POST /equipment/`), Read (list + detail), Update (`PUT`/`PATCH`), Delete (`DELETE`, cascading).
 
-*Table 105 — 6.4.1 equipment_masters*
+*Table 107 — 6.4.1 equipment_masters*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4637,7 +4694,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 **Purpose.** A measurement point on a machine — the unit that owns captures, plots, features, and baselines.
 **Used by.** `crud/equipment.py` sensor functions; endpoints 16–19; every measurement and baseline endpoint (via `sensor_id`).
 
-*Table 106 — 6.4.2 sensor_configurations*
+*Table 108 — 6.4.2 sensor_configurations*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4670,7 +4727,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 
 **Purpose.** The single processing profile per sensor. Its contents feed `compute_config_fingerprint`, so changing any of `sampling_rate_hz`, `fft_lines`, `frequency_max_hz`, `data_type`, or `enabled_plots` invalidates every cached plot for that sensor's uploads.
 
-*Table 107 — 6.4.3 plot_configurations*
+*Table 109 — 6.4.3 plot_configurations*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4679,7 +4736,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 | `channel_count` | `INTEGER` | NO | `1` | 1–32 |
 | `active_channel` | `INTEGER` | NO | `0` | Default channel for plot reads; clamped on read |
 | `sampling_rate_hz` | `NUMERIC(12,4)` | NO | `25600` | Governs the FFT frequency axis and all trend time axes |
-| `fft_lines` | `INTEGER` | NO | `1600` | Sample count truncation before the FFT (64–65536) |
+| `fft_lines` | `INTEGER` | NO | `1600` | Lines of resolution; the FFT block is `2 × fft_lines` samples (64–65536) |
 | `frequency_max_hz` | `NUMERIC(12,4)` | YES | `NULL` | Optional spectrum cut-off |
 | `data_type` | `VARCHAR(30)` | NO | `'acceleration'` | acceleration / velocity / displacement |
 | `enabled_plots` | `JSONB` | NO | `'[]'` | Array of plot-type strings; an empty array is treated as "all five" on read |
@@ -4695,7 +4752,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 
 **Purpose.** The lifecycle record for one capture. Its three status triplets make the processing pipeline observable.
 
-*Table 108 — 6.4.4 sensor_data_uploads*
+*Table 110 — 6.4.4 sensor_data_uploads*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4728,7 +4785,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 
 **Purpose.** The durable copy of the capture: original bytes plus the parsed arrays, both in PostgreSQL. This is what makes `POST /baselines/from-upload/{id}` independent of the filesystem.
 
-*Table 109 — 6.4.5 measurement_upload_data*
+*Table 111 — 6.4.5 measurement_upload_data*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4753,7 +4810,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 
 **Purpose.** The plot cache. One row per (upload, plot type, channel, fingerprint).
 
-*Table 110 — 6.4.6 plot_results*
+*Table 112 — 6.4.6 plot_results*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4767,7 +4824,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 | `y_label` | `VARCHAR(80)` | NO | — | Axis label |
 | `x_data` | `JSONB` | NO | — | X array |
 | `y_data` | `JSONB` | NO | — | Y array |
-| `metadata` | `JSONB` | NO | `'{}'` | Plot-specific extras (`plot_style`, `fft_lines`, `sampling_rate_hz`, `num_segments`, `samples`); mapped to `metadata_` in Python |
+| `metadata` | `JSONB` | NO | `'{}'` | Plot-specific extras (`plot_style`, `fft_lines`, `block_size`, `averages`, `sampling_rate_hz`, `num_segments`, `samples`); mapped to `metadata_` in Python |
 | `point_count` | `INTEGER` | NO | — | `len(x)`, stored for cheap size inspection |
 | `sampling_rate_hz` | `NUMERIC(12,4)` | NO | — | Rate used at computation time |
 | `fft_lines` | `INTEGER` | YES | — | Lines used |
@@ -4786,7 +4843,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 
 **Purpose.** Append-only reference captures. The code comment is explicit: *"Historical baseline records — all rows kept (append-only) for RAG / learning."*
 
-*Table 111 — 6.4.7 sensor_baselines*
+*Table 113 — 6.4.7 sensor_baselines*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4817,7 +4874,7 @@ Legend for the **Nullable** column: `NO` = `NOT NULL`; `YES` = nullable; `PK` = 
 
 Identical column set to `plot_results` with `baseline_id` in place of `upload_id`:
 
-*Table 112 — 6.4.8 baseline_plot_results*
+*Table 114 — 6.4.8 baseline_plot_results*
 
 | Column | Type | Nullable | Default |
 |--------|------|----------|---------|
@@ -4847,7 +4904,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 
 **Purpose.** The catalogue of the ten computed features — the reference table for names, units, and display order.
 
-*Table 113 — 6.4.9 feature_definitions*
+*Table 115 — 6.4.9 feature_definitions*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4861,7 +4918,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 
 **Seeded rows (migration 010).**
 
-*Table 114 — 6.4.9 feature_definitions*
+*Table 116 — 6.4.9 feature_definitions*
 
 | code | name | unit | sort_order | description |
 |------|------|------|-----------|-------------|
@@ -4883,7 +4940,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 
 **Purpose.** Configurable evaluation rules turning a feature value into a status.
 
-*Table 115 — 6.4.10 feature_threshold_rules*
+*Table 117 — 6.4.10 feature_threshold_rules*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4902,7 +4959,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 
 **Seeded rows (migration 010).** All ten are global (`machine_type = NULL`).
 
-*Table 116 — 6.4.10 feature_threshold_rules*
+*Table 118 — 6.4.10 feature_threshold_rules*
 
 | feature_code | rule_type | normal_max | warning_max | normal_min | warning_min | metadata |
 |--------------|-----------|-----------|-------------|-----------|-------------|----------|
@@ -4926,7 +4983,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 
 **Purpose.** Evaluated scalar feature values per upload and channel — the source for the Status (Health) tables and summary cards.
 
-*Table 117 — 6.4.11 measurement_channel_features*
+*Table 119 — 6.4.11 measurement_channel_features*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4952,7 +5009,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 
 **Purpose.** Per-segment feature series inside a single capture — the data behind the ten trend cards.
 
-*Table 118 — 6.4.12 measurement_channel_feature_trends*
+*Table 120 — 6.4.12 measurement_channel_feature_trends*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -4977,7 +5034,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 
 **Purpose.** The reference feature values a capture is compared against.
 
-*Table 119 — 6.4.13 baseline_channel_features*
+*Table 121 — 6.4.13 baseline_channel_features*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -5000,7 +5057,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 <a id="6414-roles"></a>
 ### 6.4.14 `roles`
 
-*Table 120 — 6.4.14 roles*
+*Table 122 — 6.4.14 roles*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -5020,7 +5077,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 <a id="6415-users"></a>
 ### 6.4.15 `users`
 
-*Table 121 — 6.4.15 users*
+*Table 123 — 6.4.15 users*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -5043,7 +5100,7 @@ Identical column set to `plot_results` with `baseline_id` in place of `upload_id
 <a id="6416-user_roles"></a>
 ### 6.4.16 `user_roles`
 
-*Table 122 — 6.4.16 user_roles*
+*Table 124 — 6.4.16 user_roles*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -5058,7 +5115,7 @@ Composite primary key `(user_id, role_id)` prevents duplicate assignments. This 
 <a id="6417-refresh_tokens"></a>
 ### 6.4.17 `refresh_tokens`
 
-*Table 123 — 6.4.17 refresh_tokens*
+*Table 125 — 6.4.17 refresh_tokens*
 
 | Column | Type | Nullable | Default | Purpose |
 |--------|------|----------|---------|---------|
@@ -5083,7 +5140,7 @@ Every table uses a surrogate `UUID` primary key except `user_roles`, which uses 
 <a id="652-unique-constraints-and-unique-indexes"></a>
 ### 6.5.2 Unique constraints and unique indexes
 
-*Table 124 — 6.5.2 Unique constraints and unique indexes*
+*Table 126 — 6.5.2 Unique constraints and unique indexes*
 
 | Object | Table | Columns |
 |--------|-------|---------|
@@ -5104,7 +5161,7 @@ Every table uses a surrogate `UUID` primary key except `user_roles`, which uses 
 <a id="653-check-constraints"></a>
 ### 6.5.3 Check constraints
 
-*Table 125 — 6.5.3 Check constraints*
+*Table 127 — 6.5.3 Check constraints*
 
 | Constraint | Table | Definition |
 |------------|-------|------------|
@@ -5115,7 +5172,7 @@ This is the only `CHECK` constraint in the schema. All other value domains (plot
 <a id="654-default-values"></a>
 ### 6.5.4 Default values
 
-*Table 126 — 6.5.4 Default values*
+*Table 128 — 6.5.4 Default values*
 
 | Kind | Examples |
 |------|----------|
@@ -5127,7 +5184,7 @@ Note the mixture: tables created in migrations 001–009 use `server_default` fo
 <a id="655-complete-index-inventory-24-indexes"></a>
 ### 6.5.5 Complete index inventory (24 indexes)
 
-*Table 127 — 6.5.5 Complete index inventory (24 indexes)*
+*Table 129 — 6.5.5 Complete index inventory (24 indexes)*
 
 | Index | Table | Columns | Unique | Purpose |
 |-------|-------|---------|--------|---------|
@@ -5167,7 +5224,7 @@ Note the mixture: tables created in migrations 001–009 use `server_default` fo
 
 Everything that would conventionally be a trigger is done in Python:
 
-*Table 128 — 6.6 Triggers, Views, Stored Procedures, Functions*
+*Table 130 — 6.6 Triggers, Views, Stored Procedures, Functions*
 
 | Conventional trigger | Where it is done instead |
 |----------------------|--------------------------|
@@ -5183,7 +5240,7 @@ The schema is essentially in **Third Normal Form**, with four deliberate, docume
 
 **Normal-form assessment**
 
-*Table 129 — 6.7 Normalisation Analysis*
+*Table 131 — 6.7 Normalisation Analysis*
 
 | Table group | Form | Reasoning |
 |-------------|------|-----------|
@@ -5196,7 +5253,7 @@ The schema is essentially in **Third Normal Form**, with four deliberate, docume
 
 **Intentional denormalisations**
 
-*Table 130 — 6.7 Normalisation Analysis*
+*Table 132 — 6.7 Normalisation Analysis*
 
 | # | Denormalisation | Rationale | Risk accepted |
 |---|-----------------|-----------|---------------|
@@ -5205,14 +5262,14 @@ The schema is essentially in **Third Normal Form**, with four deliberate, docume
 | 3 | `users.role` alongside `user_roles` | A single scalar avoids a join on every authenticated request and is `CHECK`-constrained | Two sources of truth; `_user_role` prefers the scalar and falls back to the relationship |
 | 4 | `sampling_rate_hz`, `fft_lines`, `frequency_max_hz` copied onto every plot row | Makes each cached row self-describing and auditable without reading `plot_configurations` | Redundant storage (negligible relative to the arrays) |
 
-**Missing normalisation, noted honestly.** `plant_name`, `area`, and `line` are free-text strings on every equipment row rather than a normalised plant hierarchy. This is why the `PLANTS` list in the frontend is hard-coded and why plant selection filters nothing — there is no plant entity to filter on.
+**Missing normalisation, noted honestly.** `plant_name`, `area`, and `line` are free-text strings on every equipment row rather than a normalised plant hierarchy. The plant selector works around this by deriving its options from `SELECT DISTINCT plant_name` over the equipment master (`GET /api/v1/lookups/plants`) and filtering on an exact case-insensitive match, so it does filter real data. But with no plant entity there is nothing to enforce spelling: a typo on one equipment row silently becomes a new plant in the dropdown, and renaming a plant means updating every row carrying the old string.
 
 <a id="68-data-volume-model"></a>
 ## 6.8 Data-Volume Model
 
 For one 8-channel capture of 4096 samples per channel:
 
-*Table 131 — 6.8 Data-Volume Model*
+*Table 133 — 6.8 Data-Volume Model*
 
 | Table | Rows | Approximate size |
 |-------|------|------------------|
@@ -5350,7 +5407,7 @@ FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DES
 <a id="610-performance-considerations-database"></a>
 ## 6.10 Performance Considerations (database)
 
-*Table 132 — 6.10 Performance Considerations (database)*
+*Table 134 — 6.10 Performance Considerations (database)*
 
 | Consideration | Detail |
 |---------------|--------|
@@ -5368,7 +5425,7 @@ FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DES
 
 The repository contains no backup automation. The recoverable state is:
 
-*Table 133 — 6.11 Backup and Recovery*
+*Table 135 — 6.11 Backup and Recovery*
 
 | Asset | Location | Recovery |
 |-------|----------|----------|
@@ -5404,7 +5461,7 @@ In Docker the backend image runs `alembic upgrade head && uvicorn app.main:app`,
 <a id="613-data-dictionary-quick-reference"></a>
 ## 6.13 Data Dictionary Quick Reference
 
-*Table 134 — 6.13 Data Dictionary Quick Reference*
+*Table 136 — 6.13 Data Dictionary Quick Reference*
 
 | Table | Rows per capture | Primary access path | Cascade parent |
 |-------|------------------|---------------------|----------------|
@@ -5506,7 +5563,7 @@ sequenceDiagram
 <a id="71-authentication-model"></a>
 ## 7.1 Authentication Model
 
-*Table 135 — 7.1 Authentication Model*
+*Table 137 — 7.1 Authentication Model*
 
 | Property | Value |
 |----------|-------|
@@ -5537,7 +5594,7 @@ sequenceDiagram
 <a id="712-refresh-token-design"></a>
 ### 7.1.2 Refresh-token design
 
-*Table 136 — 7.1.2 Refresh-token design*
+*Table 138 — 7.1.2 Refresh-token design*
 
 | Aspect | Implementation | Security property |
 |--------|----------------|-------------------|
@@ -5554,7 +5611,7 @@ sequenceDiagram
 <a id="721-role-hierarchy"></a>
 ### 7.2.1 Role hierarchy
 
-*Table 137 — 7.2.1 Role hierarchy*
+*Table 139 — 7.2.1 Role hierarchy*
 
 | Role | Read | Write | Settings page | Source of truth |
 |------|------|-------|---------------|-----------------|
@@ -5591,7 +5648,7 @@ The client-side checks are **usability affordances only**. Every mutating endpoi
 <a id="723-client-side-gating-inventory"></a>
 ### 7.2.3 Client-side gating inventory
 
-*Table 138 — 7.2.3 Client-side gating inventory*
+*Table 140 — 7.2.3 Client-side gating inventory*
 
 | Location | Gate |
 |----------|------|
@@ -5608,7 +5665,7 @@ The client-side checks are **usability affordances only**. Every mutating endpoi
 
 The platform uses **no cookies and no server-side sessions**. Tokens live in `sessionStorage` and are attached by an axios request interceptor.
 
-*Table 139 — 7.3 Sessions and Cookies*
+*Table 141 — 7.3 Sessions and Cookies*
 
 | Option | Chosen | Consequence |
 |--------|--------|-------------|
@@ -5621,7 +5678,7 @@ The platform uses **no cookies and no server-side sessions**. Tokens live in `se
 <a id="74-password-storage"></a>
 ## 7.4 Password Storage
 
-*Table 140 — 7.4 Password Storage*
+*Table 142 — 7.4 Password Storage*
 
 | Property | Value |
 |----------|-------|
@@ -5637,7 +5694,7 @@ The platform uses **no cookies and no server-side sessions**. Tokens live in `se
 <a id="75-encryption"></a>
 ## 7.5 Encryption
 
-*Table 141 — 7.5 Encryption*
+*Table 143 — 7.5 Encryption*
 
 | Layer | Status |
 |-------|--------|
@@ -5672,7 +5729,7 @@ flowchart TD
 
 **Development accounts documented in the API description** (`main.py`):
 
-*Table 142 — 7.6 Role and Permission Management*
+*Table 144 — 7.6 Role and Permission Management*
 
 | Role | Email | Password | Access |
 |------|-------|----------|--------|
@@ -5685,7 +5742,7 @@ Only the first is seeded by the committed `.env` (`INITIAL_ADMIN_*`); the other 
 <a id="77-security-filters-and-middleware"></a>
 ## 7.7 Security Filters and Middleware
 
-*Table 143 — 7.7 Security Filters and Middleware*
+*Table 145 — 7.7 Security Filters and Middleware*
 
 | Control | Status | Detail |
 |---------|--------|--------|
@@ -5723,7 +5780,7 @@ No CSRF protection exists, and none is required by the current design: the crede
 <a id="710-rate-limiting-and-brute-force-resistance"></a>
 ## 7.10 Rate Limiting and Brute-Force Resistance
 
-*Table 144 — 7.10 Rate Limiting and Brute-Force Resistance*
+*Table 146 — 7.10 Rate Limiting and Brute-Force Resistance*
 
 | Aspect | Status |
 |--------|--------|
@@ -5751,7 +5808,7 @@ The only raw SQL in the repository is inside migrations (`op.execute`, `sa.text`
 <a id="7112-cross-site-scripting"></a>
 ### 7.11.2 Cross-site scripting
 
-*Table 145 — 7.11.2 Cross-site scripting*
+*Table 147 — 7.11.2 Cross-site scripting*
 
 | Vector | Mitigation |
 |--------|------------|
@@ -5765,7 +5822,7 @@ The only raw SQL in the repository is inside migrations (`op.execute`, `sa.text`
 <a id="7113-file-upload-validation"></a>
 ### 7.11.3 File-upload validation
 
-*Table 146 — 7.11.3 File-upload validation*
+*Table 148 — 7.11.3 File-upload validation*
 
 | Check | Images | Measurements |
 |-------|--------|--------------|
@@ -5782,7 +5839,7 @@ The size check happens **after** `await file.read()`, so a 1 GB upload is fully 
 <a id="7114-other-validation-surfaces"></a>
 ### 7.11.4 Other validation surfaces
 
-*Table 147 — 7.11.4 Other validation surfaces*
+*Table 149 — 7.11.4 Other validation surfaces*
 
 | Surface | Validation |
 |---------|-----------|
@@ -5811,7 +5868,7 @@ The size check happens **after** `await file.read()`, so a 1 GB upload is fully 
 
 **Gaps, stated plainly**
 
-*Table 148 — 7.12 Security Posture Summary*
+*Table 150 — 7.12 Security Posture Summary*
 
 | # | Gap | Impact | Location |
 |---|-----|--------|----------|
@@ -5864,7 +5921,7 @@ This section documents each functional module in the terms requested: purpose, w
 
 **Business rules.**
 
-*Table 149 — 8.1 Module BL-1 — Identity and Session Management*
+*Table 151 — 8.1 Module BL-1 — Identity and Session Management*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -5896,7 +5953,7 @@ This section documents each functional module in the terms requested: purpose, w
 
 **Business rules.**
 
-*Table 150 — 8.2 Module BL-2 — Equipment Master Data*
+*Table 152 — 8.2 Module BL-2 — Equipment Master Data*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -5922,7 +5979,7 @@ This section documents each functional module in the terms requested: purpose, w
 
 **Business rules.**
 
-*Table 151 — 8.3 Module BL-3 — Sensor and Acquisition Configuration*
+*Table 153 — 8.3 Module BL-3 — Sensor and Acquisition Configuration*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -5955,7 +6012,7 @@ stepSizeSamples            = LOR × (1 − overlapDecimal)   [floored at LOR]
 
 **Business rules.**
 
-*Table 152 — 8.4 Module BL-4 — Measurement Ingestion*
+*Table 154 — 8.4 Module BL-4 — Measurement Ingestion*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -6003,14 +6060,15 @@ flowchart TD
 
 **Business rules.**
 
-*Table 153 — 8.5 Module BL-5 — Signal Processing and Plot Generation*
+*Table 155 — 8.5 Module BL-5 — Signal Processing and Plot Generation*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
 | BR-5.1 | Plots are computed for **every** available channel, then read per channel | `persist_all_plot_results` |
 | BR-5.2 | A cache entry is valid only when the stored plot-type set exactly equals the enabled set for the current fingerprint | `get_or_load_all_plots` |
 | BR-5.3 | The fingerprint excludes `active_channel` and `channel_count` so channel switching never invalidates the cache | `compute_config_fingerprint` |
-| BR-5.4 | FFT and envelope spectra apply a Hann window and single-sided `2/n` scaling | `compute_fft_spectrum` |
+| BR-5.4 | FFT and envelope spectra apply a Hann window and single-sided `2 / window.sum()` scaling, so the window's coherent gain — not the sample count — sets the amplitude | `compute_fft_spectrum` |
+| BR-5.4a | `fft_lines` is a line count: the FFT block is `2 × fft_lines` samples, and a capture longer than one block is averaged over 50 %-overlapping blocks rather than truncated | `compute_fft_spectrum` |
 | BR-5.5 | The envelope spectrum removes the envelope's mean before the FFT to suppress the DC pedestal | `compute_envelope_spectrum` |
 | BR-5.6 | Circular waveform and trend plots need at least 4 samples; FFT needs at least 4 | `compute_*` guards |
 | BR-5.7 | The trend plot uses 32 equal segments with RMS per segment | `compute_trend_plot` |
@@ -6018,7 +6076,7 @@ flowchart TD
 
 **Display-side rules (frontend).**
 
-*Table 154 — 8.5 Module BL-5 — Signal Processing and Plot Generation*
+*Table 156 — 8.5 Module BL-5 — Signal Processing and Plot Generation*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -6058,7 +6116,7 @@ flowchart TD
 
 **Business rules.**
 
-*Table 155 — 8.6 Module BL-6 — Feature Extraction and Health Evaluation*
+*Table 157 — 8.6 Module BL-6 — Feature Extraction and Health Evaluation*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -6077,7 +6135,7 @@ flowchart TD
 
 **Threshold evaluation matrix.**
 
-*Table 156 — 8.6 Module BL-6 — Feature Extraction and Health Evaluation*
+*Table 158 — 8.6 Module BL-6 — Feature Extraction and Health Evaluation*
 
 | Feature | Rule type | Normal | Warning | Critical |
 |---------|-----------|--------|---------|----------|
@@ -6101,7 +6159,7 @@ flowchart TD
 
 **Business rules.**
 
-*Table 157 — 8.7 Module BL-7 — Baseline Management*
+*Table 159 — 8.7 Module BL-7 — Baseline Management*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -6124,7 +6182,7 @@ flowchart TD
 
 **Business rules.**
 
-*Table 158 — 8.8 Module BL-8 — Vibration Settings (client-side)*
+*Table 160 — 8.8 Module BL-8 — Vibration Settings (client-side)*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -6147,7 +6205,7 @@ flowchart TD
 
 **Business rules.**
 
-*Table 159 — 8.9 Module BL-9 — Data Visualisation and Interaction*
+*Table 161 — 8.9 Module BL-9 — Data Visualisation and Interaction*
 
 | # | Rule | Enforced in |
 |---|------|-------------|
@@ -6200,7 +6258,7 @@ graph TD
 <a id="92-uf-1-login"></a>
 ## 9.2 UF-1 — Login
 
-*Table 160 — 9.2 UF-1 — Login*
+*Table 162 — 9.2 UF-1 — Login*
 
 | Step | User action | System response |
 |------|-------------|-----------------|
@@ -6215,7 +6273,7 @@ graph TD
 <a id="93-uf-2-create-equipment"></a>
 ## 9.3 UF-2 — Create equipment
 
-*Table 161 — 9.3 UF-2 — Create equipment*
+*Table 163 — 9.3 UF-2 — Create equipment*
 
 | Step | User action | System response |
 |------|-------------|-----------------|
@@ -6271,7 +6329,7 @@ sequenceDiagram
 <a id="96-uf-5-create-and-use-a-baseline"></a>
 ## 9.6 UF-5 — Create and use a baseline
 
-*Table 162 — 9.6 UF-5 — Create and use a baseline*
+*Table 164 — 9.6 UF-5 — Create and use a baseline*
 
 | Step | Action | Result |
 |------|--------|--------|
@@ -6298,7 +6356,7 @@ sequenceDiagram
 <a id="98-uf-7-search-filter-and-paginate-the-register"></a>
 ## 9.8 UF-7 — Search, filter, and paginate the register
 
-*Table 163 — 9.8 UF-7 — Search, filter, and paginate the register*
+*Table 165 — 9.8 UF-7 — Search, filter, and paginate the register*
 
 | Control | Scope | Mechanism |
 |---------|-------|-----------|
@@ -6328,7 +6386,7 @@ Click the user menu → **Sign Out** → `POST /auth/logout` (best effort) → `
 <a id="912-uf-11-read-only-user-journey"></a>
 ## 9.12 UF-11 — Read-only user journey
 
-*Table 164 — 9.12 UF-11 — Read-only user journey*
+*Table 166 — 9.12 UF-11 — Read-only user journey*
 
 | Capability | Available |
 |------------|-----------|
@@ -6351,7 +6409,7 @@ Click the user menu → **Sign Out** → `POST /auth/logout` (best effort) → `
 <a id="101-module-inventory"></a>
 ## 10.1 Module inventory
 
-*Table 165 — 10.1 Module inventory*
+*Table 167 — 10.1 Module inventory*
 
 | ID | Module | Frontend files | Backend files | Tables | Endpoints |
 |----|--------|----------------|---------------|--------|-----------|
@@ -6511,7 +6569,7 @@ sequenceDiagram
 
 Cross-reference of UI element types per screen (detailed screen documentation is in §3.17).
 
-*Table 166 — 10.12 UI Element Catalogue*
+*Table 168 — 10.12 UI Element Catalogue*
 
 | Screen | Cards | Buttons | Forms | Tables | Charts | Dialogs | Filters | Search | Pagination | Responsive behaviour |
 |--------|-------|---------|-------|--------|--------|---------|---------|--------|------------|----------------------|
@@ -6535,7 +6593,7 @@ Cross-reference of UI element types per screen (detailed screen documentation is
 <a id="111-configuration-file-inventory"></a>
 ## 11.1 Configuration file inventory
 
-*Table 167 — 11.1 Configuration file inventory*
+*Table 169 — 11.1 Configuration file inventory*
 
 | File | Scope | Consumed by |
 |------|-------|-------------|
@@ -6588,7 +6646,7 @@ INITIAL_ADMIN_NAME=Platform Administrator
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-*Table 168 — 11.2 .env — complete reference*
+*Table 170 — 11.2 .env — complete reference*
 
 | Variable | Consumer | Required | Default | Notes |
 |----------|----------|----------|---------|-------|
@@ -6633,7 +6691,7 @@ Explicit backend environment overrides: `DATABASE_URL` (rebuilt from the Postgre
 
 **Port summary**
 
-*Table 169 — 11.3 docker-compose.yml*
+*Table 171 — 11.3 docker-compose.yml*
 
 | Service | Host | Container |
 |---------|------|-----------|
@@ -6663,7 +6721,7 @@ CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --
 
 Three targets:
 
-*Table 170 — 11.5 frontend/Dockerfile*
+*Table 172 — 11.5 frontend/Dockerfile*
 
 | Target | Base | Purpose | Command |
 |--------|------|---------|---------|
@@ -6691,7 +6749,7 @@ server {
 <a id="117-frontendviteconfigts"></a>
 ## 11.7 `frontend/vite.config.ts`
 
-*Table 171 — 11.7 frontend/vite.config.ts*
+*Table 173 — 11.7 frontend/vite.config.ts*
 
 | Setting | Value | Note |
 |---------|-------|------|
@@ -6704,7 +6762,7 @@ server {
 <a id="118-frontendtsconfigjson"></a>
 ## 11.8 `frontend/tsconfig.json`
 
-*Table 172 — 11.8 frontend/tsconfig.json*
+*Table 174 — 11.8 frontend/tsconfig.json*
 
 | Option | Value | Effect |
 |--------|-------|--------|
@@ -6724,7 +6782,7 @@ server {
 <a id="119-frontendtailwindconfigjs"></a>
 ## 11.9 `frontend/tailwind.config.js`
 
-*Table 173 — 11.9 frontend/tailwind.config.js*
+*Table 175 — 11.9 frontend/tailwind.config.js*
 
 | Section | Contents |
 |---------|----------|
@@ -6841,7 +6899,7 @@ docker-compose up -d --build
 
 Startup order: `postgres` → healthcheck passes → `backend` (runs `alembic upgrade head`, then seeds users on lifespan) → `frontend`.
 
-*Table 174 — 12.3 Full container deployment*
+*Table 176 — 12.3 Full container deployment*
 
 | Endpoint | URL |
 |----------|-----|
@@ -6885,7 +6943,7 @@ Because type-checking gates the bundle, a type error blocks deployment — this 
 
 The repository ships a development configuration. Before production use:
 
-*Table 175 — 12.5 Production readiness checklist*
+*Table 177 — 12.5 Production readiness checklist*
 
 | # | Action | Reason |
 |---|--------|--------|
@@ -6937,7 +6995,7 @@ server {
 
 The stack is portable to any container platform. Points that need attention:
 
-*Table 176 — 12.7 Cloud deployment notes*
+*Table 178 — 12.7 Cloud deployment notes*
 
 | Concern | Guidance |
 |---------|----------|
@@ -6983,7 +7041,7 @@ flowchart LR
 
 The repository contains **one** executable test artefact: `backend/scripts/test_auth_phase1.py`. There is no test framework configuration, no test directory, no frontend test tooling, and no coverage measurement.
 
-*Table 177 — 13.1 Current state — stated plainly*
+*Table 179 — 13.1 Current state — stated plainly*
 
 | Test type | Present | Evidence |
 |-----------|---------|----------|
@@ -7019,7 +7077,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="133-implicit-quality-gates"></a>
 ## 13.3 Implicit quality gates
 
-*Table 178 — 13.3 Implicit quality gates*
+*Table 180 — 13.3 Implicit quality gates*
 
 | Gate | Mechanism | Catches |
 |------|-----------|---------|
@@ -7035,7 +7093,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1341-authentication"></a>
 ### 13.4.1 Authentication
 
-*Table 179 — 13.4.1 Authentication*
+*Table 181 — 13.4.1 Authentication*
 
 | ID | Case | Steps | Expected |
 |----|------|-------|----------|
@@ -7055,7 +7113,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1342-authorisation"></a>
 ### 13.4.2 Authorisation
 
-*Table 180 — 13.4.2 Authorisation*
+*Table 182 — 13.4.2 Authorisation*
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -7071,7 +7129,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1343-equipment"></a>
 ### 13.4.3 Equipment
 
-*Table 181 — 13.4.3 Equipment*
+*Table 183 — 13.4.3 Equipment*
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -7096,7 +7154,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1344-measurement-and-analysis"></a>
 ### 13.4.4 Measurement and analysis
 
-*Table 182 — 13.4.4 Measurement and analysis*
+*Table 184 — 13.4.4 Measurement and analysis*
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -7124,7 +7182,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1345-features-and-health"></a>
 ### 13.4.5 Features and health
 
-*Table 183 — 13.4.5 Features and health*
+*Table 185 — 13.4.5 Features and health*
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -7140,7 +7198,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1346-baselines"></a>
 ### 13.4.6 Baselines
 
-*Table 184 — 13.4.6 Baselines*
+*Table 186 — 13.4.6 Baselines*
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -7156,7 +7214,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1347-settings"></a>
 ### 13.4.7 Settings
 
-*Table 185 — 13.4.7 Settings*
+*Table 187 — 13.4.7 Settings*
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -7173,7 +7231,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="1348-responsive-and-accessibility"></a>
 ### 13.4.8 Responsive and accessibility
 
-*Table 186 — 13.4.8 Responsive and accessibility*
+*Table 188 — 13.4.8 Responsive and accessibility*
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -7189,7 +7247,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 
 **Backend (`pytest` + `httpx`)**
 
-*Table 187 — 13.5 Recommended automated test suite*
+*Table 189 — 13.5 Recommended automated test suite*
 
 | Layer | Targets |
 |-------|---------|
@@ -7203,7 +7261,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 
 **Frontend (Vitest + Testing Library)**
 
-*Table 188 — 13.5 Recommended automated test suite*
+*Table 190 — 13.5 Recommended automated test suite*
 
 | Layer | Targets |
 |-------|---------|
@@ -7223,7 +7281,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="141-implemented-optimisations"></a>
 ## 14.1 Implemented optimisations
 
-*Table 189 — 14.1 Implemented optimisations*
+*Table 191 — 14.1 Implemented optimisations*
 
 | # | Optimisation | Location | Effect |
 |---|--------------|----------|--------|
@@ -7251,7 +7309,7 @@ Run with `cd backend && python scripts/test_auth_phase1.py`. It covers login, `/
 <a id="142-not-implemented"></a>
 ## 14.2 Not implemented
 
-*Table 190 — 14.2 Not implemented*
+*Table 192 — 14.2 Not implemented*
 
 | Item | Status | Consequence |
 |------|--------|-------------|
@@ -7299,7 +7357,7 @@ Each extraction performs `scipy.fft.fft` and `scipy.signal.hilbert` on the segme
 <a id="144-payload-sizes"></a>
 ## 14.4 Payload sizes
 
-*Table 191 — 14.4 Payload sizes*
+*Table 193 — 14.4 Payload sizes*
 
 | Response | Approximate size | Note |
 |----------|------------------|------|
@@ -7313,7 +7371,7 @@ Enabling gzip at the proxy is the single highest-value network optimisation, bec
 <a id="145-frontend-rendering"></a>
 ## 14.5 Frontend rendering
 
-*Table 192 — 14.5 Frontend rendering*
+*Table 194 — 14.5 Frontend rendering*
 
 | Aspect | Behaviour |
 |--------|-----------|
@@ -7328,7 +7386,7 @@ The heaviest screen is Status (Health) with ten `HealthMetricCard` instances, ea
 <a id="146-known-query-weaknesses"></a>
 ## 14.6 Known query weaknesses
 
-*Table 193 — 14.6 Known query weaknesses*
+*Table 195 — 14.6 Known query weaknesses*
 
 | Query | Weakness | Remedy |
 |-------|----------|--------|
@@ -7361,7 +7419,7 @@ VACUUM ANALYZE plot_results;
 <a id="148-scalability-profile"></a>
 ## 14.8 Scalability profile
 
-*Table 194 — 14.8 Scalability profile*
+*Table 196 — 14.8 Scalability profile*
 
 | Dimension | Current ceiling | Limiting factor |
 |-----------|-----------------|-----------------|
@@ -7424,7 +7482,7 @@ flowchart TD
 <a id="152-backend-error-catalogue"></a>
 ## 15.2 Backend error catalogue
 
-*Table 195 — 15.2 Backend error catalogue*
+*Table 197 — 15.2 Backend error catalogue*
 
 | Status | Message | Endpoint(s) | Cause |
 |--------|---------|-------------|-------|
@@ -7463,7 +7521,7 @@ flowchart TD
 <a id="153-frontend-error-surfaces"></a>
 ## 15.3 Frontend error surfaces
 
-*Table 196 — 15.3 Frontend error surfaces*
+*Table 198 — 15.3 Frontend error surfaces*
 
 | Surface | Message pattern | Location |
 |---------|-----------------|----------|
@@ -7484,7 +7542,7 @@ flowchart TD
 <a id="154-diagnostic-runbook"></a>
 ## 15.4 Diagnostic runbook
 
-*Table 197 — 15.4 Diagnostic runbook*
+*Table 199 — 15.4 Diagnostic runbook*
 
 | Symptom | Likely cause | Check | Fix |
 |---------|--------------|-------|-----|
@@ -7509,7 +7567,7 @@ flowchart TD
 <a id="155-log-locations"></a>
 ## 15.5 Log locations
 
-*Table 198 — 15.5 Log locations*
+*Table 200 — 15.5 Log locations*
 
 | Source | Where |
 |--------|-------|
@@ -7531,7 +7589,7 @@ flowchart TD
 <a id="161-glossary"></a>
 ## 16.1 Glossary
 
-*Table 199 — 16.1 Glossary*
+*Table 201 — 16.1 Glossary*
 
 | Term | Definition |
 |------|-----------|
@@ -7561,7 +7619,7 @@ flowchart TD
 <a id="162-abbreviations"></a>
 ## 16.2 Abbreviations
 
-*Table 200 — 16.2 Abbreviations*
+*Table 202 — 16.2 Abbreviations*
 
 | Abbrev. | Expansion |
 |---------|-----------|
@@ -7599,7 +7657,7 @@ flowchart TD
 <a id="163-api-summary-table"></a>
 ## 16.3 API summary table
 
-*Table 201 — 16.3 API summary table*
+*Table 203 — 16.3 API summary table*
 
 | # | Method | Path | Auth | Success | Primary tables |
 |---|--------|------|------|---------|----------------|
@@ -7623,7 +7681,8 @@ flowchart TD
 | 18 | PUT | `/api/v1/equipment/{id}/sensors/{sid}` | Write | 200 | sensor_configurations |
 | 19 | DELETE | `/api/v1/equipment/{id}/sensors/{sid}` | Write | 204 | sensor_configurations (+cascade) |
 | 20 | GET | `/api/v1/equipment/{id}/ai-readiness` | Auth | 200 | equipment_masters, sensor_configurations |
-| 21 | GET | `/api/v1/lookups/` | Auth | 200 | — |
+| 21 | GET | `/api/v1/lookups/` | Auth | 200 | equipment_masters (`plants` key) |
+| 21a | GET | `/api/v1/lookups/plants` | Auth | 200 | equipment_masters |
 | 22 | GET | `/api/v1/lookups/{name}` | Auth | 200 | — |
 | 23 | POST | `/api/v1/measurements/configure` | Write | 200 | plot_configurations |
 | 24 | GET | `/api/v1/measurements/configure/{sensor_id}` | Auth | 200 | plot_configurations |
@@ -7649,11 +7708,12 @@ flowchart TD
 | 44 | GET | `/api/v1/baselines/{id}/plots` | Auth | 200 | baseline_plot_results |
 | 45 | GET | `/api/v1/baselines/{id}/plots/{type}` | Auth | 200 | baseline_plot_results |
 | 46 | GET | `/api/v1/baselines/{id}/features` | Auth | 200 | baseline_channel_features |
+| 47 | GET | `/api/v1/dashboard/summary` | Auth | 200 | equipment_masters, sensor_configurations, sensor_data_uploads, measurement_channel_features, feature_definitions |
 
 <a id="164-database-summary-table"></a>
 ## 16.4 Database summary table
 
-*Table 202 — 16.4 Database summary table*
+*Table 204 — 16.4 Database summary table*
 
 | # | Table | Columns | PK | FKs | Indexes | Purpose |
 |---|-------|---------|----|-----|---------|---------|
@@ -7678,7 +7738,7 @@ flowchart TD
 <a id="165-backend-class-module-summary"></a>
 ## 16.5 Backend class / module summary
 
-*Table 203 — 16.5 Backend class / module summary*
+*Table 205 — 16.5 Backend class / module summary*
 
 | Type | Name | File | Responsibility |
 |------|------|------|----------------|
@@ -7714,7 +7774,7 @@ flowchart TD
 <a id="166-frontend-component-summary"></a>
 ## 16.6 Frontend component summary
 
-*Table 204 — 16.6 Frontend component summary*
+*Table 206 — 16.6 Frontend component summary*
 
 | Group | Count | Components |
 |-------|-------|-----------|
@@ -7742,7 +7802,7 @@ flowchart TD
 <a id="167-folder-by-folder-file-index"></a>
 ## 16.7 Folder-by-folder file index
 
-*Table 205 — 16.7 Folder-by-folder file index*
+*Table 207 — 16.7 Folder-by-folder file index*
 
 | Path | Why it exists | Connects to |
 |------|---------------|-------------|
@@ -7785,7 +7845,7 @@ flowchart TD
 <a id="1681-backend"></a>
 ### 16.8.1 Backend
 
-*Table 206 — 16.8.1 Backend*
+*Table 208 — 16.8.1 Backend*
 
 | Dependency | Version | Purpose | Where used |
 |------------|---------|---------|-----------|
@@ -7812,7 +7872,7 @@ flowchart TD
 <a id="1682-frontend-runtime"></a>
 ### 16.8.2 Frontend — runtime
 
-*Table 207 — 16.8.2 Frontend — runtime*
+*Table 209 — 16.8.2 Frontend — runtime*
 
 | Dependency | Version | Purpose | Where used |
 |------------|---------|---------|-----------|
@@ -7838,7 +7898,7 @@ flowchart TD
 <a id="1683-frontend-development"></a>
 ### 16.8.3 Frontend — development
 
-*Table 208 — 16.8.3 Frontend — development*
+*Table 210 — 16.8.3 Frontend — development*
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
@@ -7853,7 +7913,7 @@ flowchart TD
 <a id="1684-infrastructure-images"></a>
 ### 16.8.4 Infrastructure images
 
-*Table 209 — 16.8.4 Infrastructure images*
+*Table 211 — 16.8.4 Infrastructure images*
 
 | Image | Tag | Role |
 |-------|-----|------|
@@ -7866,7 +7926,7 @@ flowchart TD
 <a id="169-constants-quick-reference"></a>
 ## 16.9 Constants quick reference
 
-*Table 210 — 16.9 Constants quick reference*
+*Table 212 — 16.9 Constants quick reference*
 
 | Constant | Value | Location |
 |----------|-------|----------|
@@ -7904,7 +7964,7 @@ flowchart TD
 
 Every diagram is numbered sequentially and listed with its figure number in the **List of Figures** in the front matter. This index groups the same diagrams by subject and gives the section in which each appears.
 
-*Table 211 — 16.10 Diagram index*
+*Table 213 — 16.10 Diagram index*
 
 | Subject | Section |
 |---------|---------|
@@ -7959,7 +8019,7 @@ Every diagram is numbered sequentially and listed with its figure number in the 
 <a id="171-domain-and-standards-references-cited-in-the-code"></a>
 ## 17.1 Domain and standards references cited in the code
 
-*Table 212 — 17.1 Domain and standards references cited in the code*
+*Table 214 — 17.1 Domain and standards references cited in the code*
 
 | Reference | Cited in | Used for |
 |-----------|----------|----------|
@@ -7974,7 +8034,7 @@ The code's own note on ISO 10816 is reproduced here because it is a design decis
 <a id="172-technology-documentation"></a>
 ## 17.2 Technology documentation
 
-*Table 213 — 17.2 Technology documentation*
+*Table 215 — 17.2 Technology documentation*
 
 | Technology | Reference |
 |------------|-----------|
@@ -8002,7 +8062,7 @@ The code's own note on ISO 10816 is reproduced here because it is a design decis
 <a id="173-internal-source-references"></a>
 ## 17.3 Internal source references
 
-*Table 214 — 17.3 Internal source references*
+*Table 216 — 17.3 Internal source references*
 
 | Artefact | Path |
 |----------|------|

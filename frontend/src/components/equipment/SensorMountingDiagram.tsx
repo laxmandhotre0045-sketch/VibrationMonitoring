@@ -12,7 +12,7 @@ export function SensorMountingDiagram({ orientations = {} }: SensorMountingDiagr
 
   return (
     <div className="flex flex-col items-center">
-      <p className="text-overline mb-3">Mounting Orientation Reference</p>
+      <p className="text-overline mb-g3">Mounting Orientation Reference</p>
       <svg viewBox="0 0 320 200" className="w-full max-w-xs" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Motor body (NDE side) */}
         <rect x="10" y="70" width="100" height="60" rx="6" fill="#e8f0fe" stroke="#93c5fd" strokeWidth="1.5" />
@@ -62,7 +62,7 @@ export function SensorMountingDiagram({ orientations = {} }: SensorMountingDiagr
           </marker>
         </defs>
       </svg>
-      <div className="flex gap-4 mt-2">
+      <div className="flex gap-g3 mt-g2">
         <div className="flex items-center gap-1">
           <div className="w-3 h-1 bg-primary rounded" />
           <span className="text-sm font-medium text-muted-foreground">NDE</span>

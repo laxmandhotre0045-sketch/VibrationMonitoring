@@ -15,7 +15,7 @@
 
 **Authentication column legend.** *Public* = no token. *Auth* = any valid token. *Write* = `super_admin` or `admin` only (role `user` receives 403).
 
-## 5.2 Complete Endpoint Index (46 endpoints)
+## 5.2 Complete Endpoint Index (48 endpoints)
 
 | # | Method | Path | Auth | Purpose |
 |---|--------|------|------|---------|
@@ -39,7 +39,8 @@
 | 18 | PUT | `/api/v1/equipment/{equipment_id}/sensors/{sensor_id}` | Write | Update sensor |
 | 19 | DELETE | `/api/v1/equipment/{equipment_id}/sensors/{sensor_id}` | Write | Delete sensor |
 | 20 | GET | `/api/v1/equipment/{equipment_id}/ai-readiness` | Auth | Readiness score |
-| 21 | GET | `/api/v1/lookups/` | Auth | All 18 lookup lists |
+| 21 | GET | `/api/v1/lookups/` | Auth | All 18 lookup lists + derived `plants` |
+| 21a | GET | `/api/v1/lookups/plants` | Auth | Distinct plant names in the equipment master |
 | 22 | GET | `/api/v1/lookups/{lookup_name}` | Auth | One lookup list |
 | 23 | POST | `/api/v1/measurements/configure` | Write | Upsert plot configuration |
 | 24 | GET | `/api/v1/measurements/configure/{sensor_id}` | Auth | Read plot configuration |
@@ -65,6 +66,7 @@
 | 44 | GET | `/api/v1/baselines/{baseline_id}/plots` | Auth | Baseline plots |
 | 45 | GET | `/api/v1/baselines/{baseline_id}/plots/{plot_type}` | Auth | One baseline plot |
 | 46 | GET | `/api/v1/baselines/{baseline_id}/features` | Auth | Baseline feature values |
+| 47 | GET | `/api/v1/dashboard/summary` | Auth | Fleet KPIs, per-equipment health, alerts, recent activity; optional `plant_name` filter |
 
 ---
 
@@ -384,7 +386,7 @@ Status 204. Removes the file when present, then sets `equipment_image_path = NUL
 
 ### 5.6.1 `GET /api/v1/lookups/`
 
-Returns the entire `LOOKUPS` dictionary — a static, in-code catalogue with no database access.
+Returns the entire `LOOKUPS` dictionary — a static, in-code catalogue — plus one derived key, `plants`, which is the only entry that touches the database.
 
 | Key | Count | Values |
 |-----|-------|--------|
@@ -406,12 +408,19 @@ Returns the entire `LOOKUPS` dictionary — a static, in-code catalogue with no 
 | `sampling-rates` | 9 | 512 Hz … 65536 Hz, Custom |
 | `frequency-ranges` | 7 | 0-500 Hz … 0-20000 Hz, Custom |
 | `asset-status` | 4 | Active, Inactive, Under Maintenance, Decommissioned |
+| `plants` | *varies* | `SELECT DISTINCT plant_name FROM equipment_master`, ascending, blanks dropped |
 
-### 5.6.2 `GET /api/v1/lookups/{lookup_name}`
+### 5.6.2 `GET /api/v1/lookups/plants`
 
-Returns `{"lookup": "<name>", "values": [...]}`; 404 `"Lookup '<name>' not found"` for an unknown key.
+Returns `{"lookup": "plants", "values": [...]}` — the distinct, non-blank `plant_name` values in the equipment master, ascending. Because it feeds the header plant selector, the dropdown can only ever offer plants that some equipment actually belongs to.
 
-> The frontend currently hard-codes the same option lists inside its tab components rather than calling these endpoints, although `getLookup`/`getAllLookups` exist in `api/equipment.ts`. Keeping both in sync is a maintenance obligation.
+This route is **declared before `/{lookup_name}`** in `routers/lookups.py`. FastAPI matches in declaration order, so registering it after the catch-all would make `/plants` resolve to `get_lookup("plants")` and 404.
+
+### 5.6.3 `GET /api/v1/lookups/{lookup_name}`
+
+Returns `{"lookup": "<name>", "values": [...]}`; 404 `"Lookup '<name>' not found"` for an unknown key. This handler reads `LOOKUPS` only — it has no database session and therefore cannot serve `plants`.
+
+> The frontend currently hard-codes the same option lists inside its tab components rather than calling these endpoints, although `getLookup`/`getAllLookups` exist in `api/equipment.ts`. Keeping both in sync is a maintenance obligation. The plant selector is the exception: it calls `getLookup("plants")` precisely because the values cannot be known at build time.
 
 ---
 
@@ -466,11 +475,11 @@ Three shapes of the same operation:
 ```json
 {
   "acquisitionFormula": {
-    "frequencyResolutionHz": 16.0, "blockTimeSeconds": 0.0625,
-    "sampleRateHz": 25600.0, "requiredSamples": 1600.0,
-    "overlapDecimal": 0.0, "totalAcquisitionTimeSeconds": 0.0625,
+    "frequencyResolutionHz": 8.0, "blockTimeSeconds": 0.125,
+    "sampleRateHz": 25600.0, "requiredSamples": 3200.0,
+    "overlapDecimal": 0.0, "totalAcquisitionTimeSeconds": 0.125,
     "averageCount": 1.0, "fmaxHz": 15000.0, "lor": 1600.0,
-    "stepSizeSamples": 1600.0
+    "stepSizeSamples": 3200.0
   },
   "minutes": "1", "averaging": 1, "sensitivityMvPerG": 100.0,
   "totalChannelCount": 8, "averageCount": 1,
@@ -589,9 +598,10 @@ Each `plots[]` entry is a `PlotSeriesOut`: `{plot_type, title, x_label, y_label,
       "channel":0,"metadata":{"plot_style":"line"} },
     { "plot_type":"fft_spectrum","title":"FFT Spectrum",
       "x_label":"Frequency (Hz)","y_label":"Magnitude",
-      "x":[0.0,16.0,32.0,"..."],"y":[0.0001,0.0342,"..."],
+      "x":[0.0,8.0,16.0,"..."],"y":[0.0001,0.0342,"..."],
       "channel":0,
-      "metadata":{"plot_style":"line","fft_lines":1600,"sampling_rate_hz":25600.0} }
+      "metadata":{"plot_style":"line","fft_lines":1600,"block_size":3200,
+                  "averages":63,"sampling_rate_hz":25600.0} }
   ]
 }
 ```
@@ -803,9 +813,38 @@ Query `channel: int?`. Returns `BaselineFeaturesOut` with `items` and a `summary
 
 ---
 
-## 5.9 Cross-Cutting API Behaviour
+## 5.9 Dashboard API
 
-### 5.9.1 Which endpoints require write access
+### 5.9.1 `GET /api/v1/dashboard/summary`
+
+One authenticated read that backs both the Operations Dashboard and the header `NotificationBell`.
+
+**Query parameters**
+
+| Name | Type | Default | Meaning |
+|------|------|---------|---------|
+| `plant_name` | string? | `null` | Restricts the whole response to one plant. Matched **exactly**, case-insensitively, against `equipment_masters.plant_name` (trimmed) |
+
+A substring match was rejected deliberately: `"mumbai"` would otherwise also select `"navi mumbai"` and leak one plant's equipment into another's view. The same exact-match rule is applied by `crud/equipment.py`, so the dashboard and the equipment list can never disagree about which machines belong to a plant.
+
+The filter cascades. Equipment is filtered first; sensors are then reduced to those belonging to the surviving equipment, and because alerts and recent activity are both derived from that sensor set, they are scoped too — a plant's dashboard never shows another plant's alerts or uploads.
+
+**Response — `DashboardSummaryOut`**
+
+| Field | Contents |
+|-------|----------|
+| `counts` | `total`, `critical`, `warning`, `normal`, `no_data`, `average_health_score` |
+| `equipment_health` | One row per machine: identity fields, worst status across the latest upload's features, `health_score`, `last_upload_at`, `worst_feature_name` |
+| `alerts` | Every feature row at `warning` or `critical`, sorted by severity then recency, capped at `alert_limit` (20) |
+| `recent_activity` | The most recent `activity_limit` (10) uploads with machine, mounting location, filename, and parse/feature status |
+
+Health scoring is a fixed map — `normal → 100`, `warning → 60`, `critical → 20` — averaged over machines that have a scoreable status; `average_health_score` is `null` when none do. A machine whose worst status is `no_baseline` counts toward `no_data`, not toward the average, because a threshold was never evaluated for it.
+
+---
+
+## 5.10 Cross-Cutting API Behaviour
+
+### 5.10.1 Which endpoints require write access
 
 | Router | Write endpoints |
 |--------|-----------------|
@@ -816,7 +855,7 @@ Query `channel: int?`. Returns `BaselineFeaturesOut` with `items` and a `summary
 
 Everything else is readable by all three roles.
 
-### 5.9.2 Validation-rule summary
+### 5.10.2 Validation-rule summary
 
 | Constraint | Endpoints |
 |------------|-----------|
@@ -835,13 +874,14 @@ Everything else is readable by all three roles.
 | Measurement file ≤ 50 MB, `.csv`/`.pdf` | upload, baseline upload |
 | `from_date ≤ to_date` | uploads list |
 
-### 5.9.3 Endpoint → table matrix
+### 5.10.3 Endpoint → table matrix
 
 | Endpoint group | Tables read | Tables written |
 |----------------|-------------|----------------|
 | Auth | `users`, `roles`, `user_roles`, `refresh_tokens` | `users.last_login_at`, `refresh_tokens` |
 | Equipment | `equipment_masters`, `sensor_configurations` | both |
-| Lookups | — | — |
+| Lookups | `equipment_masters` (`plants` only) | — |
+| Dashboard | `equipment_masters`, `sensor_configurations`, `sensor_data_uploads`, `measurement_channel_features`, `feature_definitions` | — |
 | Configure | `sensor_configurations` | `plot_configurations` |
 | Acquisition | `sensor_configurations`, `plot_configurations` | — |
 | Upload | `sensor_configurations`, `plot_configurations`, `feature_definitions`, `feature_threshold_rules`, `sensor_baselines`, `baseline_channel_features` | `sensor_data_uploads`, `measurement_upload_data`, `plot_results`, `measurement_channel_features`, `measurement_channel_feature_trends` |

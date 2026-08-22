@@ -117,7 +117,7 @@ export function FeatureStatusTable({ items, className }: FeatureStatusTableProps
 
 export function FeatureStatusTableSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-border bg-white p-3 space-y-2 animate-pulse", className)}>
+    <div className={cn("rounded-xl border border-border bg-white p-3 space-y-g2 animate-pulse", className)}>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="h-9 rounded-md bg-muted/40" />
       ))}

@@ -49,10 +49,8 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-export const PLANTS = [
-  "All Plants",
-  "Plant A — Mumbai",
-  "Plant B — Pune",
-  "Plant C — Chennai",
-  "Plant D — Ahmedabad",
-];
+/**
+ * Sentinel for "no plant filter". Real plant names come from
+ * GET /api/v1/lookups/plants (distinct plant_name in the equipment master).
+ */
+export const ALL_PLANTS = "All Plants";

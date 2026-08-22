@@ -12,8 +12,8 @@ export function CriticalityIndicator({ level }: CriticalityIndicatorProps) {
   const cfg = CRITICALITY_IMPACT[level];
 
   return (
-    <div className={cn("mt-4 p-4 rounded-lg border", cfg.bg, cfg.border)}>
-      <div className="flex items-center gap-2.5 mb-2">
+    <div className={cn("mt-g3 card-pad rounded-lg border", cfg.bg, cfg.border)}>
+      <div className="flex items-center gap-2.5 mb-g2">
         <Shield size={16} className={cfg.color} />
         <span className={cn("text-base font-bold tracking-wide", cfg.color)}>{cfg.label}</span>
         <span className="text-base font-medium text-muted-foreground">· Reliability Impact</span>

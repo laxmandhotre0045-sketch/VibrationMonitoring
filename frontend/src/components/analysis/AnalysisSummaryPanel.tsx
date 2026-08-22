@@ -50,11 +50,11 @@ export function AnalysisSummaryPanel({
     return (
       <div
         className={cn(
-          "rounded-md border border-dashed border-border bg-surface/40 px-4 py-5 text-center",
+          "rounded-md border border-dashed border-border bg-surface/40 px-g4 py-g4 text-center",
           className
         )}
       >
-        <BarChart2 size={28} className="mx-auto mb-1.5 text-muted-foreground" aria-hidden />
+        <BarChart2 size={28} className="mx-auto mb-g1 text-muted-foreground" aria-hidden />
         <p className="text-sm text-muted-foreground">
           Select a capture on the timeline to view analysis details.
         </p>
@@ -63,12 +63,12 @@ export function AnalysisSummaryPanel({
   }
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-g3", className)}>
       {showCaptureSummary && (
         <>
           <div className="rounded-md border border-border border-l-2 border-l-signal-light bg-white px-3 py-2">
             <p className={analysisKpiLabelClass}>Selected Capture</p>
-            <p className="text-sm font-medium text-foreground mt-1 leading-snug" title={formatCaptureSelection(selectedUpload)}>
+            <p className="text-sm font-medium text-foreground mt-g1 leading-snug" title={formatCaptureSelection(selectedUpload)}>
               {formatCaptureSelection(selectedUpload)}
             </p>
           </div>
@@ -86,7 +86,7 @@ export function AnalysisSummaryPanel({
       )}
 
       <div>
-        <p className={cn(analysisKpiLabelClass, "mb-1.5")}>View Channel</p>
+        <p className={cn(analysisKpiLabelClass, "mb-g1")}>View Channel</p>
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: plotChannelCount }, (_, i) => (
             <button
@@ -97,7 +97,7 @@ export function AnalysisSummaryPanel({
                 analysisChannelBtnClass,
                 activeChannel === i
                   ? "bg-cta text-cta-foreground"
-                  : "border border-border bg-white text-muted-foreground hover:bg-surface"
+                  : "border border-border bg-white text-muted-foreground hover:bg-surface-hover"
               )}
             >
               ch{i}

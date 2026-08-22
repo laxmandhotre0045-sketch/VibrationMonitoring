@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, Settings2, Trash2 } from "lucide-react";
 import { listEquipment, getEquipment } from "@/api/equipment";
+import { useLayout } from "@/contexts/LayoutContext";
+import { ALL_PLANTS } from "@/components/layout/nav-config";
 import {
   createBaselineFromUpload,
   getBaselinePlots,
@@ -26,6 +28,7 @@ import { DetailedAnalysisTab } from "@/components/analysis/workspace/DetailedAna
 import { StatisticsTab } from "@/components/analysis/workspace/StatisticsTab";
 import { SaveBaselineModal } from "@/components/analysis/SaveBaselineModal";
 import {
+  analysisBodyStack,
   analysisCardPad,
   analysisGridGap,
   analysisPageStack,
@@ -107,10 +110,21 @@ export function VibrationAnalysisPage() {
   const { hasRole } = useAuth();
   const canWrite = hasRole(WRITE_ROLES);
 
+  const { selectedPlant } = useLayout();
+  const plantFilter = selectedPlant === ALL_PLANTS ? undefined : selectedPlant;
+
   const { data: equipmentList } = useQuery({
-    queryKey: ["equipment-list-analysis"],
-    queryFn: () => listEquipment({ page: 1, page_size: 100 }),
+    queryKey: ["equipment-list-analysis", plantFilter ?? "all"],
+    queryFn: () => listEquipment({ page: 1, page_size: 100, plant_name: plantFilter }),
   });
+
+  // Drop the selection on a plant switch so a machine from the previous plant
+  // cannot stay loaded once it has left the dropdown.
+  useEffect(() => {
+    setEquipmentId("");
+    setSensorId("");
+    setSelectedUploadId("");
+  }, [selectedPlant]);
 
   const { data: equipment } = useQuery({
     queryKey: ["equipment-detail", equipmentId],
@@ -374,12 +388,15 @@ export function VibrationAnalysisPage() {
       />
 
       <GlassCard className={analysisCardPad} delay={0.08}>
-        <AnalysisSectionHeader icon={Upload} title="Upload Sensor Data" />
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            CSV or PDF with rows: timestamp_, ch0, ch1, ... and numeric values.
-          </p>
-          <div className="flex flex-col md:flex-row md:items-end gap-2">
+        {/* The format hint belongs in the header's subtitle slot, like every
+            other analysis card. As a separate paragraph it cost an extra row. */}
+        <AnalysisSectionHeader
+          icon={Upload}
+          title="Upload Sensor Data"
+          subtitle="CSV or PDF with rows: timestamp_, ch0, ch1, ... and numeric values."
+        />
+        <div className={analysisBodyStack}>
+          <div className="flex flex-col md:flex-row md:items-end gap-g2">
             {!pdfFile ? (
               <FormField label="Data file" className="flex-1 min-w-0" compact>
                 <input
@@ -399,13 +416,13 @@ export function VibrationAnalysisPage() {
             ) : (
               <div
                 className={cn(
-                  "flex flex-1 min-w-0 items-center justify-between gap-3 rounded-lg border border-border",
-                  "border-l-2 border-l-signal-light bg-white px-4 py-3"
+                  "flex flex-1 min-w-0 items-center justify-between gap-g3 rounded-lg border border-border",
+                  "border-l-2 border-l-signal-light bg-white px-g4 py-g3"
                 )}
               >
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate">{pdfFile.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-g1">
                     {formatFileSize(pdfFile.size)}
                     {pdfFile.type ? ` · ${pdfFile.type}` : ""}
                   </p>

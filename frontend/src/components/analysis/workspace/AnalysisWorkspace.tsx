@@ -17,7 +17,7 @@ export function AnalysisWorkspace({
 }: AnalysisWorkspaceProps) {
   return (
     <GlassCard className={analysisCardPad} delay={0.14}>
-      <AnalysisTabNav activeTab={activeTab} onTabChange={onTabChange} className="mb-5" />
+      <AnalysisTabNav activeTab={activeTab} onTabChange={onTabChange} className="mb-g4" />
       <div role="tabpanel" aria-label={activeTab}>
         {children}
       </div>

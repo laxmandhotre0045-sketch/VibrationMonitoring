@@ -215,7 +215,7 @@ export function LoginIntelligenceBg({ className, variant = "full" }: LoginIntell
           <pattern id={`login-grid-major-${gid}`} width="112" height="112" patternUnits="userSpaceOnUse">
             <rect width="112" height="112" fill={`url(#login-grid-${gid})`} />
             <path
-              d="M 112 0 L 0 0 112"
+              d="M 112 0 L 0 0 0 112"
               fill="none"
               stroke={BLUE}
               strokeWidth="0.75"

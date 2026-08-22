@@ -7,6 +7,12 @@ from scipy.fft import fft, fftfreq
 from scipy.signal import hilbert
 
 
+# A real single-sided FFT yields n/2 lines from n samples, so L lines of
+# resolution require 2L samples. Acquisition sizing must use the same factor as
+# compute_fft_spectrum, or the device captures the wrong block length.
+SAMPLES_PER_LINE = 2
+
+
 def _to_array(samples: list[float]) -> np.ndarray:
     return np.asarray(samples, dtype=np.float64)
 
@@ -105,15 +111,28 @@ def compute_fft_spectrum(
     if n < 4:
         raise ValueError("Need at least 4 samples for FFT")
 
-    target = min(fft_lines or n, n)
-    if target < n:
-        data = data[:target]
-        n = target
+    # fft_lines is a line count: L lines span DC..Nyquist, so one FFT block
+    # needs 2L samples. A capture longer than one block is split into 50%
+    # overlapping blocks whose spectra are averaged, rather than analysing the
+    # first block and discarding the rest.
+    block = min(2 * fft_lines, n) if fft_lines else n
+    if block < 4:
+        block = min(4, n)
 
-    window = np.hanning(n)
-    windowed = data * window
-    spectrum = np.abs(fft(windowed))[: n // 2] * (2.0 / n)
-    freqs = fftfreq(n, d=1.0 / sampling_rate_hz)[: n // 2]
+    window = np.hanning(block)
+    step = max(1, block // 2)
+
+    accum = np.zeros(block // 2)
+    averages = 0
+    for start in range(0, n - block + 1, step):
+        segment = data[start : start + block]
+        accum += np.abs(fft(segment * window))[: block // 2]
+        averages += 1
+
+    # Normalise by the window's coherent gain (sum, not n) so peak amplitudes
+    # stay true to the input signal — Hann halves them otherwise.
+    spectrum = (accum / averages) * (2.0 / window.sum())
+    freqs = fftfreq(block, d=1.0 / sampling_rate_hz)[: block // 2]
 
     if frequency_max_hz:
         mask = freqs <= frequency_max_hz
@@ -126,7 +145,13 @@ def compute_fft_spectrum(
         "x_label": "Frequency (Hz)",
         "y_label": "Magnitude",
         "title": "FFT Spectrum",
-        "metadata": {"plot_style": "line", "fft_lines": n, "sampling_rate_hz": sampling_rate_hz},
+        "metadata": {
+            "plot_style": "line",
+            "fft_lines": block // 2,
+            "block_size": block,
+            "averages": averages,
+            "sampling_rate_hz": sampling_rate_hz,
+        },
     }
 
 

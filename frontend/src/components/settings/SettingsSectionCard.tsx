@@ -26,18 +26,18 @@ export function SettingsSectionCard({
         className
       )}
     >
-      <div className="flex items-start gap-3 border-b border-border px-4 py-4 sm:px-5">
+      <div className="flex items-start gap-g2 border-b border-border px-g4 py-g3">
         {icon && (
           <span className={cn(analysisSectionIconBoxClass, "w-10 h-10")}>{icon}</span>
         )}
         <div className="min-w-0">
           <h2 className="text-base font-bold text-brand leading-tight">{title}</h2>
           {description && (
-            <p className="mt-1 text-sm text-muted-foreground leading-snug">{description}</p>
+            <p className="mt-g1 text-sm text-muted-foreground leading-snug">{description}</p>
           )}
         </div>
       </div>
-      <div className={cn("p-4 sm:p-5", bodyClassName)}>{children}</div>
+      <div className={cn("card-pad", bodyClassName)}>{children}</div>
     </section>
   );
 }

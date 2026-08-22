@@ -37,7 +37,9 @@ def _compute_fft_magnitudes(samples: np.ndarray, sampling_rate_hz: float) -> tup
     if n < 4:
         raise ValueError("Need at least 4 samples for FFT")
     window = np.hanning(n)
-    spectrum = np.abs(fft(samples * window))[: n // 2] * (2.0 / n)
+    # Normalise by the window's coherent gain (sum, not n) so peak amplitudes
+    # stay true to the input signal — Hann halves them otherwise.
+    spectrum = np.abs(fft(samples * window))[: n // 2] * (2.0 / window.sum())
     freqs = fftfreq(n, d=1.0 / sampling_rate_hz)[: n // 2]
     return freqs, spectrum
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, Bell, Users, type LucideIcon } from "lucide-react";
+import { Activity, Users, type LucideIcon } from "lucide-react";
 import type { SettingsModuleId } from "@/types/vibration-settings";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +24,7 @@ const SETTINGS_TABS: SettingsTab[] = [
     label: "Platform",
     description: "Users, plants & integrations",
     icon: Users,
-    available: false,
+    available: true,
   },
 ];
 
@@ -80,14 +80,11 @@ export function SettingsTabNav({ activeModule, onModuleChange, className }: Sett
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block">{tab.label}</span>
-                <span className="block text-xs font-medium text-muted-foreground mt-0.5">
+                <span className="block text-xs font-medium text-muted-foreground mt-g1">
                   {tab.description}
                   {!tab.available && " · Coming soon"}
                 </span>
               </span>
-              {tab.id === "platform" && (
-                <Bell size={14} className="text-muted-foreground shrink-0" aria-hidden />
-              )}
             </button>
           );
         })}

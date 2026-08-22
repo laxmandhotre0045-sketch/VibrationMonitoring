@@ -142,7 +142,7 @@ export function DetailedAnalysisTab({
           saveBaselineDisabled={saveBaselineDisabled}
           showCaptureSummary={false}
         />
-        <div className="space-y-3">
+        <div className="space-y-g3">
           {plotsLoading && <p className="text-sm text-muted-foreground">Loading analysis data…</p>}
           {!!plotsError && (
             <p className="text-sm text-destructive font-semibold">
@@ -165,9 +165,9 @@ export function DetailedAnalysisTab({
       </div>
 
       {activePlot && (
-        <div className="w-full space-y-2">
+        <div className="w-full space-y-g2">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1.5">
+            <div className="space-y-g1">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Channel
               </p>
@@ -179,7 +179,7 @@ export function DetailedAnalysisTab({
               />
             </div>
             {plotsEnabled && plotsData && plotsData.plots.length > 0 && (
-              <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex-1 min-w-0 space-y-g1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Plot Type
                 </p>

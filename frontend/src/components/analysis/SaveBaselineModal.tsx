@@ -35,32 +35,32 @@ export function SaveBaselineModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 m-0 z-50 flex items-center justify-center bg-black/40 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-baseline-title"
     >
-      <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4 mb-5">
+      <div className="w-full max-w-md rounded-xl border border-border bg-white card-pad shadow-xl">
+        <div className="flex items-start justify-between gap-g3 mb-g4">
           <div>
             <h3 id="save-baseline-title" className="text-lg font-bold text-brand">
               Save as baseline
             </h3>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-g1">
               Adds a new baseline record.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-muted-foreground hover:bg-surface"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
             aria-label="Close"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-g3">
           <FormField label="Baseline name">
             <TextInput
               value={name}
@@ -86,7 +86,7 @@ export function SaveBaselineModal({
           </label>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-g2 mt-g4">
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>

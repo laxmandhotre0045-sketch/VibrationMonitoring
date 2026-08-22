@@ -191,7 +191,7 @@ export function GraphWorkspace({
         "graph-workspace rounded-xl border border-border bg-white shadow-[0_2px_12px_rgba(21,54,109,0.06)]",
         variant === "primary" ? "p-3 sm:p-4" : "p-3",
         isExpanded && usePortalFallback &&
-          "fixed inset-0 z-[200] m-0 flex h-dvh w-screen flex-col rounded-none border-0 p-4 sm:p-6",
+          "fixed inset-0 z-[200] m-0 flex h-dvh w-screen flex-col rounded-none border-0 p-g3 sm:p-g4",
         isExpanded && !usePortalFallback && "flex flex-col",
         className
       )}
@@ -200,23 +200,23 @@ export function GraphWorkspace({
       aria-label={isExpanded && title ? `${title} fullscreen view` : undefined}
     >
       {(title || subtitle || headerExtra) && (
-        <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
+        <div className="mb-g2 flex shrink-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             {title && (
               <h3 className="text-sm font-bold text-foreground leading-tight">{title}</h3>
             )}
             {subtitle && (
-              <div className="mt-0.5 text-xs text-muted-foreground">{subtitle}</div>
+              <div className="mt-g1 text-xs text-muted-foreground">{subtitle}</div>
             )}
           </div>
           {headerExtra}
         </div>
       )}
 
-      {controls && <div className="mb-2 shrink-0">{controls}</div>}
+      {controls && <div className="mb-g2 shrink-0">{controls}</div>}
 
       {hasToolbar && (
-        <div className="mb-2 shrink-0">
+        <div className="mb-g2 shrink-0">
           <GraphToolbar
             actions={toolbarActions}
             onZoomIn={onZoomIn}
@@ -250,10 +250,10 @@ export function GraphWorkspace({
         {children({ height: chartHeight, isFullscreen: isExpanded })}
       </div>
 
-      {statistics && <div className="mt-2 shrink-0">{statistics}</div>}
+      {statistics && <div className="mt-g2 shrink-0">{statistics}</div>}
 
       {hint && (
-        <p className="mt-2 shrink-0 text-[11px] text-muted-foreground leading-snug">{hint}</p>
+        <p className="mt-g2 shrink-0 text-[11px] text-muted-foreground leading-snug">{hint}</p>
       )}
     </div>
   );

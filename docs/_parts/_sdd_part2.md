@@ -685,9 +685,13 @@ Centred `GlassCard`: `KeyRound` icon, "Password Change Required", the signed-in 
 
 **`AppShell`** — `flex h-screen overflow-hidden`; `Sidebar` (fixed) + a column containing `TopNav` (sticky) and a scrollable `<main class="page-bg">` wrapping `<Outlet/>` in a fade-in `motion.div` with `px-6 lg:px-8 py-6`.
 
-**`Sidebar`** — animated width 320 ↔ 80 px; logo zone showing the full JPEG logo + a superscript "TM" + tagline when expanded and the SVG mark when collapsed; a "Modules" overline; role-filtered nav items with an active orange rail, an icon tile, and a "Coming Soon" sub-label for items whose `active` flag is false (currently only Dashboard); a Collapse toggle at the bottom.
+**`Sidebar`** — animated width 320 ↔ 80 px; logo zone showing the full JPEG logo + a superscript "TM" + tagline when expanded and the SVG mark when collapsed; a "Modules" overline; role-filtered nav items with an active orange rail and an icon tile; a Collapse toggle at the bottom.
 
-**`TopNav`** — search input (`hidden md:block`, widens on focus, non-functional), plant dropdown over `PLANTS`, notification bell with a hard-coded badge of 3, and a user menu showing full name, role badge (`roleLabel(primaryRole(roles))`), email, and Sign Out. Both dropdowns use a full-screen transparent click-catcher plus `AnimatePresence`.
+**`TopNav`** — search input (`hidden md:block`, widens on focus, non-functional), plant dropdown, `NotificationBell`, and a user menu showing full name, role badge (`roleLabel(primaryRole(roles))`), email, and Sign Out. All dropdowns use a full-screen transparent click-catcher plus `AnimatePresence`.
+
+The plant dropdown lists `ALL_PLANTS` followed by the names from `GET /api/v1/lookups/plants` (a 5-minute `staleTime` query), and writes the choice to `LayoutContext`. Dashboard, Equipment Master, Vibration Analysis, and `NotificationBell` all read `selectedPlant` from that context and pass it as `plant_name`, so one dropdown scopes every view; `ALL_PLANTS` means "send no filter".
+
+**`NotificationBell`** — drives its badge and panel from `useDashboardSummary()`, so the count is the live alert count for the selected plant (rendered as `9+` above nine) rather than a fixed number. The panel lists each alert with its status chip, feature, channel, value, and relative time, links to the equipment editor, shows a "no active alerts" state when the fleet is clean, and shares `STATUS_META` / `relativeTime` with the Dashboard through `lib/alert-status.ts`.
 
 `[SCREENSHOT: Sidebar expanded]` `[SCREENSHOT: Sidebar collapsed]` `[SCREENSHOT: TopNav user menu]`
 

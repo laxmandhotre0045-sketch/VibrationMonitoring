@@ -112,7 +112,7 @@ export function FeatureComparisonSection({
   const groups = groupFeatureCompareItems(items);
 
   return (
-    <section className={cn("space-y-3", className)}>
+    <section className={cn("space-y-g3", className)}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h3 className="text-sm font-bold text-foreground">Feature Comparison vs Baseline</h3>
         {baselineOptions.length > 0 && (
@@ -146,14 +146,14 @@ export function FeatureComparisonSection({
       {selectedBaselineId && isLoading && <FeatureStatusTableSkeleton />}
 
       {selectedBaselineId && !isLoading && !!error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-g4 py-g3">
           <p className="text-sm font-semibold text-destructive">
             Unable to load feature comparison data.
           </p>
           <Button
             size="sm"
             variant="secondary"
-            className="mt-3"
+            className="mt-g3"
             icon={<RefreshCw size={14} />}
             onClick={onRetry}
           >

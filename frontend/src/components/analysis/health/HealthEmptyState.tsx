@@ -14,11 +14,11 @@ export function HealthEmptyState({
   return (
     <div
       className={cn(
-        "rounded-xl border border-dashed border-border bg-surface/40 px-6 py-10 text-center",
+        "rounded-xl border border-dashed border-border bg-surface/40 px-g4 py-g6 text-center",
         className
       )}
     >
-      <BarChart2 size={28} className="mx-auto mb-2 text-muted-foreground" aria-hidden />
+      <BarChart2 size={28} className="mx-auto mb-g2 text-muted-foreground" aria-hidden />
       <p className="text-sm font-medium text-muted-foreground">{message}</p>
     </div>
   );

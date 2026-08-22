@@ -948,7 +948,8 @@ flowchart TD
 | 18 | PUT | `/api/v1/equipment/{id}/sensors/{sid}` | Write | 200 | sensor_configurations |
 | 19 | DELETE | `/api/v1/equipment/{id}/sensors/{sid}` | Write | 204 | sensor_configurations (+cascade) |
 | 20 | GET | `/api/v1/equipment/{id}/ai-readiness` | Auth | 200 | equipment_masters, sensor_configurations |
-| 21 | GET | `/api/v1/lookups/` | Auth | 200 | — |
+| 21 | GET | `/api/v1/lookups/` | Auth | 200 | equipment_masters (`plants` key) |
+| 21a | GET | `/api/v1/lookups/plants` | Auth | 200 | equipment_masters |
 | 22 | GET | `/api/v1/lookups/{name}` | Auth | 200 | — |
 | 23 | POST | `/api/v1/measurements/configure` | Write | 200 | plot_configurations |
 | 24 | GET | `/api/v1/measurements/configure/{sensor_id}` | Auth | 200 | plot_configurations |
@@ -974,6 +975,7 @@ flowchart TD
 | 44 | GET | `/api/v1/baselines/{id}/plots` | Auth | 200 | baseline_plot_results |
 | 45 | GET | `/api/v1/baselines/{id}/plots/{type}` | Auth | 200 | baseline_plot_results |
 | 46 | GET | `/api/v1/baselines/{id}/features` | Auth | 200 | baseline_channel_features |
+| 47 | GET | `/api/v1/dashboard/summary` | Auth | 200 | equipment_masters, sensor_configurations, sensor_data_uploads, measurement_channel_features, feature_definitions |
 
 ## 16.4 Database summary table
 

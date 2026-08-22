@@ -68,7 +68,7 @@ export function BaselineSelectionPanel({
 
       <div className={analysisBodyStack}>
         <div className={cn("grid grid-cols-1 lg:grid-cols-2", analysisGridGap)}>
-          <div className={cn(innerBlockClass, "space-y-1.5")}>
+          <div className={cn(innerBlockClass, "space-y-g1")}>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Primary Baseline
             </p>
@@ -98,7 +98,7 @@ export function BaselineSelectionPanel({
               </button>
             )}
             {showAllBaselines && baselineList && baselineList.items.length > 0 && (
-              <ul className="mt-1 max-h-28 overflow-y-auto space-y-0.5 text-sm text-muted-foreground">
+              <ul className="mt-g1 max-h-28 overflow-y-auto space-y-g1 text-sm text-muted-foreground">
                 {baselineList.items.map((b) => (
                   <li key={b.id} className="flex items-center gap-2">
                     {b.is_primary && (
@@ -136,14 +136,14 @@ export function BaselineSelectionPanel({
                 />
               </div>
             </FormField>
-            <p className="mt-1.5 text-xs text-muted-foreground">
+            <p className="mt-g1 text-xs text-muted-foreground">
               Supports up to 8 vibration channels for Status (Health) monitoring.
             </p>
           </div>
         </div>
 
         {baselineList && baselineList.total > 0 && (
-          <div className={cn(innerBlockClass, "space-y-2")}>
+          <div className={cn(innerBlockClass, "space-y-g2")}>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Comparison Source
             </p>

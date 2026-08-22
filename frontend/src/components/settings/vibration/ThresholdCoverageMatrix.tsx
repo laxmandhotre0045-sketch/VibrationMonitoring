@@ -54,7 +54,7 @@ export function ThresholdCoverageMatrix({ thresholds }: ThresholdCoverageMatrixP
       description="Matrix view of threshold configuration status across all channels and parameters."
       icon={<Grid3X3 size={22} strokeWidth={2} />}
     >
-      <div className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+      <div className="mb-g3 flex flex-wrap gap-x-g3 gap-y-g1 text-xs text-muted-foreground">
         {(Object.keys(COVERAGE_STYLES) as ThresholdCoverageStatus[]).map((status) => (
           <span key={status} className="inline-flex items-center gap-1.5">
             <span className={cn("h-2 w-2 rounded-full", COVERAGE_STYLES[status].dot)} />

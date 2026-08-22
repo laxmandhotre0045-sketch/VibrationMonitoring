@@ -9,9 +9,15 @@ from app.config import settings
 from app.database import SessionLocal
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
+from app.routers.dashboard import router as dashboard_router
 from app.routers.equipment import router as equipment_router
+from app.routers.ingest import router as ingest_router
+from app.routers.integrations import router as integrations_router
 from app.routers.lookups import router as lookups_router
 from app.routers.measurements import router as measurements_router
+from app.routers.plants import router as plants_router
+from app.routers.thresholds import router as thresholds_router
+from app.routers.users import router as users_router
 from app.services.seed import seed_role_users, seed_super_admin
 
 
@@ -58,7 +64,20 @@ Protected APIs return **401** without a token and **403** for write actions when
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    # Keep configured origins and support common Vite development ports.
+    allow_origins=list(dict.fromkeys([
+        *settings.allowed_origins,
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:4173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:4173",
+        "http://127.0.0.1:3000",
+    ])),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,9 +85,15 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(baselines_router)
+app.include_router(dashboard_router)
 app.include_router(equipment_router)
+app.include_router(ingest_router)
+app.include_router(integrations_router)
 app.include_router(lookups_router)
 app.include_router(measurements_router)
+app.include_router(plants_router)
+app.include_router(thresholds_router)
+app.include_router(users_router)
 
 os.makedirs(settings.upload_dir, exist_ok=True)
 os.makedirs(settings.measurement_upload_dir, exist_ok=True)
@@ -77,19 +102,23 @@ os.makedirs(settings.measurement_upload_dir, exist_ok=True)
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
+
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
         description=app.description,
         routes=app.routes,
     )
+
     openapi_schema.setdefault("components", {}).setdefault("securitySchemes", {})
+
     openapi_schema["components"]["securitySchemes"]["BearerAuth"] = {
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "Paste access_token from POST /api/v1/auth/login or /api/v1/auth/token",
     }
+
     openapi_schema["components"]["securitySchemes"]["OAuth2Password"] = {
         "type": "oauth2",
         "flows": {
@@ -115,13 +144,17 @@ def custom_openapi():
     for path, methods in openapi_schema.get("paths", {}).items():
         if _norm(path) == "/health":
             continue
+
         if not path.startswith("/api/v1/"):
             continue
+
         for method_name, operation in methods.items():
             if not isinstance(operation, dict):
                 continue
+
             if method_name.lower() == "post" and _norm(path) in public_post_paths:
                 continue
+
             operation["security"] = [{"BearerAuth": []}]
 
     app.openapi_schema = openapi_schema

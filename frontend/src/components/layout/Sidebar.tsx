@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { sensoVibeLogo, sensoVibeMark } from "@/images";
 import { NAV_ITEMS } from "./nav-config";
 import { useLayout } from "@/contexts/LayoutContext";
@@ -12,7 +12,11 @@ const SIDEBAR_WIDTH = 320;
 const SIDEBAR_COLLAPSED = 80;
 const TAGLINE = "AI Powered Vibration Intelligence";
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const { sidebarCollapsed, toggleSidebar } = useLayout();
   const { hasRole } = useAuth();
   const location = useLocation();
@@ -33,10 +37,20 @@ export function Sidebar() {
     >
       <div
         className={cn(
-          "logo-zone flex flex-col justify-center min-h-[90px]",
-          sidebarCollapsed ? "px-3 py-5 items-center" : "px-6 py-5"
+          "logo-zone flex flex-col justify-between min-h-[90px] md:justify-center",
+          sidebarCollapsed ? "px-g2 py-g4 items-center" : "px-g4 py-g4"
         )}
       >
+        {/* Close button for mobile */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 md:hidden p-2 hover:bg-signal-light/10 rounded-lg transition-colors"
+            aria-label="Close sidebar"
+          >
+            <X size={20} className="text-brand" />
+          </button>
+        )}
         <AnimatePresence mode="wait">
           {sidebarCollapsed ? (
             <motion.div
@@ -70,7 +84,7 @@ export function Sidebar() {
                   TM
                 </span>
               </div>
-              <p className="mt-1.5 text-sm font-medium text-brand/70 tracking-wide leading-snug">
+              <p className="mt-g1 text-sm font-medium text-brand/70 tracking-wide leading-snug">
                 {TAGLINE}
               </p>
             </motion.div>
@@ -79,9 +93,9 @@ export function Sidebar() {
         <div className="sidebar-logo-divider" aria-hidden />
       </div>
 
-      <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 px-3 py-3 space-y-g1 overflow-y-auto scrollbar-thin">
         {!sidebarCollapsed && (
-          <p className="px-3 mb-2 text-overline text-[#FFA500]/85">
+          <p className="px-3 mb-g2 text-overline text-[#FFA500]/85">
             Modules
           </p>
         )}
@@ -90,7 +104,12 @@ export function Sidebar() {
           const Icon = item.icon;
 
           return (
-            <NavLink key={item.path} to={item.path} className="block group">
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className="block group"
+              onClick={() => onClose?.()}
+            >
               <div
                 className={cn(
                   "sidebar-nav-item",
@@ -122,11 +141,6 @@ export function Sidebar() {
                     >
                       {item.label}
                     </p>
-                    {!item.active && (
-                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock size={13} aria-hidden /> Coming Soon
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

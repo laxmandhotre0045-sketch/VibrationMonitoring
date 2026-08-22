@@ -20,7 +20,11 @@ from app.services.plot_generator import (
     resolve_active_channel,
 )
 
-ALGORITHM_VERSION = "v1"
+# Bumped to v2 when compute_fft_spectrum was corrected: Hann scaling moved to
+# the window's coherent gain and fft_lines became a line count. The fingerprint
+# covers this constant, so every cached plot recomputes instead of serving the
+# old, roughly-halved amplitudes.
+ALGORITHM_VERSION = "v2"
 
 
 def compute_config_fingerprint(config: dict[str, Any]) -> str:

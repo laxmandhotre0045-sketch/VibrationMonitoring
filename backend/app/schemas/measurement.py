@@ -111,6 +111,8 @@ class SensorDataUploadOut(BaseModel):
     features_error: Optional[str] = None
     features_computed_at: Optional[datetime] = None
     created_at: datetime
+    measured_at: Optional[datetime] = None
+    rotation_speed_rpm: Optional[float] = None
     parsed_at: Optional[datetime]
     has_stored_data: bool = False
 

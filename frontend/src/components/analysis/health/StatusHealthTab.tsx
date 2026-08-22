@@ -9,6 +9,7 @@ import {
   ChannelHealthOverviewSkeleton,
 } from "./ChannelHealthOverviewCard";
 import { FeatureStatusTable, FeatureStatusTableSkeleton } from "./FeatureStatusTable";
+import { FeatureThresholdLimitsSection } from "./FeatureThresholdLimitsSection";
 import { FeatureComparisonSection } from "./FeatureComparisonSection";
 import { FeatureTrendCardsSection } from "./FeatureTrendCardsSection";
 import { HealthEmptyState } from "./HealthEmptyState";
@@ -58,7 +59,7 @@ export function StatusHealthTab({
   const featuresQueryError = dashboard.featuresQuery.error;
 
   return (
-    <div className={cn(analysisBodyStack, "space-y-4")}>
+    <div className={cn(analysisBodyStack, "space-y-g4")}>
       <HealthChannelSelector
         value={healthChannel}
         onChange={setHealthChannel}
@@ -101,7 +102,7 @@ export function StatusHealthTab({
             />
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-g2">
             <h3 className="text-sm font-bold text-foreground">Feature Status Table</h3>
             {featureItems.length > 0 ? (
               <FeatureStatusTable items={featureItems} />
@@ -109,6 +110,14 @@ export function StatusHealthTab({
               <HealthEmptyState />
             )}
           </div>
+
+          <FeatureThresholdLimitsSection
+            uploadId={selectedUploadId}
+            channel={healthChannel}
+            channelLabel={channelLabel}
+            baselineId={compareBaselineId || primaryBaseline?.id}
+            enabled={enabled}
+          />
 
           <FeatureComparisonSection
             items={compareItems}

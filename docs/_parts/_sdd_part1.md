@@ -79,7 +79,7 @@ Derived from the code structure and docstrings:
 | F-08 | Equipment image upload / fetch / delete | `tabs/BasicDetailsTab.tsx` | `POST|GET|DELETE /api/v1/equipment/{id}/image` |
 | F-09 | Sensor configuration CRUD (nested under equipment) | `tabs/SensorsOrientationTab.tsx` | `/api/v1/equipment/{id}/sensors...` |
 | F-10 | AI readiness scoring (5 checks → percentage) | `AssetHealthPanel.tsx` (client-side), backend endpoint | `GET /api/v1/equipment/{id}/ai-readiness` |
-| F-11 | Dropdown lookup catalogue (18 lists) | `api/equipment.ts` `getLookup` | `GET /api/v1/lookups/` |
+| F-11 | Dropdown lookup catalogue (18 static lists plus a `plants` list derived from the equipment master) | `api/equipment.ts` `getLookup` | `GET /api/v1/lookups/`, `/plants`, `/{lookup_name}` |
 | F-12 | Plot configuration upsert per sensor | `DetailedAnalysisTab.tsx` | `POST|GET|PUT /api/v1/measurements/configure` |
 | F-13 | Edge acquisition JSON generation | — (machine-facing) | `GET /api/v1/measurements/acquisition` |
 | F-14 | CSV/PDF measurement upload with synchronous parse → plots → features pipeline | `pages/VibrationAnalysis.tsx` | `POST /api/v1/measurements/upload` |
@@ -104,12 +104,10 @@ Documented here because the code shows them explicitly:
 | Item | Evidence |
 |------|----------|
 | Change Password | `pages/ChangePassword.tsx` renders the text *"Password change API is not yet available. Contact your administrator."* No backend endpoint exists. |
-| Operations Dashboard | `pages/Dashboard.tsx` renders `<ComingSoon>` and four KPI tiles whose values are literal `"—"`. |
 | Platform Settings module | `settings/SettingsTabNav.tsx` marks the `platform` tab `available: false`. |
 | Trend Analysis tab | `workspace/TrendAnalysisTab.tsx` renders a notice that factor trends moved to Status (Health). |
 | Global search box | `layout/TopNav.tsx` renders an input with no submit handler. |
-| Notification bell | `layout/TopNav.tsx` shows a hard-coded count of `3`. |
-| Plant selector | `layout/nav-config.ts` `PLANTS` is a hard-coded array; selection updates `LayoutContext` only and filters nothing. |
+| Per-user plant scoping | `services/auth_service.py` always returns `"plants": []`; every authenticated user sees every plant in the selector. |
 | `useHistoricalTrendData` hook | Fully implemented (`hooks/useHistoricalTrendData.ts`) but not imported by any component. |
 | `AssetHealthPanel`, `CompletenessEngine`, `AssetIntelligencePanel`, `StatusHealthSection`, `BaselineSelectionPanel`, `IndustrialEmptyState`, `CriticalityIndicator`, `SectionCard`-based review helpers | Present and functional but not currently wired into the active render tree (verified by import graph). |
 
@@ -382,7 +380,7 @@ VibrationMonitoring/
 │   │   │   ├── auth.py               # 5 endpoints
 │   │   │   ├── baselines.py          # 8 endpoints
 │   │   │   ├── equipment.py          # 13 endpoints
-│   │   │   ├── lookups.py            # 2 endpoints + LOOKUPS dictionary (18 lists)
+│   │   │   ├── lookups.py            # 3 endpoints + LOOKUPS dictionary (18 lists)
 │   │   │   └── measurements.py       # 14 endpoints
 │   │   │
 │   │   └── services/                 # Business logic

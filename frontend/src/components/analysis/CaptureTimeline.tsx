@@ -135,7 +135,7 @@ export function CaptureTimeline({
   return (
     <div
       className={cn(
-        "rounded-md border border-border bg-surface/30 px-3 py-2.5 space-y-2.5",
+        "rounded-md border border-border bg-surface/30 px-3 py-2.5 space-y-g2",
         className
       )}
     >
@@ -182,7 +182,7 @@ export function CaptureTimeline({
           No captures on the selected day.
         </p>
       ) : (
-        <div className="relative mx-0.5 pt-1 pb-5">
+        <div className="relative mx-0.5 pt-1 pb-g4">
           <div
             className="absolute left-0 right-0 top-4 h-px rounded-full bg-gradient-to-r from-signal-light/25 via-signal-light/70 to-signal-light/25"
             aria-hidden

@@ -52,7 +52,7 @@ export function HealthSummaryCards({ summary, className }: HealthSummaryCardsPro
         <div
           key={card.key}
           className={cn(
-            "rounded-xl border border-l-2 border-l-signal-light px-4 py-3 min-h-[88px]",
+            "rounded-xl border border-l-2 border-l-signal-light px-g4 py-g3 min-h-[88px]",
             "shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md",
             card.boxClass
           )}
@@ -60,7 +60,7 @@ export function HealthSummaryCards({ summary, className }: HealthSummaryCardsPro
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {card.label}
           </p>
-          <p className={cn("mt-2 text-2xl font-bold leading-none", card.valueClass)}>
+          <p className={cn("mt-g2 text-2xl font-bold leading-none", card.valueClass)}>
             {summary[card.key]}
           </p>
         </div>
@@ -75,10 +75,10 @@ export function HealthSummaryCardsSkeleton({ className }: { className?: string }
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl border border-border bg-white px-4 py-3 min-h-[88px] animate-pulse"
+          className="rounded-xl border border-border bg-white px-g4 py-g3 min-h-[88px] animate-pulse"
         >
           <div className="h-3 w-20 rounded bg-muted/60" />
-          <div className="mt-3 h-7 w-12 rounded bg-muted/80" />
+          <div className="mt-g3 h-7 w-12 rounded bg-muted/80" />
         </div>
       ))}
     </div>
