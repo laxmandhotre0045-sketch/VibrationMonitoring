@@ -33,6 +33,7 @@ class EquipmentHealthOut(BaseModel):
 class DashboardAlertOut(BaseModel):
     equipment_id: UUID
     machine_name: str
+    plant_name: str
     sensor_id: UUID
     channel: int
     feature_code: str

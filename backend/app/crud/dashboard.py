@@ -127,6 +127,7 @@ def get_dashboard_summary(
                 alerts.append({
                     "equipment_id": equipment.id,
                     "machine_name": equipment.machine_name,
+                    "plant_name": equipment.plant_name,
                     "sensor_id": row.sensor_id,
                     "channel": row.channel,
                     "feature_code": row.feature_code,

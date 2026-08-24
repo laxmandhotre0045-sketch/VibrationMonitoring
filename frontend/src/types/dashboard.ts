@@ -26,6 +26,7 @@ export interface EquipmentHealth {
 export interface DashboardAlert {
   equipment_id: string;
   machine_name: string;
+  plant_name: string;
   sensor_id: string;
   channel: number;
   feature_code: string;
