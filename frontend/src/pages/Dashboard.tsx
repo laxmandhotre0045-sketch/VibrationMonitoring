@@ -229,8 +229,8 @@ export function Dashboard() {
                           <span className={cn("text-xs font-semibold shrink-0", meta.text)}>{meta.label}</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-g1">
-                          {alert.feature_name ?? alert.feature_code} · CH-{alert.channel + 1} ·{" "}
-                          {alert.value.toFixed(2)} {alert.unit}
+                          {alert.plant_name} · {alert.feature_name ?? alert.feature_code} · CH-
+                          {alert.channel + 1} · {alert.value.toFixed(2)} {alert.unit}
                         </p>
                         <p className="text-xs text-muted-foreground mt-g1">{relativeTime(alert.computed_at)}</p>
                       </div>
