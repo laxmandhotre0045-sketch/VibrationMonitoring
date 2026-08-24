@@ -104,6 +104,57 @@ function MachineIllustration({ type }: { type: string }) {
         <circle cx="140" cy="90" r="2.5" fill={accent} />
       </svg>
     ),
+    Turbine: (
+      <svg viewBox="0 0 200 120" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+        <circle cx="100" cy="60" r="35" fill="none" stroke={stroke} strokeWidth="2" />
+        <line x1="100" y1="60" x2="100" y2="28" stroke={light} strokeWidth="1.5" />
+        <line x1="100" y1="60" x2="128" y2="76" stroke={light} strokeWidth="1.5" />
+        <line x1="100" y1="60" x2="72" y2="76" stroke={light} strokeWidth="1.5" />
+        <line x1="100" y1="60" x2="100" y2="92" stroke={light} strokeWidth="1.5" />
+        <line x1="100" y1="60" x2="72" y2="44" stroke={light} strokeWidth="1.5" />
+        <line x1="100" y1="60" x2="128" y2="44" stroke={light} strokeWidth="1.5" />
+        <line x1="20" y1="60" x2="65" y2="60" stroke={stroke} strokeWidth="2" />
+        <line x1="135" y1="60" x2="180" y2="60" stroke={stroke} strokeWidth="2" />
+        <circle cx="100" cy="60" r="4" fill={accent} />
+      </svg>
+    ),
+    "DG Set": (
+      <svg viewBox="0 0 200 120" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+        <rect x="20" y="40" width="70" height="45" rx="4" fill="none" stroke={stroke} strokeWidth="2" />
+        <line x1="30" y1="40" x2="30" y2="30" stroke={light} strokeWidth="1.5" />
+        <line x1="45" y1="40" x2="45" y2="30" stroke={light} strokeWidth="1.5" />
+        <line x1="60" y1="40" x2="60" y2="30" stroke={light} strokeWidth="1.5" />
+        <line x1="75" y1="40" x2="75" y2="30" stroke={light} strokeWidth="1.5" />
+        <line x1="90" y1="62" x2="110" y2="62" stroke={stroke} strokeWidth="2" />
+        <rect x="110" y="45" width="65" height="35" rx="4" fill="none" stroke={stroke} strokeWidth="2" />
+        <circle cx="130" cy="62" r="9" fill="none" stroke={light} strokeWidth="1.5" />
+        <circle cx="155" cy="62" r="9" fill="none" stroke={light} strokeWidth="1.5" />
+        <circle cx="30" cy="50" r="2.5" fill={accent} />
+        <circle cx="142" cy="62" r="2.5" fill={accent} />
+      </svg>
+    ),
+    Mixer: (
+      <svg viewBox="0 0 200 120" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+        <rect x="60" y="12" width="28" height="16" rx="3" fill="none" stroke={stroke} strokeWidth="2" />
+        <line x1="74" y1="28" x2="74" y2="85" stroke={stroke} strokeWidth="2" />
+        <rect x="35" y="45" width="90" height="55" rx="8" fill="none" stroke={stroke} strokeWidth="2" />
+        <line x1="55" y1="65" x2="93" y2="72" stroke={light} strokeWidth="2" />
+        <line x1="55" y1="80" x2="93" y2="87" stroke={light} strokeWidth="2" />
+        <circle cx="74" cy="20" r="2.5" fill={accent} />
+        <circle cx="74" cy="72" r="3" fill={accent} />
+      </svg>
+    ),
+    Agitator: (
+      <svg viewBox="0 0 200 120" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+        <rect x="65" y="10" width="26" height="15" rx="3" fill="none" stroke={stroke} strokeWidth="2" />
+        <line x1="78" y1="25" x2="78" y2="80" stroke={stroke} strokeWidth="2" />
+        <rect x="45" y="38" width="66" height="62" rx="6" fill="none" stroke={stroke} strokeWidth="2" />
+        <line x1="60" y1="78" x2="96" y2="82" stroke={light} strokeWidth="2" />
+        <line x1="60" y1="82" x2="96" y2="78" stroke={light} strokeWidth="2" />
+        <circle cx="78" cy="18" r="2.5" fill={accent} />
+        <circle cx="78" cy="80" r="3" fill={accent} />
+      </svg>
+    ),
   };
 
   const match = Object.keys(illustrations).find((k) => k.toLowerCase() === type.toLowerCase());
