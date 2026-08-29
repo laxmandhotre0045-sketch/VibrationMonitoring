@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 #: Origins always allowed, matching the Vite dev server and preview ports.
@@ -40,6 +41,18 @@ class Settings(BaseSettings):
     #: Needed whenever the UI is opened on anything other than localhost —
     #: e.g. CORS_ORIGINS=http://192.168.1.51:4173
     cors_origins: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_installed_driver(cls, value: str) -> str:
+        """Point bare ``postgresql://`` URLs at psycopg 3, the driver we ship.
+
+        SQLAlchemy defaults the bare scheme to psycopg2, which is not in
+        requirements.txt, so the app would fail to start on that URL.
+        """
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
 
     @property
     def effective_jwt_secret(self) -> str:

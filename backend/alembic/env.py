@@ -9,11 +9,13 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from app.config import settings
 from app.database import Base
 import app.models  # noqa: F401 — registers all models
 
 config = context.config
-config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+# settings normalises the driver (psycopg 3), so reuse it instead of the raw env var.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
