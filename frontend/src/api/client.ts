@@ -3,7 +3,18 @@ import { authStorage } from "@/lib/auth-storage";
 import { authLog } from "@/lib/auth-debug";
 import type { TokenResponse } from "@/types/auth";
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+/**
+ * An explicitly empty VITE_API_BASE_URL means "same origin": nginx proxies
+ * /api/ to the backend, so the page and the API share a scheme and host. That
+ * is what lets the dashboard work over HTTPS — a secure page may not call an
+ * http:// API — and it removes the CORS preflight at the same time.
+ *
+ * Compared with `??`, a plain `||` would treat that empty string as unset and
+ * fall back to the absolute localhost URL, which is exactly the value we are
+ * trying to override.
+ */
+const configuredBase = import.meta.env.VITE_API_BASE_URL;
+const baseURL = configuredBase === undefined ? "http://localhost:8000" : configuredBase;
 
 const api = axios.create({
   baseURL,

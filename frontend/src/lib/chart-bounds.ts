@@ -53,6 +53,17 @@ export function expandBoundsForThresholds(
  * Symmetric zero-centered Y-axis for time waveforms.
  * Reference: Condition Monitoring with Vibration Signals — acceleration waveforms are
  * displayed symmetrically about zero to assess impacts and DC offset.
+ *
+ * A channel carrying a DC bias larger than its own AC swing is the exception. Framing it
+ * about zero spends the whole axis on the offset and flattens the waveform into a line at
+ * the bias level, hiding the impacts the symmetric framing exists to reveal — a sensor
+ * sitting at -4.3 mV with 1.2 mV of vibration draws as a flat trace. Such a channel is
+ * framed symmetrically about its mean instead, which keeps the swing readable and the
+ * "equal travel either side" property that makes impacts easy to judge.
+ *
+ * The offset is never removed from the data: the samples are untouched and the bias is
+ * reported as MEAN in the statistics panel, so a DC problem stays visible as a number
+ * rather than being silently corrected away.
  */
 export function computeSymmetricYAxisBounds(
   y: number[],
@@ -67,6 +78,16 @@ export function computeSymmetricYAxisBounds(
 
   if (maxAbs === 0) {
     return [-minSpan, minSpan];
+  }
+
+  const mean = finite.reduce((sum, v) => sum + v, 0) / finite.length;
+  const deviation = finite.reduce((max, v) => Math.max(max, Math.abs(v - mean)), 0);
+
+  // Bias dominates when the offset is larger than the swing around it. `deviation > 0`
+  // keeps a perfectly flat channel on the zero-centered path it has always used.
+  if (deviation > 0 && Math.abs(mean) > deviation) {
+    const limit = Math.max(deviation * (1 + paddingRatio), minSpan);
+    return [mean - limit, mean + limit];
   }
 
   const limit = maxAbs * (1 + paddingRatio);

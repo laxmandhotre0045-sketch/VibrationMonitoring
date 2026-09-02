@@ -11,6 +11,12 @@ import type { WaterfallQuery, WaterfallResponse } from "@/types/waterfall";
 import type { VibrationVectorQuery, VibrationVectorResponse } from "@/types/vector";
 import type { CasingOrbitQuery, CasingOrbitResponse } from "@/types/orbit";
 import type { OneXMigrationQuery, OneXMigrationResponse } from "@/types/migration";
+import type {
+  RawAnalysisResponse,
+  RawSamplesQuery,
+  RawSamplesResponse,
+  RawSnapshotListResponse,
+} from "@/types/raw-vibration";
 import type { FeatureCompareResponse, UploadFeaturesResponse } from "@/types/features";
 import {
   normalizeFeatureCompareResponse,
@@ -130,6 +136,52 @@ export async function getWaterfall(query: WaterfallQuery): Promise<WaterfallResp
       ...(query.maxPoints !== undefined ? { max_points: query.maxPoints } : {}),
       ...(query.maxPeaks !== undefined ? { max_peaks: query.maxPeaks } : {}),
       ...(query.seed !== undefined ? { seed: query.seed } : {}),
+    },
+    timeout: 120_000,
+  });
+  return res.data;
+}
+
+/** Raw 25 kSPS snapshots stored for a sensor, newest first. */
+export async function listRawSnapshots(
+  sensorId: string,
+  limit = 50
+): Promise<RawSnapshotListResponse> {
+  const res = await api.get("/api/v1/measurements/raw/snapshots", {
+    params: { sensor_id: sensorId, limit },
+  });
+  return res.data;
+}
+
+/**
+ * Raw samples of one snapshot, windowed.
+ *
+ * Always pass `channels` — one second of all eight channels is ~3.5 MB, while a single
+ * channel is a fraction of that.
+ */
+export async function getRawSamples(query: RawSamplesQuery): Promise<RawSamplesResponse> {
+  const res = await api.get(`/api/v1/measurements/uploads/${query.uploadId}/raw`, {
+    params: {
+      ...(query.offset !== undefined ? { offset: query.offset } : {}),
+      ...(query.limit !== undefined ? { limit: query.limit } : {}),
+      ...(query.channels?.length ? { channels: query.channels.join(",") } : {}),
+    },
+    timeout: 120_000,
+  });
+  return res.data;
+}
+
+/** Newest raw snapshot for a sensor, windowed. */
+export async function getLatestRawSamples(
+  sensorId: string,
+  options: { offset?: number; limit?: number; channels?: number[] } = {}
+): Promise<RawSamplesResponse> {
+  const res = await api.get("/api/v1/measurements/raw/latest", {
+    params: {
+      sensor_id: sensorId,
+      ...(options.offset !== undefined ? { offset: options.offset } : {}),
+      ...(options.limit !== undefined ? { limit: options.limit } : {}),
+      ...(options.channels?.length ? { channels: options.channels.join(",") } : {}),
     },
     timeout: 120_000,
   });
@@ -263,4 +315,37 @@ export async function compareUploadFeatures(
     channel: channel ?? 0,
     baselineId,
   });
+}
+
+/**
+ * FFT spectrum and vibration statistics for one channel of one raw snapshot.
+ *
+ * Computed server-side by the platform's shared FFT and feature-extraction code
+ * so the numbers agree with the other analysis tabs — the browser never runs its
+ * own transform.
+ */
+export async function getRawAnalysis(query: {
+  uploadId: string;
+  channel?: number;
+}): Promise<RawAnalysisResponse> {
+  const res = await api.get(`/api/v1/measurements/uploads/${query.uploadId}/raw/analysis`, {
+    params: { ...(query.channel !== undefined ? { channel: query.channel } : {}) },
+    timeout: 120_000,
+  });
+  return res.data;
+}
+
+/** Same analysis for whichever snapshot arrived most recently. */
+export async function getLatestRawAnalysis(query: {
+  sensorId: string;
+  channel?: number;
+}): Promise<RawAnalysisResponse> {
+  const res = await api.get(`/api/v1/measurements/raw/latest/analysis`, {
+    params: {
+      sensor_id: query.sensorId,
+      ...(query.channel !== undefined ? { channel: query.channel } : {}),
+    },
+    timeout: 120_000,
+  });
+  return res.data;
 }

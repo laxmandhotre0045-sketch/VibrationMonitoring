@@ -171,4 +171,4 @@ export interface WebhookTestResult {
   duration_ms: number | null;
 }
 
-export type PlatformSectionId = "users" | "plants" | "integrations";
+export type PlatformSectionId = "users" | "plants" | "integrations" | "acquisition";

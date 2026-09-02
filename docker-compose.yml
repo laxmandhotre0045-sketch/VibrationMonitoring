@@ -39,7 +39,9 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # requirements.txt installs psycopg 3, so the URL must name that dialect.
+      # A bare postgresql:// resolves to psycopg2, which is not installed.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SECRET_KEY: ${SECRET_KEY}
       UPLOAD_DIR: /app/uploads
       JWT_SECRET: ${JWT_SECRET}
@@ -65,11 +67,19 @@ services:
       context: ./frontend
       target: preview
       args:
-        VITE_API_BASE_URL: http://localhost:8000
+        # Empty on purpose: the SPA calls /api on its own origin and nginx
+        # proxies it to the backend. One origin means no CORS preflight, and no
+        # mixed-content blocking when the page is served over HTTPS.
+        VITE_API_BASE_URL: ""
     container_name: vibration_platform_frontend
     restart: unless-stopped
     ports:
       - "4173:4173"
+      - "4443:4443"
+    volumes:
+      # Mounted rather than baked into the image, so the certificate can be
+      # replaced (or swapped for a CA-issued one) without a rebuild.
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - backend
 

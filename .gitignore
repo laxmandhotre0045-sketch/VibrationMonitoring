@@ -13,3 +13,6 @@ uploads/
 alembic/versions/__pycache__/
 .claude/scheduled_tasks.lock
 .env*
+
+# TLS material for the local HTTPS listener — private key, never commit.
+certs/

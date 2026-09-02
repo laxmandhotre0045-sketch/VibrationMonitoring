@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Factory, Lock, Plug, Users, type LucideIcon } from "lucide-react";
+import { Factory, Lock, Plug, Users, Waves, type LucideIcon } from "lucide-react";
 import { UsersSection } from "./UsersSection";
 import { PlantsSection } from "./PlantsSection";
 import { IntegrationsSection } from "./IntegrationsSection";
+import { AcquisitionSection } from "./AcquisitionSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { ADMIN_ROLES } from "@/lib/role-access";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,12 @@ const SECTIONS: PlatformSection[] = [
     label: "Integrations",
     description: "API keys & webhooks",
     icon: Plug,
+  },
+  {
+    id: "acquisition",
+    label: "Acquisition & DAQ",
+    description: "Sample rate, FFT window & sensitivity",
+    icon: Waves,
   },
 ];
 
@@ -107,6 +114,7 @@ export function PlatformSettingsModule() {
       {active === "users" && <UsersSection />}
       {active === "plants" && <PlantsSection />}
       {active === "integrations" && <IntegrationsSection />}
+      {active === "acquisition" && <AcquisitionSection />}
     </div>
   );
 }

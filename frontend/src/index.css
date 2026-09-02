@@ -549,11 +549,36 @@
      classes are now the only vocabulary a page needs.
      -------------------------------------------------------------------- */
 
-  /* Caps line length and centres it. Without this the content is w-full, and
-     on a wide monitor a four-up KPI row hands each card ~600px to hold a 36px
-     icon and one word — the "empty space" is inside the cards, not between. */
+  /* The content cap grows with the viewport instead of stopping dead at
+     1440px, which left a 2560px monitor with ~560px of empty gutter down each
+     side. It still steps rather than going fully fluid: a four-up KPI row given
+     unlimited width hands each card ~600px to hold a 36px icon and one word, so
+     the empty space just moves inside the cards. Each step is paired with an
+     extra grid column at the same breakpoint (see .kpi-grid below), so the
+     cards keep their proportions as the shell widens. */
   .page-shell {
-    @apply w-full mx-auto max-w-content;
+    @apply w-full mx-auto;
+    max-width: theme("maxWidth.content");
+  }
+
+  @media (min-width: 1536px) {
+    .page-shell {
+      max-width: theme("maxWidth.content-wide");
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .page-shell {
+      max-width: 2160px;
+    }
+  }
+
+  @media (min-width: 2400px) {
+    /* Beyond this the gutter is the only thing still growing, so hand the rest
+       of the width to the content and let the page padding do the framing. */
+    .page-shell {
+      max-width: 100%;
+    }
   }
 
   /* Vertical rhythm between top-level page sections. */

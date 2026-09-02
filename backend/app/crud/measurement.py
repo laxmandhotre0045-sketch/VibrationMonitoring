@@ -180,6 +180,14 @@ def config_to_dict(config: PlotConfiguration) -> dict:
         "frequency_max_hz": float(config.frequency_max_hz) if config.frequency_max_hz else None,
         "data_type": config.data_type,
         "enabled_plots": config.enabled_plots or list(PLOT_TYPES),
+        "window_type": getattr(config, "window_type", None) or "HANNING",
+        "averaging": getattr(config, "averaging", None) or 1,
+        "overlap_percent": getattr(config, "overlap_percent", None) or 0,
+        "collection_interval_minutes": getattr(config, "collection_interval_minutes", None) or 2,
+        "channel_map": getattr(config, "channel_map", None) or [],
+        "mqtt_broker": getattr(config, "mqtt_broker", None),
+        "mqtt_port": getattr(config, "mqtt_port", None) or 1883,
+        "mqtt_topic": getattr(config, "mqtt_topic", None) or "Vibration_Data",
     }
 
 
@@ -192,6 +200,14 @@ def default_config_dict(channel_count: int = 1) -> dict:
         "frequency_max_hz": None,
         "data_type": "acceleration",
         "enabled_plots": list(PLOT_TYPES),
+        "window_type": "HANNING",
+        "averaging": 1,
+        "overlap_percent": 0,
+        "collection_interval_minutes": 2,
+        "channel_map": [],
+        "mqtt_broker": None,
+        "mqtt_port": 1883,
+        "mqtt_topic": "Vibration_Data",
     }
 
 
@@ -251,3 +267,45 @@ def mark_upload_plots_failed(
     db.commit()
     db.refresh(upload)
     return upload
+
+
+def get_latest_plot_config(db: Session) -> Optional[PlotConfiguration]:
+    """Most recently saved acquisition configuration.
+
+    Fallback for callers that pass neither device_id nor sensor_id — a
+    single-machine edge deployment can then poll the config endpoint with no
+    parameters at all.
+    """
+    return (
+        db.query(PlotConfiguration)
+        .order_by(PlotConfiguration.updated_at.desc().nullslast())
+        .first()
+    )
+
+
+def latest_upload_timestamps(
+    db: Session, sensor_id: UUID
+) -> Tuple[Optional[datetime], Optional[datetime]]:
+    """(newest raw/device message time, newest acquisition time) for a sensor.
+
+    The first is restricted to device-pushed raw snapshots, so the settings page
+    can distinguish "MQTT is delivering" from "somebody uploaded a file".
+    """
+    raw_row = (
+        db.query(SensorDataUpload.created_at)
+        .filter(
+            SensorDataUpload.sensor_id == sensor_id,
+            SensorDataUpload.source == "device_raw",
+        )
+        .order_by(SensorDataUpload.created_at.desc())
+        .first()
+    )
+    any_row = (
+        db.query(SensorDataUpload.measured_at, SensorDataUpload.created_at)
+        .filter(SensorDataUpload.sensor_id == sensor_id)
+        .order_by(SensorDataUpload.created_at.desc())
+        .first()
+    )
+    last_message = raw_row[0] if raw_row else None
+    last_acquisition = (any_row[0] or any_row[1]) if any_row else None
+    return last_message, last_acquisition

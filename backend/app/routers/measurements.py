@@ -28,6 +28,25 @@ from app.schemas.waterfall import SELECTION_MODES, WaterfallOut
 from app.schemas.vector import VibrationVectorOut
 from app.schemas.orbit import CasingOrbitOut
 from app.schemas.migration import MigrationSummaryOut, OneXMigrationOut
+from app.schemas.raw_vibration import (
+    RawAnalysisOut,
+    RawSamplesOut,
+    RawSnapshotListOut,
+    RawSnapshotSummaryOut,
+)
+from app.services.raw_storage import load_capture
+from app.services.raw_analysis import (
+    channel_samples,
+    compute_raw_spectrum,
+    compute_raw_statistics,
+    estimate_shaft_hz,
+)
+from app.services.raw_vibration import (
+    DEFAULT_WINDOW,
+    MAX_WINDOW,
+    normalize_timebase,
+    window_samples,
+)
 from app.services.casing_orbit import build_casing_orbit
 from app.services.one_x_migration import (
     AMPLITUDE_UNIT,
@@ -37,7 +56,7 @@ from app.services.one_x_migration import (
     build_migration_point,
     summarise_migration,
 )
-from app.services.acquisition_config import build_edge_acquisition_config
+from app.services.acquisition_config import build_edge_acquisition_config, resolve_channel_map
 from app.services.waterfall import (
     DEFAULT_MAX_PEAKS,
     DEFAULT_MAX_POINTS,
@@ -485,21 +504,37 @@ def get_waterfall(
 
 def _stored_estimated_shaft_hz(db: Session, upload_id: UUID, channel: int) -> float | None:
     """
-    Read-only lookup of the FFT-derived shaft estimate.
+    The FFT-derived shaft estimate for one capture.
 
-    Deliberately does not trigger feature computation — returns None when features were
-    never computed for this capture.
+    Prefers the stored feature. Snapshots posted by the collector have none —
+    the raw ingest path deliberately skips the derived-artefact pipeline — so
+    rather than leave the orbit and 1x-migration plots without a shaft frequency,
+    fall back to estimating it from the stored samples with the same band-limited
+    peak search the feature pipeline uses.
+
+    Still does not trigger full feature computation: that runs an FFT and a
+    Hilbert transform over thirty-two segments per channel, which is far more
+    work than this one number needs.
     """
     try:
         rows = feature_crud.get_measurement_features(db, upload_id, channel=channel)
     except Exception:
-        return None
+        rows = []
     for row in rows:
         meta = row.metadata_ or {}
         value = meta.get("estimated_shaft_hz")
         if isinstance(value, (int, float)) and value > 0:
             return float(value)
-    return None
+
+    upload = measurement_crud.get_upload_by_id(db, upload_id)
+    if upload is None or upload.parse_status != "parsed":
+        return None
+    try:
+        parsed, rate = _load_raw_parsed(db, upload)
+        samples = channel_samples(parsed, channel)
+    except (HTTPException, ValueError):
+        return None
+    return estimate_shaft_hz(samples, rate)
 
 
 def _frequency_candidates(
@@ -658,6 +693,289 @@ def get_vibration_vector(
         candidates=candidates,
         **result,
     )
+
+
+# ── Raw vibration snapshots (25 kSPS device data, stored verbatim) ───────────
+
+def _raw_snapshot_summary(upload, has_samples: bool) -> RawSnapshotSummaryOut:
+    return RawSnapshotSummaryOut(
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        original_filename=upload.original_filename,
+        captured_at=upload.created_at,
+        measured_at=getattr(upload, "measured_at", None),
+        sample_count=upload.sample_count,
+        channel_count=upload.channel_count,
+        source=upload.source,
+        has_raw_samples=has_samples,
+    )
+
+
+@router.get(
+    "/raw/snapshots",
+    response_model=RawSnapshotListOut,
+    summary="List stored raw snapshots for a sensor, newest first",
+)
+def list_raw_snapshots(
+    sensor_id: UUID = Query(...),
+    limit: int = Query(50, ge=1, le=200),
+    source: str | None = Query("device_raw", description="Filter by upload source; omit for all"),
+    db: Session = Depends(get_db),
+):
+    sensor = crud.get_sensor_by_id(db, sensor_id)
+    if not sensor:
+        raise HTTPException(status_code=404, detail="Sensor not found")
+
+    items, total = measurement_crud.list_uploads_by_sensor(
+        db, sensor_id, parse_status="parsed", page=1, page_size=limit
+    )
+    if source:
+        items = [u for u in items if u.source == source]
+
+    stored = measurement_crud.get_stored_upload_ids(db, [u.id for u in items])
+    return RawSnapshotListOut(
+        sensor_id=sensor_id,
+        total=len(items) if source else total,
+        items=[_raw_snapshot_summary(u, u.id in stored) for u in items],
+    )
+
+
+@router.get(
+    "/raw/latest",
+    response_model=RawSamplesOut,
+    summary="Newest raw snapshot for a sensor, windowed",
+)
+def get_latest_raw(
+    sensor_id: UUID = Query(...),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(DEFAULT_WINDOW, ge=1, le=MAX_WINDOW),
+    channels: str | None = Query(None, description="Comma-separated channel indexes, e.g. 0,1,2"),
+    source: str | None = Query("device_raw"),
+    db: Session = Depends(get_db),
+):
+    sensor = crud.get_sensor_by_id(db, sensor_id)
+    if not sensor:
+        raise HTTPException(status_code=404, detail="Sensor not found")
+
+    items, _total = measurement_crud.list_uploads_by_sensor(
+        db, sensor_id, parse_status="parsed", page=1, page_size=200
+    )
+    if source:
+        items = [u for u in items if u.source == source]
+    if not items:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No parsed raw snapshots for this sensor"
+            + (f" with source '{source}'" if source else ""),
+        )
+
+    return _raw_samples_response(db, items[0], offset, limit, channels)
+
+
+@router.get(
+    "/uploads/{upload_id}/raw",
+    response_model=RawSamplesOut,
+    summary="Raw samples of one snapshot, windowed",
+)
+def get_raw_samples(
+    upload_id: UUID,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(DEFAULT_WINDOW, ge=1, le=MAX_WINDOW),
+    channels: str | None = Query(None, description="Comma-separated channel indexes, e.g. 0,1,2"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns stored samples verbatim inside the requested window.
+
+    Windowed, never decimated: a browser must not be handed an unbounded series, but what
+    it does receive is exactly what the device measured.
+    """
+    upload = measurement_crud.get_upload_by_id(db, upload_id)
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+    if upload.parse_status != "parsed":
+        raise HTTPException(
+            status_code=422, detail=f"Upload not parsed: {upload.parse_error or upload.parse_status}"
+        )
+    return _raw_samples_response(db, upload, offset, limit, channels)
+
+
+def _raw_samples_response(db, upload, offset: int, limit: int, channels: str | None) -> RawSamplesOut:
+    parsed, rate = _load_raw_parsed(db, upload)
+
+    selected: list[int] | None = None
+    if channels:
+        try:
+            selected = [int(c) for c in channels.split(",") if c.strip() != ""]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="channels must be comma-separated integers")
+
+    window = window_samples(parsed, offset=offset, limit=limit, channels=selected)
+
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    return RawSamplesOut(
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        device_id=sensor.device_id if sensor else None,
+        original_filename=upload.original_filename,
+        measured_at=getattr(upload, "measured_at", None),
+        captured_at=upload.created_at,
+        sampleRate=rate,
+        channelCount=int(parsed.get("channel_count") or upload.channel_count),
+        offset=window["offset"],
+        limit=limit,
+        returned=window["returned"],
+        total_samples=window["total_samples"],
+        has_more=window["has_more"],
+        channels=window["channels"],
+        samples=window["samples"],
+    )
+
+
+def _load_raw_parsed(db: Session, upload) -> tuple[dict, float]:
+    """Samples plus a trustworthy sample rate for one raw snapshot.
+
+    Three things happen here, in order:
+
+    1. Prefer the database rows written since migration 018. Snapshots ingested
+       before that have none, so fall back to the on-disk parsed JSON.
+    2. Repair the time axis if it needs it. Captures stored before timebase
+       normalisation existed still carry the device's raw wall-clock column —
+       epoch milliseconds, in the case seen in the field — which makes every
+       frequency read 1000x low. Re-normalising here is idempotent: data already
+       stored as elapsed seconds passes through untouched.
+    3. Report the rate the time axis actually implies, preferring it over the
+       configured rate, so the spectrum is scaled by what was measured.
+    """
+    cfg = _resolve_config(db, upload, upload.channel_count)
+    declared = float(cfg["sampling_rate_hz"])
+
+    parsed = load_capture(db, upload.id)
+    if parsed is None:
+        try:
+            parsed = _load_parsed_for_upload(db, upload)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422, detail=f"No stored samples for this upload: {exc}"
+            )
+    else:
+        # Rows written by the current ingest path are already normalised, and
+        # the capture row carries the rate that was resolved at the time.
+        stored_rate = float(parsed.get("sampling_rate_hz") or 0.0)
+        if stored_rate > 0:
+            return parsed, stored_rate
+
+    timestamps = parsed.get("timestamps") or []
+    if len(timestamps) > 1:
+        normalized, tb = normalize_timebase(timestamps, declared)
+        parsed = {**parsed, "timestamps": normalized}
+        if tb["observed_rate_hz"] > 0:
+            # 1/0.00004 lands on 24999.999999999996; round the reported rate only.
+            return parsed, round(tb["observed_rate_hz"], 6)
+
+    return parsed, declared
+
+
+# ── Raw snapshot analysis (waveform stats + spectrum) ────────────────────────
+
+def _raw_analysis_response(db, upload, channel: int) -> RawAnalysisOut:
+    """Spectrum + statistics for one channel of one stored snapshot.
+
+    Uses the sensor's saved LOR and Fmax so the spectrum matches the analysis
+    tabs, and the shared feature extractor so the statistics match the health
+    page. Nothing is recomputed with a private FFT.
+    """
+    parsed, rate = _load_raw_parsed(db, upload)
+    cfg = _resolve_config(db, upload, upload.channel_count)
+
+    try:
+        samples = channel_samples(parsed, channel)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if len(samples) < 4:
+        raise HTTPException(status_code=422, detail='Need at least 4 samples to analyse')
+
+    try:
+        spectrum = compute_raw_spectrum(
+            samples,
+            rate,
+            fft_lines=cfg.get('fft_lines'),
+            frequency_max_hz=cfg.get('frequency_max_hz'),
+        )
+        statistics = compute_raw_statistics(samples, rate)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    # Channel wiring, so the page can say 'CH3 — Axial' rather than 'channel 2'.
+    plot_config = measurement_crud.get_plot_config_by_sensor(db, upload.sensor_id)
+    stored_map = getattr(plot_config, 'channel_map', None) if plot_config else None
+    channel_count = int(parsed.get('channel_count') or upload.channel_count)
+    mapping = resolve_channel_map(stored_map, channel_count)
+    entry = mapping[channel] if channel < len(mapping) else {}
+
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    return RawAnalysisOut(
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        device_id=sensor.device_id if sensor else None,
+        original_filename=upload.original_filename,
+        captured_at=upload.created_at,
+        measured_at=getattr(upload, 'measured_at', None),
+        channel=channel,
+        channel_label=entry.get('label'),
+        machine_axis=entry.get('machine_axis'),
+        signal_type=entry.get('signal_type'),
+        sample_rate_hz=rate,
+        sample_count=len(samples),
+        channel_count=channel_count,
+        spectrum=spectrum,
+        statistics=statistics,
+    )
+
+
+@router.get(
+    '/raw/latest/analysis',
+    response_model=RawAnalysisOut,
+    summary='FFT spectrum and vibration statistics for the newest raw snapshot',
+)
+def get_latest_raw_analysis(
+    sensor_id: UUID = Query(...),
+    channel: int = Query(0, ge=0, le=31, description='0-based channel index'),
+    source: str | None = Query('device_raw'),
+    db: Session = Depends(get_db),
+):
+    sensor = crud.get_sensor_by_id(db, sensor_id)
+    if not sensor:
+        raise HTTPException(status_code=404, detail='Sensor not found')
+
+    items, _total = measurement_crud.list_uploads_by_sensor(
+        db, sensor_id, parse_status='parsed', page=1, page_size=200
+    )
+    if source:
+        items = [u for u in items if u.source == source]
+    if not items:
+        raise HTTPException(
+            status_code=404,
+            detail='No parsed raw snapshots for this sensor'
+            + (f" with source '{source}'" if source else ''),
+        )
+    return _raw_analysis_response(db, items[0], channel)
+
+
+@router.get(
+    '/uploads/{upload_id}/raw/analysis',
+    response_model=RawAnalysisOut,
+    summary='FFT spectrum and vibration statistics for one raw snapshot',
+)
+def get_raw_analysis(
+    upload_id: UUID,
+    channel: int = Query(0, ge=0, le=31, description='0-based channel index'),
+    db: Session = Depends(get_db),
+):
+    upload = measurement_crud.get_upload_by_id(db, upload_id)
+    if not upload:
+        raise HTTPException(status_code=404, detail='Upload not found')
+    return _raw_analysis_response(db, upload, channel)
 
 
 # ── 1x amplitude migration (one point per capture, across captures) ──────────

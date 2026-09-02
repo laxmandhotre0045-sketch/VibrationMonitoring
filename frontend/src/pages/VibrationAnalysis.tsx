@@ -76,6 +76,12 @@ const MigrationTab = React.lazy(() =>
   }))
 );
 
+const RawWaveformTab = React.lazy(() =>
+  import("@/components/analysis/workspace/RawWaveformTab").then((m) => ({
+    default: m.RawWaveformTab,
+  }))
+);
+
 const selectClass = analysisSelectClass;
 
 function formatDateTime(iso: string) {
@@ -563,6 +569,15 @@ export function VibrationAnalysisPage() {
               fallback={<p className="text-sm text-muted-foreground">Calculating 1× response…</p>}
             >
               <MigrationTab sensorId={sensorId} channelCount={plotChannelCount} />
+            </React.Suspense>
+          )}
+        </div>
+        <div hidden={activeTab !== "raw"}>
+          {activeTab === "raw" && (
+            <React.Suspense
+              fallback={<p className="text-sm text-muted-foreground">Loading raw data…</p>}
+            >
+              <RawWaveformTab sensorId={sensorId} />
             </React.Suspense>
           )}
         </div>

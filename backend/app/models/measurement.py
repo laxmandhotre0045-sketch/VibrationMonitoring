@@ -1,7 +1,19 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Text, Boolean, LargeBinary
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    Numeric,
+    Float,
+    DateTime,
+    ForeignKey,
+    Text,
+    Boolean,
+    LargeBinary,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -25,6 +37,23 @@ class PlotConfiguration(Base):
     fft_lines = Column(Integer, nullable=False, default=1600)
     frequency_max_hz = Column(Numeric(12, 4), nullable=True)
     data_type = Column(String(30), nullable=False, default="acceleration")
+
+    # DAQ acquisition settings sent to the edge device. Previously fixed constants
+    # in services/acquisition_config.py; now configurable per sensor.
+    window_type = Column(String(20), nullable=False, default="HANNING", server_default="HANNING")
+    averaging = Column(Integer, nullable=False, default=1, server_default="1")
+    overlap_percent = Column(Integer, nullable=False, default=0, server_default="0")
+
+    # Migration 017 — MQTT acquisition. How often the edge device takes a new
+    # capture (not the sample rate and not the FFT block time), the per-channel
+    # axis layout, and the broker it publishes to.
+    collection_interval_minutes = Column(Integer, nullable=False, default=2, server_default="2")
+    channel_map = Column(JSONB, nullable=False, default=list, server_default="[]")
+    mqtt_broker = Column(String(255), nullable=True)
+    mqtt_port = Column(Integer, nullable=False, default=1883, server_default="1883")
+    mqtt_topic = Column(
+        String(255), nullable=False, default="Vibration_Data", server_default="Vibration_Data"
+    )
     enabled_plots = Column(JSONB, nullable=False, default=list)
 
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -331,3 +360,71 @@ class BaselinePlotResult(Base):
     status = Column(String(20), nullable=False, default="ready")
 
     baseline = relationship("SensorBaseline", back_populates="plot_results")
+
+
+class RawVibrationCapture(Base):
+    """One raw snapshot's timebase and shape (migration 018).
+
+    The samples themselves hang off this row as one RawVibrationChannel per
+    channel. Timestamps are not stored: acquisition is uniform, so the axis is
+    fully described by sample_rate_hz and sample_count.
+    """
+    __tablename__ = "raw_vibration_captures"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    upload_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_data_uploads.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    sample_rate_hz = Column(Float, nullable=False)
+    sample_count = Column(Integer, nullable=False)
+    channel_count = Column(Integer, nullable=False)
+
+    #: Absolute capture start when the device wrote wall-clock time. The stored
+    #: axis is elapsed seconds from zero; this is what zero means.
+    start_epoch_s = Column(Float, nullable=True)
+    #: Unit the device's time column was written in before normalisation.
+    timebase_unit = Column(String(4), nullable=False, default="s", server_default="s")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    channels = relationship(
+        "RawVibrationChannel",
+        back_populates="capture",
+        cascade="all, delete-orphan",
+        order_by="RawVibrationChannel.channel_index",
+    )
+
+
+class RawVibrationChannel(Base):
+    """One channel of one raw snapshot, as a Postgres float8[].
+
+    An array column rather than JSONB: Postgres stores it as a binary array
+    instead of parsing hundreds of thousands of numbers out of JSON text, which
+    is what made the earlier JSONB write cost seconds per snapshot.
+    """
+    __tablename__ = "raw_vibration_channels"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    capture_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("raw_vibration_captures.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    channel_index = Column(Integer, nullable=False)
+    samples = Column(ARRAY(Float(precision=53)), nullable=False)
+
+    capture = relationship("RawVibrationCapture", back_populates="channels")
+
+    __table_args__ = (
+        UniqueConstraint("capture_id", "channel_index", name="uq_raw_channel_per_capture"),
+    )
