@@ -7,6 +7,7 @@ import {
   HeartPulse,
   LineChart,
   Move3D,
+  Radio,
   TrendingUp,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ export type AnalysisTabId =
   | "vector"
   | "orbit"
   | "migration"
+  | "raw"
   | "statistics";
 
 export const ANALYSIS_TABS: {
@@ -32,5 +34,6 @@ export const ANALYSIS_TABS: {
   { id: "vector", label: "Vibration Vector", icon: Compass },
   { id: "orbit", label: "Casing Orbit", icon: CircleDot },
   { id: "migration", label: "1× Amplitude Migration", icon: Move3D },
+  { id: "raw", label: "Raw Data", icon: Radio },
   { id: "statistics", label: "Statistics", icon: BarChart3 },
 ];

@@ -17,7 +17,7 @@ import {
   setCrosshairEnabled,
   zoomChart,
 } from "@/lib/graph-interactions";
-import { resolveSampleRateHz } from "@/lib/waveform-time-axis";
+import { displayXLabel, resolveSampleRateHz } from "@/lib/waveform-time-axis";
 import {
   EchartsGraphViewport,
   GraphStatisticsPanel,
@@ -161,7 +161,7 @@ function EchartsDiagnosticChartInner({
       title={plot.title}
       subtitle={
         <span>
-          {plot.x_label} · {plot.y_label}
+          {displayXLabel(plot)} · {plot.y_label}
         </span>
       }
       height={height}

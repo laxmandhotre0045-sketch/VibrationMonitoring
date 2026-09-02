@@ -18,7 +18,7 @@ import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app import crud
@@ -30,9 +30,18 @@ from app.database import get_db
 from app.dependencies.api_key import require_api_key
 from app.models.integration import ApiKey
 from app.schemas.ingest import MeasurementIngest, MeasurementIngestAck
+from app.schemas.raw_vibration import RawTimebaseOut, RawUploadAck
 from app.services.feature_storage import persist_upload_features_and_trends
 from app.services.plot_generator import save_parsed_data
 from app.services.plot_storage import persist_all_plot_results
+from app.services.raw_storage import store_capture
+from app.services.raw_vibration import (
+    DEFAULT_SAMPLE_RATE_HZ,
+    RawValidationError,
+    inspect_timestamps,
+    normalize_timebase,
+    parse_raw_csv,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +84,177 @@ def _to_parsed_payload(data: MeasurementIngest, sampling_rate_hz: float) -> dict
         "channel_count": channel_count,
         "detected_channel_count": channel_count,
     }
+
+
+@router.post(
+    "/raw",
+    response_model=RawUploadAck,
+    status_code=201,
+    summary="Post a raw 25 kSPS CSV snapshot from global_uploader.py",
+)
+async def ingest_raw_csv(
+    device_id: str = Form(..., description="Device id as registered on the sensor"),
+    file: UploadFile = File(..., description="CSV: timestamp_,ch0,ch1,…,ch7"),
+    sample_rate_hz: float | None = Form(
+        None,
+        description="Declared acquisition rate. Defaults to the sensor's configured rate.",
+    ),
+    expected_channels: int = Form(8),
+    measured_at: datetime | None = Form(None, description="Capture time (ISO 8601). Defaults to now."),
+    rotation_speed_rpm: float | None = Form(None),
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(require_api_key),
+):
+    """
+    Store one raw acquisition window exactly as measured.
+
+    Deliberately does NOT compute plots or features. At 25 kSPS across eight channels a
+    one-second window is ~200k values, and running the derived-artefact pipeline on every
+    window would neither keep up nor be raw. Analysis reads the stored samples later.
+    """
+    sensor = crud.get_sensor_by_device_id(db, device_id)
+    if not sensor:
+        raise HTTPException(
+            status_code=404, detail=f"No sensor is registered with device_id '{device_id}'"
+        )
+    if not sensor.is_active:
+        raise HTTPException(status_code=409, detail=f"Sensor for device_id '{device_id}' is deactivated")
+
+    filename = file.filename or "raw.csv"
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded CSV is empty")
+    max_bytes = settings.max_pdf_size_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(status_code=400, detail=f"File exceeds {settings.max_pdf_size_mb}MB limit")
+
+    text = None
+    for encoding in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            text = content.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        raise HTTPException(status_code=400, detail="Could not decode CSV")
+
+    # The rate the device was told to use is the reference for reading its time
+    # column, so fall back to the sensor's saved configuration rather than a
+    # module constant — the collector reads that same value from
+    # GET /api/v1/acquisition/config and usually does not repeat it here.
+    if sample_rate_hz is None:
+        plot_config = measurement_crud.get_plot_config_by_sensor(db, sensor.id)
+        sample_rate_hz = (
+            float(plot_config.sampling_rate_hz) if plot_config else DEFAULT_SAMPLE_RATE_HZ
+        )
+
+    warnings: list[str] = []
+
+    try:
+        parsed = parse_raw_csv(text, expected_channels=expected_channels)
+        # Device clocks write absolute wall-clock time in their own unit. Convert
+        # to elapsed seconds before anything is stored, so the time axis means
+        # the same thing for every snapshot and the waveform plots against real
+        # elapsed time. Sample values are untouched.
+        normalized, tb = normalize_timebase(parsed["timestamps"], sample_rate_hz)
+        parsed["timestamps"] = normalized
+        timebase = inspect_timestamps(normalized, sample_rate_hz)
+    except RawValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    if tb["resolved"] and tb["unit"] != "s":
+        warnings.append(
+            f"Time column read as {tb['unit']} and converted to seconds "
+            f"({tb['observed_rate_hz']:.1f} SPS). Sample values unchanged."
+        )
+    elif not tb["resolved"]:
+        warnings.append(
+            f"Could not match the time column to the declared {sample_rate_hz:.0f} SPS "
+            f"in any of s/ms/us/ns; it implies {tb['observed_rate_hz']:.1f} SPS read as "
+            "seconds. Left unconverted — check the device clock unit."
+        )
+
+    if not timebase["rate_matches"]:
+        warnings.append(
+            f"Timestamp step implies {timebase['observed_rate_hz']:.1f} SPS, not the declared "
+            f"{sample_rate_hz:.0f} SPS. Samples stored unchanged."
+        )
+    if not timebase["uniform"]:
+        warnings.append(
+            f"Sample interval varies by up to {timebase['max_step_deviation_s']:.3e} s. "
+            "Samples stored unchanged."
+        )
+
+    upload_id = uuid4()
+    captured = _as_utc(measured_at) if measured_at else datetime.now(timezone.utc)
+
+    os.makedirs(settings.measurement_upload_dir, exist_ok=True)
+    raw_path = os.path.join(settings.measurement_upload_dir, f"{upload_id}.raw.csv")
+    parsed_path = os.path.join(settings.measurement_upload_dir, f"{upload_id}.json")
+    with open(raw_path, "wb") as handle:
+        handle.write(content)
+
+    upload = measurement_crud.create_upload_record(
+        db,
+        sensor.id,
+        parsed["channel_count"],
+        raw_path,
+        upload_id=upload_id,
+        original_filename=filename,
+        source="device_raw",
+        measured_at=captured,
+        rotation_speed_rpm=rotation_speed_rpm,
+        api_key_id=api_key.id,
+    )
+
+    try:
+        save_parsed_data(parsed_path, parsed)
+        # Samples also go into the database (migration 018) as float8[] rows.
+        # The disk copy stays: it is the fallback for every snapshot ingested
+        # before those tables existed.
+        store_capture(
+            db,
+            upload_id=upload.id,
+            sensor_id=sensor.id,
+            parsed=parsed,
+            sample_rate_hz=sample_rate_hz,
+            start_epoch_s=tb["start_epoch_s"],
+            timebase_unit=tb["unit"],
+        )
+        upload = measurement_crud.mark_upload_parsed(db, upload.id, parsed_path, parsed["sample_count"])
+        baseline_crud.save_upload_data(
+            db,
+            upload_id=upload.id,
+            sensor_id=sensor.id,
+            original_filename=filename,
+            file_format="csv",
+            file_content=content,
+            # Deliberately empty for the raw path. The samples are already held twice —
+            # verbatim in file_content above and normalised in the .json written beside
+            # it — and a third copy as JSONB costs seconds per snapshot, because Postgres
+            # must parse ~225k numbers into binary JSONB. An empty dict is falsy, so
+            # `_load_parsed_for_upload` skips it and reads the file instead.
+            parsed_data={},
+            channel_count=parsed["channel_count"],
+            sample_count=parsed["sample_count"],
+        )
+    except Exception as exc:
+        measurement_crud.mark_upload_failed(db, upload.id, str(exc))
+        logger.exception("Raw ingest storage failed for device %s", device_id)
+        raise HTTPException(status_code=422, detail=f"Could not store raw snapshot: {exc}")
+
+    return RawUploadAck(
+        upload_id=upload.id,
+        sensor_id=sensor.id,
+        device_id=device_id,
+        original_filename=filename,
+        sample_count=parsed["sample_count"],
+        channel_count=parsed["channel_count"],
+        sample_rate_hz=sample_rate_hz,
+        measured_at=captured,
+        timebase=RawTimebaseOut(**timebase),
+        warnings=warnings,
+    )
 
 
 @router.post(

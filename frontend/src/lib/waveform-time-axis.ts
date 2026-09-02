@@ -31,6 +31,20 @@ export function resolveSampleRateHz(plot: PlotSeries, configuredRateHz?: number)
   );
 }
 
+/** Axis label that goes with the generated ms time axis, replacing the backend's "Time (s)". */
+export const GENERATED_TIME_AXIS_LABEL = "Time (ms)";
+
+/**
+ * The X label actually drawn for a plot, after any display-time axis substitution.
+ *
+ * Chart chrome outside the option builder (card subtitles, exports) has to read the label
+ * through this rather than `plot.x_label`, or it reports the backend's seconds axis while
+ * the plot next to it is drawn in milliseconds.
+ */
+export function displayXLabel(plot: PlotSeries): string {
+  return plot.plot_type === "time_waveform" ? GENERATED_TIME_AXIS_LABEL : plot.x_label;
+}
+
 /** Frontend-generated relative time axis in milliseconds: t[i] = (i / sampleRate) × 1000. */
 export function generateTimeAxisMs(sampleCount: number, sampleRateHz: number): number[] {
   if (sampleCount <= 0 || sampleRateHz <= 0) return [];
@@ -62,7 +76,7 @@ export function withGeneratedTimeAxis(
   return {
     ...plot,
     x: xMs,
-    x_label: "Time (ms)",
+    x_label: GENERATED_TIME_AXIS_LABEL,
     metadata: {
       ...plot.metadata,
       sampling_rate_hz: sampleRateHz,

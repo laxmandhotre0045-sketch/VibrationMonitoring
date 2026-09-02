@@ -110,6 +110,12 @@ export default {
         g5: "2.125rem",
         g6: "3.4375rem",
       },
+      screens: {
+        /* The shell keeps widening past 2xl, so give layouts a hook for the
+           extra columns that width is meant to buy. */
+        "3xl": "1920px",
+        "4xl": "2400px",
+      },
       maxWidth: {
         /* Content stops here so a 2560px monitor does not stretch a four-up
            KPI row into four near-empty 600px cards. */

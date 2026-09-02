@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     #: e.g. CORS_ORIGINS=http://192.168.1.51:4173
     cors_origins: str = ""
 
+    #: When true, GET /api/v1/acquisition/config requires an X-API-Key.
+    #:
+    #: Default false so an MQTT edge device can fetch its own settings with a
+    #: bare HTTP GET and no credential handling. The response carries device
+    #: IDs and the MQTT broker/topic, so set this to true for any deployment
+    #: where the API is reachable beyond a trusted plant network:
+    #:   ACQUISITION_CONFIG_REQUIRE_KEY=true
+    #: Writes (PUT) always require an authenticated operator regardless.
+    acquisition_config_require_key: bool = False
+
     @property
     def effective_jwt_secret(self) -> str:
         return self.jwt_secret or self.secret_key

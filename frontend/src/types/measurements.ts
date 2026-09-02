@@ -26,6 +26,10 @@ export interface PlotConfig {
   frequency_max_hz: number | null;
   data_type: string;
   enabled_plots: PlotType[];
+  /** DAQ acquisition settings sent to the edge device. */
+  window_type: string;
+  averaging: number;
+  overlap_percent: number;
   created_at: string;
   updated_at: string;
 }
@@ -39,7 +43,20 @@ export interface PlotConfigInput {
   frequency_max_hz?: number | null;
   data_type?: string;
   enabled_plots?: PlotType[];
+  window_type?: string;
+  averaging?: number;
+  overlap_percent?: number;
 }
+
+/** Acquisition windows the edge device can apply. */
+export const FFT_WINDOWS = [
+  "HANNING",
+  "HAMMING",
+  "RECTANGULAR",
+  "FLATTOP",
+  "BLACKMAN",
+] as const;
+export type FftWindow = (typeof FFT_WINDOWS)[number];
 
 export interface SensorDataUpload {
   id: string;
