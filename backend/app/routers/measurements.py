@@ -1351,6 +1351,7 @@ def get_upload_factor_trends(
         channel=channel,
         features_status=upload.features_status,
         sampling_rate_hz=float(cfg["sampling_rate_hz"]),
+        captured_at=upload.measured_at or upload.created_at,
         factors=factors,
     )
 

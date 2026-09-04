@@ -1,10 +1,11 @@
-import React from "react";
-import { BarChart3 } from "lucide-react";
+import React, { useMemo } from "react";
+import { Activity, BarChart3, Layers } from "lucide-react";
 import type { PlotSeries, PlotType, SensorDataUpload } from "@/types/measurements";
+import { PLOT_LABELS } from "@/types/measurements";
 import { DiagnosticChart } from "@/components/analysis/DiagnosticChart";
-import { PlotSelector } from "@/components/analysis/PlotSelector";
 import { AnalysisSummaryPanel } from "@/components/analysis/AnalysisSummaryPanel";
 import { AnalysisSectionHeader } from "@/components/analysis/AnalysisSectionHeader";
+import { AdvancedPlotsSection } from "./AdvancedPlotsSection";
 import { GraphChannelSelector } from "@/components/charts";
 import { GRAPH_PRIMARY_HEIGHT } from "@/lib/chart-constants";
 import {
@@ -15,6 +16,25 @@ import {
 import { Button } from "@/components/ui/Button";
 import { FormField, TextInput } from "@/components/ui/FormField";
 import { cn } from "@/lib/utils";
+
+/**
+ * The Waveform section, as an outline.
+ *
+ * All five plots arrive in one `getAllPlots` response, so a selector that
+ * showed one at a time was hiding four charts that were already loaded. Each
+ * group pairs a waveform with the spectrum derived from it — time waveform with
+ * its FFT, circular waveform with its envelope — which is the pairing an
+ * analyst reads together; the trend plot stands on its own.
+ */
+const WAVEFORM_GROUPS: { key: string; title: string; types: PlotType[] }[] = [
+  { key: "A", title: "Time Waveform", types: ["time_waveform", "fft_spectrum"] },
+  {
+    key: "B",
+    title: "Circular Time Waveform",
+    types: ["circular_time_waveform", "envelope_spectrum"],
+  },
+  { key: "C", title: "Trend Plot", types: ["trend_plot"] },
+];
 
 interface DetailedAnalysisTabProps {
   selectedUpload: SensorDataUpload | null | undefined;
@@ -38,10 +58,6 @@ interface DetailedAnalysisTabProps {
   plotsLoading: boolean;
   plotsError: unknown;
   plotsData: { plots: PlotSeries[] } | undefined;
-  availablePlotTypes: PlotType[];
-  activePlotType: PlotType;
-  onPlotTypeChange: (type: PlotType) => void;
-  activePlot: PlotSeries | undefined;
   plotSource: "upload" | "baseline";
   selectedUploadId: string;
   selectedBaselineId: string;
@@ -69,14 +85,20 @@ export function DetailedAnalysisTab({
   plotsLoading,
   plotsError,
   plotsData,
-  availablePlotTypes,
-  activePlotType,
-  onPlotTypeChange,
-  activePlot,
   plotSource,
   selectedUploadId,
   selectedBaselineId,
 }: DetailedAnalysisTabProps) {
+  const plotsByType = useMemo(() => {
+    const map = new Map<PlotType, PlotSeries>();
+    for (const plot of plotsData?.plots ?? []) {
+      map.set(plot.plot_type, plot);
+    }
+    return map;
+  }, [plotsData]);
+
+  const hasAnyPlot = plotsByType.size > 0;
+
   return (
     <div className={analysisBodyStack}>
       <div className={cn("grid grid-cols-2 lg:grid-cols-4", analysisGridGap)}>
@@ -164,48 +186,92 @@ export function DetailedAnalysisTab({
         </div>
       </div>
 
-      {activePlot && (
-        <div className="w-full space-y-g2">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-g1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Channel
-              </p>
-              <GraphChannelSelector
-                value={activeChannel}
-                channelCount={plotChannelCount}
-                onChange={onChannelChange}
-                disabled={!plotsEnabled}
-              />
-            </div>
-            {plotsEnabled && plotsData && plotsData.plots.length > 0 && (
-              <div className="flex-1 min-w-0 space-y-g1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Plot Type
-                </p>
-                <PlotSelector
-                  value={activePlotType}
-                  onChange={onPlotTypeChange}
-                  availableTypes={availablePlotTypes}
-                />
-              </div>
-            )}
-          </div>
+      {/* ── 1. Waveform ───────────────────────────────────────────────── */}
+      <section className="space-y-g3">
+        <AnalysisSectionHeader
+          icon={Activity}
+          title="1. Waveform"
+          subtitle="Time and circular waveforms with their derived spectra, plus the capture trend."
+        />
 
-          <DiagnosticChart
-            key={`${activePlot.plot_type}-${activePlot.channel}-${plotSource}-${selectedUploadId}-${selectedBaselineId}`}
-            plot={activePlot}
-            height={GRAPH_PRIMARY_HEIGHT}
-            samplingRateHz={samplingRate}
+        <div className="space-y-g1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Channel
+          </p>
+          <GraphChannelSelector
+            value={activeChannel}
+            channelCount={plotChannelCount}
+            onChange={onChannelChange}
+            disabled={!plotsEnabled}
           />
         </div>
-      )}
 
-      {!plotsEnabled && !plotsLoading && !activePlot && (
-        <p className="text-sm text-muted-foreground">
-          Diagnostic charts appear here after you select a capture from the timeline.
-        </p>
-      )}
+        {!hasAnyPlot && !plotsLoading && (
+          <p className="text-sm text-muted-foreground">
+            Waveform charts appear here after you select a capture from the timeline.
+          </p>
+        )}
+
+        {hasAnyPlot &&
+          WAVEFORM_GROUPS.map((group) => {
+            const plots = group.types
+              .map((type) => plotsByType.get(type))
+              .filter((plot): plot is PlotSeries => !!plot);
+
+            return (
+              <div key={group.key} className="space-y-g2">
+                <div className="flex items-baseline gap-g2">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-warm text-xs font-bold text-signal-dark">
+                    {group.key}
+                  </span>
+                  <h3 className="text-sm font-bold text-foreground">{group.title}</h3>
+                </div>
+
+                {plots.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Not returned for this capture on CH-{activeChannel + 1}.
+                  </p>
+                ) : (
+                  <div className="space-y-g3">
+                    {plots.map((plot) => (
+                      <DiagnosticChart
+                        key={`${plot.plot_type}-${plot.channel}-${plotSource}-${selectedUploadId}-${selectedBaselineId}`}
+                        plot={plot}
+                        height={GRAPH_PRIMARY_HEIGHT}
+                        samplingRateHz={samplingRate}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {plots.length > 0 && plots.length < group.types.length && (
+                  <p className="text-sm text-muted-foreground">
+                    {group.types
+                      .filter((type) => !plotsByType.has(type))
+                      .map((type) => PLOT_LABELS[type])
+                      .join(", ")}{" "}
+                    not returned for this capture.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+      </section>
+
+      {/* ── 2. Advanced Plots & Diagnostics ───────────────────────────── */}
+      <section className="space-y-g3">
+        <AnalysisSectionHeader
+          icon={Layers}
+          title="2. Advanced Plots & Diagnostics"
+          subtitle="Select a diagnostic view — each one loads on demand for the selected sensor."
+        />
+        <AdvancedPlotsSection
+          sensorId={sensorId}
+          channelCount={plotChannelCount}
+          activeChannel={activeChannel}
+          selectedUploadId={selectedUploadId}
+        />
+      </section>
     </div>
   );
 }

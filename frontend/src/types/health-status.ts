@@ -49,6 +49,8 @@ export interface HealthMetricTrend {
   value: number | null;
   trendX: number[];
   trendY: number[];
+  /** Capture instant, when known — trendX is an offset in seconds from it. */
+  capturedAt?: string | null;
   available: boolean;
   status: HealthStatusLevel;
   normalThreshold?: number;

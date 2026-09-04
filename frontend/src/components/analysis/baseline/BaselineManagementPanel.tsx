@@ -19,6 +19,7 @@ import {
 } from "@/components/analysis/analysis-layout";
 import { Button } from "@/components/ui/Button";
 import { BaselineDetailCard } from "./BaselineDetailCard";
+import { BaselineUploadCard } from "./BaselineUploadCard";
 import {
   BaselinePlotStatusBadge,
   type BaselineListFilter,
@@ -37,6 +38,8 @@ interface BaselineManagementPanelProps {
   onLoadBaseline: (baseline: Baseline) => void;
   formatDateTime: (iso: string) => string;
   canWrite: boolean;
+  /** Channel count the uploaded baseline file is parsed with. */
+  channelCount: number;
 }
 
 const FILTER_OPTIONS: { value: BaselineListFilter; label: string }[] = [
@@ -75,6 +78,7 @@ export function BaselineManagementPanel({
   onLoadBaseline,
   formatDateTime,
   canWrite,
+  channelCount,
 }: BaselineManagementPanelProps) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -106,10 +110,16 @@ export function BaselineManagementPanel({
       <AnalysisSectionHeader
         icon={Bookmark}
         title="Baseline Management"
-        subtitle="View, search, set primary, and load saved baselines for waveform, FFT, envelope, and trend analysis."
+        subtitle="Upload, search, set primary, and load saved baselines for waveform, FFT, envelope, and trend analysis."
       />
 
       <div className="mt-g3 space-y-g3">
+        <BaselineUploadCard
+          sensorId={sensorId}
+          channelCount={channelCount}
+          canWrite={canWrite}
+        />
+
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="relative flex-1 min-w-0">
             <Search
@@ -163,8 +173,9 @@ export function BaselineManagementPanel({
               No baselines available for this sensor.
             </p>
             <p className="mt-g2 text-sm text-muted-foreground max-w-lg mx-auto">
-              Select a timeline capture, open Detailed Analysis, and use Save as Baseline to create
-              your first reference capture for health monitoring and comparison.
+              Upload a known-good CSV or PDF above, or select a timeline capture, open Detailed
+              Analysis, and use Save as Baseline to create your first reference capture for health
+              monitoring and comparison.
             </p>
           </div>
         )}

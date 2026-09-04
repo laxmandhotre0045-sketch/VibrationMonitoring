@@ -126,7 +126,9 @@ export function GraphToolbar({
         </span>
       )}
 
-      <div className="hidden sm:block h-5 w-px bg-border" />
+      {(channelSlot || channelLabel) && (
+        <div className="hidden sm:block h-5 w-px bg-border" />
+      )}
 
       <div className="flex flex-wrap items-center gap-0.5">
         {show("zoomIn") && (

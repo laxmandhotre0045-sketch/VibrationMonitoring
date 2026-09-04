@@ -13,7 +13,7 @@ import type { WaterfallMode, WaterfallSpectrum } from "@/types/waterfall";
 
 const DEFAULT_COUNT = 40;
 
-type SpectraView = "waterfall" | "cascade";
+export type SpectraView = "waterfall" | "cascade";
 
 const VIEWS: { id: SpectraView; label: string; icon: typeof Box }[] = [
   { id: "waterfall", label: "3D Waterfall", icon: Box },
@@ -90,14 +90,25 @@ interface WaterfallTabProps {
   sensorId: string;
   channelCount: number;
   defaultChannel?: number;
+  /**
+   * Controlled 3D/2D view. Both renderings read the same waterfall query, so
+   * when an outer selector already lists "3D Waterfall" and "2D Cascade" as
+   * separate entries, it drives this instead — and the internal switch, which
+   * would then be a second control for the same choice, is hidden.
+   *
+   * Left undefined the tab stays self-contained and shows its own switch.
+   */
+  view?: SpectraView;
 }
 
 export function WaterfallTab({
   sensorId,
   channelCount,
   defaultChannel = 0,
+  view: viewProp,
 }: WaterfallTabProps) {
-  const [view, setView] = useState<SpectraView>("waterfall");
+  const [internalView, setInternalView] = useState<SpectraView>("waterfall");
+  const view = viewProp ?? internalView;
   const [mode, setMode] = useState<WaterfallMode>("last");
   const [count, setCount] = useState(DEFAULT_COUNT);
   const [spectrum, setSpectrum] = useState<WaterfallSpectrum>("fft_spectrum");
@@ -141,7 +152,9 @@ export function WaterfallTab({
           }
           className="mb-0 pb-0 border-b-0"
         />
-        <ViewSwitch value={view} onChange={setView} disabled={!enabled} />
+        {viewProp === undefined && (
+          <ViewSwitch value={view} onChange={setInternalView} disabled={!enabled} />
+        )}
       </div>
 
       {!enabled && (

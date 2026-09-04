@@ -90,8 +90,6 @@ export function StatusHealthSection({
                 key={`${healthChannel}-${metric.key}`}
                 metric={metric}
                 channelLabel={snapshot.channelLabel}
-                onRefresh={() => refetch()}
-                isRefreshing={isFetching}
               />
             ))}
           </div>

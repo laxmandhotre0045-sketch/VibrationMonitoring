@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { RefreshCw } from "lucide-react";
 import { HealthMetricCard } from "@/components/analysis/health/HealthMetricCard";
 import { analysisGridGap } from "@/components/analysis/analysis-layout";
 import { useUploadFactorTrends } from "@/hooks/useUploadFactorTrends";
+import type { HealthMetricTrend } from "@/types/health-status";
 import { cn } from "@/lib/utils";
 
 interface FeatureTrendCardsSectionProps {
@@ -11,6 +13,33 @@ interface FeatureTrendCardsSectionProps {
   baselineId?: string | null;
   enabled: boolean;
   className?: string;
+}
+
+/**
+ * Reading order for the KPI grid — pure presentation, applied on top of
+ * whatever order the factor-trends response arrives in.
+ *
+ * Two columns wide, it pairs each metric with the one an analyst reads it
+ * against: RMS beside Peak (level vs. worst excursion), Kurtosis beside Crest
+ * Factor (both impulsiveness), then the harmonics in 1X/2X/3X order, and the
+ * two derived floors last. Any key not listed keeps its API order behind these.
+ */
+const KPI_DISPLAY_ORDER = [
+  "rms",
+  "peak",
+  "kurtosis",
+  "crest_factor",
+  "fft_band_energy",
+  "amplitude_1x",
+  "amplitude_2x",
+  "amplitude_3x",
+  "envelope_rms",
+  "noise_floor",
+];
+
+function orderIndex(metric: HealthMetricTrend): number {
+  const index = KPI_DISPLAY_ORDER.indexOf(metric.key);
+  return index === -1 ? KPI_DISPLAY_ORDER.length : index;
 }
 
 export function FeatureTrendCardsSection({
@@ -38,6 +67,15 @@ export function FeatureTrendCardsSection({
     enabled,
   });
 
+  const orderedMetrics = useMemo(() => {
+    // Stable: equal keys keep their arrival order, so an unlisted feature never
+    // jumps around between renders.
+    return trendMetrics
+      .map((metric, index) => ({ metric, index }))
+      .sort((a, b) => orderIndex(a.metric) - orderIndex(b.metric) || a.index - b.index)
+      .map((entry) => entry.metric);
+  }, [trendMetrics]);
+
   const isComputing =
     enabled &&
     !hasTrendData &&
@@ -45,11 +83,39 @@ export function FeatureTrendCardsSection({
 
   return (
     <section className={cn("space-y-g3", className)}>
-      <div>
-        <h3 className="text-sm font-bold text-foreground">Feature Trend Monitoring</h3>
-        <p className="mt-g1 text-sm text-muted-foreground">
-          Segment trends for all 10 vibration features within the selected capture.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-g2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-foreground">Feature Trend Monitoring</h3>
+          <p className="mt-g1 text-sm text-muted-foreground">
+            Segment trends for all 10 vibration features within the selected capture.
+          </p>
+        </div>
+        {hasTrendData && (
+          <div className="flex shrink-0 items-center gap-g2">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              {channelLabel}
+              <span className="text-border" aria-hidden>
+                |
+              </span>
+              {orderedMetrics.length} features
+            </span>
+            {/* One refresh for the whole grid — every card reads the same
+                query, so ten per-card buttons all fired this same refetch. */}
+            <button
+              type="button"
+              title="Refresh factor trends"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-white",
+                "text-muted-foreground transition-colors hover:bg-warm hover:text-foreground",
+                "disabled:cursor-not-allowed disabled:opacity-40"
+              )}
+            >
+              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            </button>
+          </div>
+        )}
       </div>
 
       {enabled && isComputing && (
@@ -83,15 +149,14 @@ export function FeatureTrendCardsSection({
         )}
 
       {enabled && !isComputing && !isError && hasTrendData && (
-        <div className={cn("grid grid-cols-1 md:grid-cols-2", analysisGridGap)}>
-          {trendMetrics.map((metric) => (
+        // Two columns only once there is real width for them: at `md` a 300px
+        // plot in half a tablet is narrower than its own axis labels.
+        <div className={cn("grid grid-cols-1 lg:grid-cols-2 items-stretch", analysisGridGap)}>
+          {orderedMetrics.map((metric) => (
             <HealthMetricCard
               key={`factor-trend-${channel}-${metric.key}`}
               metric={metric}
               channelLabel={channelLabel}
-              onRefresh={() => refetch()}
-              isRefreshing={isFetching}
-              trendFooterLabel="Factor trend"
             />
           ))}
         </div>

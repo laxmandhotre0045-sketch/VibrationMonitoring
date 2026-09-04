@@ -16,6 +16,24 @@ export const sensorSchema = z.object({
   is_active: z.boolean().default(true),
 });
 
+/**
+ * A number the user may simply not know yet.
+ *
+ * `z.coerce.number()` turns an empty input into `0`, so a blank optional field
+ * that also carries `.positive()` fails validation — and react-hook-form
+ * swallows a rejected submit, which is what made Save look dead when the
+ * rotating-component fields were left empty. Blank, null, and unparseable
+ * input all collapse to `null` here, before any numeric check runs.
+ */
+function optionalNumber(refine?: (schema: z.ZodNumber) => z.ZodNumber) {
+  const base = z.coerce.number();
+  return z.preprocess((value) => {
+    if (value === "" || value === null || value === undefined) return null;
+    if (typeof value === "number" && Number.isNaN(value)) return null;
+    return value;
+  }, (refine ? refine(base) : base).nullable().optional());
+}
+
 export const equipmentSchema = z.object({
   // Location & Hierarchy
   plant_name: z.string().optional().nullable(),
@@ -39,15 +57,16 @@ export const equipmentSchema = z.object({
   foundation_type: z.string().optional().nullable(),
   coupling_details: z.string().optional().nullable(),
 
-  // Rotating Components
+  // Rotating Components — every field here is optional: equipment saves with
+  // the whole Bearing Details / Rotating Components step left blank.
   bearing_details: z.string().optional().nullable(),
   bearing_number_de: z.string().optional().nullable(),
   bearing_number_nde: z.string().optional().nullable(),
-  gearbox_ratio: z.coerce.number().positive().optional().nullable(),
-  gear_teeth: z.coerce.number().int().positive().optional().nullable(),
-  motor_pole_count: z.coerce.number().int().optional().nullable(),
-  fan_blades: z.coerce.number().int().positive().optional().nullable(),
-  pump_vanes: z.coerce.number().int().positive().optional().nullable(),
+  gearbox_ratio: optionalNumber((n) => n.positive()),
+  gear_teeth: optionalNumber((n) => n.int().positive()),
+  motor_pole_count: optionalNumber((n) => n.int()),
+  fan_blades: optionalNumber((n) => n.int().positive()),
+  pump_vanes: optionalNumber((n) => n.int().positive()),
   direction_of_rotation: z.string().optional().nullable(),
 
   // Operating Conditions
