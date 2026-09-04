@@ -14,8 +14,24 @@ function scheduleChartResize(callback?: () => void) {
 
 export type GraphWorkspaceVariant = "primary" | "compact";
 
+/**
+ * Where the chart controls live.
+ *
+ * "row" is the analysis-workspace default: a full-width strip under the header,
+ * which suits a primary chart carrying a dozen actions. "header" tucks the same
+ * buttons into the title row as a borderless icon group — the shape a KPI card
+ * wants, where a banded strip of its own reads as chrome around a small plot.
+ */
+export type GraphToolbarPlacement = "row" | "header";
+
 interface GraphWorkspaceProps {
   title?: string;
+  /**
+   * Rich replacement for the rendered heading. `title` is still required
+   * alongside it — it stays the plain-text name used for the fullscreen
+   * dialog's accessible label.
+   */
+  titleNode?: React.ReactNode;
   subtitle?: React.ReactNode;
   height?: number;
   variant?: GraphWorkspaceVariant;
@@ -24,6 +40,7 @@ interface GraphWorkspaceProps {
   headerExtra?: React.ReactNode;
   statistics?: React.ReactNode;
   toolbarActions?: GraphToolbarAction[];
+  toolbarPlacement?: GraphToolbarPlacement;
   channelLabel?: string;
   channelSlot?: React.ReactNode;
   onZoomIn?: () => void;
@@ -47,6 +64,7 @@ interface GraphWorkspaceProps {
 
 export function GraphWorkspace({
   title,
+  titleNode,
   subtitle,
   height,
   variant = "primary",
@@ -55,6 +73,7 @@ export function GraphWorkspace({
   headerExtra,
   statistics,
   toolbarActions,
+  toolbarPlacement = "row",
   channelLabel,
   channelSlot,
   onZoomIn,
@@ -184,6 +203,31 @@ export function GraphWorkspace({
     onToggleThresholds ||
     manageFullscreen;
 
+  const toolbar = hasToolbar ? (
+    <GraphToolbar
+      actions={toolbarActions}
+      onZoomIn={onZoomIn}
+      onZoomOut={onZoomOut}
+      onPan={onPan}
+      onReset={onReset}
+      onCrosshair={onCrosshair}
+      onToggleThresholds={onToggleThresholds}
+      onFullscreen={manageFullscreen || onFullscreenExternal ? handleToggleFullscreen : undefined}
+      onExport={onExport}
+      onRefresh={onRefresh}
+      onAutoscale={onAutoscale}
+      isFullscreen={isExpanded}
+      isCrosshairActive={isCrosshairActive}
+      thresholdsVisible={thresholdsVisible}
+      isRefreshing={isRefreshing}
+      channelLabel={channelLabel}
+      channelSlot={channelSlot}
+      className={
+        toolbarPlacement === "header" ? "border-0 bg-transparent p-0 gap-1" : undefined
+      }
+    />
+  ) : null;
+
   const shell = (
     <div
       ref={shellRef}
@@ -199,44 +243,29 @@ export function GraphWorkspace({
       aria-modal={isExpanded ? true : undefined}
       aria-label={isExpanded && title ? `${title} fullscreen view` : undefined}
     >
-      {(title || subtitle || headerExtra) && (
+      {(title || titleNode || subtitle || headerExtra) && (
         <div className="mb-g2 flex shrink-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            {title && (
-              <h3 className="text-sm font-bold text-foreground leading-tight">{title}</h3>
+            {(titleNode || title) && (
+              <h3 className="text-sm font-bold text-foreground leading-tight">
+                {titleNode ?? title}
+              </h3>
             )}
             {subtitle && (
               <div className="mt-g1 text-xs text-muted-foreground">{subtitle}</div>
             )}
           </div>
-          {headerExtra}
+          <div className="flex items-center gap-g2 shrink-0">
+            {headerExtra}
+            {toolbarPlacement === "header" && toolbar}
+          </div>
         </div>
       )}
 
       {controls && <div className="mb-g2 shrink-0">{controls}</div>}
 
-      {hasToolbar && (
-        <div className="mb-g2 shrink-0">
-          <GraphToolbar
-            actions={toolbarActions}
-            onZoomIn={onZoomIn}
-            onZoomOut={onZoomOut}
-            onPan={onPan}
-            onReset={onReset}
-            onCrosshair={onCrosshair}
-            onToggleThresholds={onToggleThresholds}
-            onFullscreen={manageFullscreen || onFullscreenExternal ? handleToggleFullscreen : undefined}
-            onExport={onExport}
-            onRefresh={onRefresh}
-            onAutoscale={onAutoscale}
-            isFullscreen={isExpanded}
-            isCrosshairActive={isCrosshairActive}
-            thresholdsVisible={thresholdsVisible}
-            isRefreshing={isRefreshing}
-            channelLabel={channelLabel}
-            channelSlot={channelSlot}
-          />
-        </div>
+      {hasToolbar && toolbarPlacement === "row" && (
+        <div className="mb-g2 shrink-0">{toolbar}</div>
       )}
 
       <div

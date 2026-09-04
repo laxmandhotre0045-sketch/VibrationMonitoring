@@ -18,6 +18,17 @@ const STEP_FIELDS: Record<number, (keyof EquipmentFormData)[]> = {
   6: ["asset_status"],
 };
 
+/**
+ * Which form fields live on a given step.
+ *
+ * Exposed so a rejected submit can send the user to the step holding the
+ * offending field instead of leaving them on Review with a dead Save button.
+ */
+export function stepFieldNames(stepId: number): string[] {
+  if (stepId === 5) return ["sensors"];
+  return (STEP_FIELDS[stepId] ?? []) as string[];
+}
+
 function isFilled(value: unknown): boolean {
   if (value === null || value === undefined || value === "") return false;
   if (Array.isArray(value)) return value.length > 0;

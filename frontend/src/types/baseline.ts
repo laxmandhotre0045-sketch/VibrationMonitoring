@@ -31,3 +31,19 @@ export interface BaselineCreateFromUpload {
   set_as_primary?: boolean;
   captured_at?: string | null;
 }
+
+/**
+ * Fields of `POST /api/v1/baselines/upload` — a CSV/PDF becoming a baseline
+ * directly, without first going through the sensor-data upload flow.
+ *
+ * Unlike a promoted upload this stores no `sensor_data_uploads` row and
+ * computes no feature rows: the baseline gets plots only.
+ */
+export interface BaselineFileUpload {
+  sensorId: string;
+  channelCount: number;
+  name: string;
+  description?: string | null;
+  setAsPrimary?: boolean;
+  file: File;
+}

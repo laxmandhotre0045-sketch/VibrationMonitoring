@@ -62,6 +62,11 @@ class UploadFactorTrendsOut(BaseModel):
     channel: int
     features_status: str
     sampling_rate_hz: float
+    #: When the capture was taken. trend_x is an offset in seconds from this
+    #: instant, so without it the chart can only label the x axis in bare
+    #: seconds. measured_at (the device clock) is preferred over created_at
+    #: (server receipt) because only the former orders a trend correctly.
+    captured_at: Optional[datetime] = None
     factors: List[FactorTrendSeriesOut]
 
 

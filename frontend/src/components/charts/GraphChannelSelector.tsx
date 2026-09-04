@@ -22,7 +22,7 @@ export function GraphChannelSelector({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 rounded-lg border border-border bg-warm p-0.5",
+        "inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-warm p-0.5",
         className
       )}
       role="tablist"

@@ -20,7 +20,11 @@ export function RotatingComponentsTab() {
 
   return (
     <div className="flex flex-col gap-g5">
-      <SectionCard title="Bearing Details" icon={<RotateCw size={15} />}>
+      <SectionCard
+        title="Bearing Details"
+        description="Optional — equipment can be saved without these. Fill them in to unlock bearing-frequency (BPFO/BPFI) diagnostics."
+        icon={<RotateCw size={15} />}
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-g4">
           <FormField label="Bearing Details" className="lg:col-span-2">
             <Controller name="bearing_details" control={control} render={({ field }) => (
@@ -42,7 +46,11 @@ export function RotatingComponentsTab() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Rotating Components" icon={<RotateCw size={15} />}>
+      <SectionCard
+        title="Rotating Components"
+        description="Optional — used to derive shaft and blade-pass frequencies when provided."
+        icon={<RotateCw size={15} />}
+      >
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-g4">
           {isMotorType && (
             <FormField label="Motor Pole Count">

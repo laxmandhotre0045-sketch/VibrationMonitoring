@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, Settings2, Trash2 } from "lucide-react";
 import { listEquipment, getEquipment } from "@/api/equipment";
@@ -41,46 +41,11 @@ import { PageHero } from "@/components/layout/PageHero";
 import { useAuth } from "@/contexts/AuthContext";
 import { WRITE_ROLES } from "@/lib/role-access";
 import type { AnalysisTabId } from "@/types/analysis-tabs";
-import { PLOT_TYPES, type PlotConfigInput, type PlotSeries, type PlotType, type SensorDataUpload } from "@/types/measurements";
+import { PLOT_TYPES, type PlotConfigInput, type SensorDataUpload } from "@/types/measurements";
 import type { EquipmentOut } from "@/types/equipment";
 import { cn } from "@/lib/utils";
 
 type PlotSource = "upload" | "baseline";
-
-/**
- * Loaded on demand — this tab pulls in echarts-gl (WebGL), which no other view needs.
- * Keeps it out of the initial bundle.
- */
-const WaterfallTab = React.lazy(() =>
-  import("@/components/analysis/workspace/WaterfallTab").then((m) => ({
-    default: m.WaterfallTab,
-  }))
-);
-
-/** Lazy for the same reason: only this tab needs the polar chart code. */
-const VectorTab = React.lazy(() =>
-  import("@/components/analysis/workspace/VectorTab").then((m) => ({
-    default: m.VectorTab,
-  }))
-);
-
-const OrbitTab = React.lazy(() =>
-  import("@/components/analysis/workspace/OrbitTab").then((m) => ({
-    default: m.OrbitTab,
-  }))
-);
-
-const MigrationTab = React.lazy(() =>
-  import("@/components/analysis/workspace/MigrationTab").then((m) => ({
-    default: m.MigrationTab,
-  }))
-);
-
-const RawWaveformTab = React.lazy(() =>
-  import("@/components/analysis/workspace/RawWaveformTab").then((m) => ({
-    default: m.RawWaveformTab,
-  }))
-);
 
 const selectClass = analysisSelectClass;
 
@@ -107,7 +72,6 @@ export function VibrationAnalysisPage() {
   const [plotSource, setPlotSource] = useState<PlotSource>("upload");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activePlotType, setActivePlotType] = useState<PlotType>("time_waveform");
   const [baselineModalOpen, setBaselineModalOpen] = useState(false);
   const [selectedUploadMeta, setSelectedUploadMeta] = useState<SensorDataUpload | null>(null);
   const [timelineRefreshKey, setTimelineRefreshKey] = useState(0);
@@ -271,30 +235,9 @@ export function VibrationAnalysisPage() {
     }
   };
 
-  const plotsByType = useMemo(() => {
-    const map = new Map<PlotType, PlotSeries>();
-    for (const plot of plotsData?.plots ?? []) {
-      map.set(plot.plot_type, plot);
-    }
-    return map;
-  }, [plotsData]);
-
-  const availablePlotTypes = useMemo(
-    () => PLOT_TYPES.filter((type) => plotsByType.has(type)),
-    [plotsByType]
-  );
-
-  const activePlot = plotsByType.get(activePlotType);
   const baselineDefaultName = selectedUpload
     ? `Baseline ${formatDateTime(selectedUpload.created_at)}`
     : "New baseline";
-
-  useEffect(() => {
-    if (availablePlotTypes.length === 0) return;
-    if (!availablePlotTypes.includes(activePlotType)) {
-      setActivePlotType(availablePlotTypes[0]);
-    }
-  }, [availablePlotTypes, activePlotType]);
 
   const handleTimelineSelect = (uploadId: string, upload?: SensorDataUpload) => {
     setSelectedUploadId(uploadId);
@@ -391,6 +334,7 @@ export function VibrationAnalysisPage() {
         onLoadBaseline={handleLoadBaseline}
         formatDateTime={formatDateTime}
         canWrite={canWrite}
+        channelCount={channelCount}
       />
 
       <GlassCard className={analysisCardPad} delay={0.08}>
@@ -510,76 +454,10 @@ export function VibrationAnalysisPage() {
             plotsLoading={plotsLoading}
             plotsError={plotsError}
             plotsData={plotsData}
-            availablePlotTypes={availablePlotTypes}
-            activePlotType={activePlotType}
-            onPlotTypeChange={setActivePlotType}
-            activePlot={activePlot}
             plotSource={plotSource}
             selectedUploadId={selectedUploadId}
             selectedBaselineId={selectedBaselineId}
           />
-        </div>
-        <div hidden={activeTab !== "waterfall"}>
-          {activeTab === "waterfall" && (
-            <React.Suspense
-              fallback={
-                <p className="text-sm text-muted-foreground">Loading 3D waterfall…</p>
-              }
-            >
-              <WaterfallTab
-                sensorId={sensorId}
-                channelCount={plotChannelCount}
-                defaultChannel={activeChannel}
-              />
-            </React.Suspense>
-          )}
-        </div>
-        <div hidden={activeTab !== "vector"}>
-          {activeTab === "vector" && (
-            <React.Suspense
-              fallback={
-                <p className="text-sm text-muted-foreground">Loading vibration vector…</p>
-              }
-            >
-              <VectorTab
-                selectedUploadId={selectedUploadId}
-                sensorId={sensorId}
-                channelCount={plotChannelCount}
-                defaultChannel={activeChannel}
-              />
-            </React.Suspense>
-          )}
-        </div>
-        <div hidden={activeTab !== "orbit"}>
-          {activeTab === "orbit" && (
-            <React.Suspense
-              fallback={<p className="text-sm text-muted-foreground">Loading casing orbit…</p>}
-            >
-              <OrbitTab
-                selectedUploadId={selectedUploadId}
-                sensorId={sensorId}
-                channelCount={plotChannelCount}
-              />
-            </React.Suspense>
-          )}
-        </div>
-        <div hidden={activeTab !== "migration"}>
-          {activeTab === "migration" && (
-            <React.Suspense
-              fallback={<p className="text-sm text-muted-foreground">Calculating 1× response…</p>}
-            >
-              <MigrationTab sensorId={sensorId} channelCount={plotChannelCount} />
-            </React.Suspense>
-          )}
-        </div>
-        <div hidden={activeTab !== "raw"}>
-          {activeTab === "raw" && (
-            <React.Suspense
-              fallback={<p className="text-sm text-muted-foreground">Loading raw data…</p>}
-            >
-              <RawWaveformTab sensorId={sensorId} />
-            </React.Suspense>
-          )}
         </div>
         <div hidden={activeTab !== "statistics"}>
           <StatisticsTab

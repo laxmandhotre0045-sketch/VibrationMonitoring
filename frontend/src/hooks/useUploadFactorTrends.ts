@@ -27,6 +27,7 @@ function formatUnit(unit: string): string {
 interface BuildMetricContext {
   channelRms: number | null;
   baselineByCode: Record<string, number>;
+  capturedAt: string | null;
 }
 
 function toHealthMetricTrend(
@@ -55,6 +56,7 @@ function toHealthMetricTrend(
     value: factor.value,
     trendX: factor.trend_x,
     trendY: factor.trend_y,
+    capturedAt: context.capturedAt,
     available: factor.trend_y.length > 0,
     status: mapFeatureStatus(factor.status),
     ...thresholdFields,
@@ -126,6 +128,7 @@ export function useUploadFactorTrends({
     const context: BuildMetricContext = {
       channelRms,
       baselineByCode,
+      capturedAt: query.data?.captured_at ?? null,
     };
 
     return factors.map((factor) => toHealthMetricTrend(factor, context));
