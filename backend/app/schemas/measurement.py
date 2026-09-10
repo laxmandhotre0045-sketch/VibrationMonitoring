@@ -3,6 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.schemas.passthrough import RowPassthrough
+
 PLOT_TYPES = [
     "time_waveform",
     "circular_time_waveform",
@@ -194,7 +196,7 @@ class PlotConfigOut(PlotConfigBase):
         return self
 
 
-class SensorDataUploadOut(BaseModel):
+class SensorDataUploadOut(RowPassthrough):
     id: UUID
     sensor_id: UUID
     original_filename: Optional[str] = None
@@ -215,7 +217,7 @@ class SensorDataUploadOut(BaseModel):
     parsed_at: Optional[datetime]
     has_stored_data: bool = False
 
-    model_config = {"from_attributes": True}
+    # from_attributes comes from RowPassthrough, along with the column sweep.
 
 
 class PaginatedUploadListOut(BaseModel):

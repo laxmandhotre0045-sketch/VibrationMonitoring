@@ -5,6 +5,8 @@ from decimal import Decimal
 from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.passthrough import RowPassthrough
+
 
 class SensorConfigBase(BaseModel):
     sensor_type: str
@@ -46,13 +48,10 @@ class SensorConfigUpdate(BaseModel):
     device_id: Optional[str] = Field(default=None, max_length=64)
 
 
-class SensorConfigOut(SensorConfigBase):
+class SensorConfigOut(SensorConfigBase, RowPassthrough):
     id: UUID
     equipment_id: UUID
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class EquipmentBase(BaseModel):
@@ -163,15 +162,15 @@ class EquipmentUpdate(BaseModel):
     operating_mode_configured: Optional[bool] = None
 
 
-class EquipmentOut(EquipmentBase):
+class EquipmentOut(EquipmentBase, RowPassthrough):
     id: UUID
     equipment_image_path: Optional[str] = None
     sensors: List[SensorConfigOut] = []
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    # from_attributes and extra="allow" come from RowPassthrough; declaring a
+    # `class Config` here as well would conflict with its model_config.
 
 
 class EquipmentListItem(BaseModel):

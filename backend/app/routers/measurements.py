@@ -1215,16 +1215,16 @@ def get_casing_orbit(
 
 
 def _feature_rows_to_out(rows, definitions: dict) -> list[ChannelFeatureOut]:
+    """Serialise feature rows, carrying every column the table has.
+
+    Built from the row rather than from a list of field names, so a column
+    added to measurement_channel_features reaches clients without another edit
+    here. Only feature_name is set by hand, because it is not a column at all --
+    it is looked up from the definitions table.
+    """
     return [
-        ChannelFeatureOut(
-            channel=r.channel,
-            feature_code=r.feature_code,
-            feature_name=definitions.get(r.feature_code),
-            value=float(r.value),
-            unit=r.unit,
-            status=r.status,
-            metadata=r.metadata_ or {},
-            computed_at=r.computed_at,
+        ChannelFeatureOut.model_validate(r).model_copy(
+            update={"feature_name": definitions.get(r.feature_code)}
         )
         for r in rows
     ]

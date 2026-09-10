@@ -4,8 +4,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.passthrough import RowPassthrough
 
-class ChannelFeatureOut(BaseModel):
+
+class ChannelFeatureOut(RowPassthrough):
     channel: int
     feature_code: str
     feature_name: Optional[str] = None
@@ -15,7 +17,7 @@ class ChannelFeatureOut(BaseModel):
     metadata: dict = Field(default_factory=dict)
     computed_at: datetime
 
-    model_config = {"from_attributes": True}
+    # from_attributes comes from RowPassthrough, along with the column sweep.
 
 
 class FeaturesSummaryOut(BaseModel):

@@ -6,12 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 from app.config import settings
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.routers.acquisition import router as acquisition_router
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.equipment import router as equipment_router
+from app.routers.exports import router as exports_router
 from app.routers.ingest import router as ingest_router
 from app.routers.integrations import router as integrations_router
 from app.routers.lookups import router as lookups_router
@@ -19,6 +20,7 @@ from app.routers.measurements import router as measurements_router
 from app.routers.plants import router as plants_router
 from app.routers.thresholds import router as thresholds_router
 from app.routers.users import router as users_router
+from app.services.schema_drift import report_schema_drift
 from app.services.seed import seed_role_users, seed_super_admin
 
 
@@ -30,6 +32,10 @@ async def lifespan(app: FastAPI):
         seed_role_users(db)
     finally:
         db.close()
+    # Advisory only: logs any database column the models do not declare, so
+    # drift is visible instead of silently unreadable. Never raises, so it
+    # cannot stop the API from starting.
+    report_schema_drift(engine)
     yield
 
 
@@ -89,6 +95,7 @@ app.include_router(auth_router)
 app.include_router(baselines_router)
 app.include_router(dashboard_router)
 app.include_router(equipment_router)
+app.include_router(exports_router)
 app.include_router(ingest_router)
 app.include_router(integrations_router)
 app.include_router(lookups_router)

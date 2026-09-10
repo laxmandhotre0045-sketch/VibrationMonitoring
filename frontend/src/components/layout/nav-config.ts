@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Cpu,
   Activity,
+  Database,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -37,6 +38,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Activity,
     active: true,
     matchPaths: ["/analysis"],
+    roles: ["super_admin", "admin", "user"],
+  },
+  {
+    path: "/sensor-data",
+    label: "Sensor Data",
+    icon: Database,
+    active: true,
+    matchPaths: ["/sensor-data"],
     roles: ["super_admin", "admin", "user"],
   },
   {
