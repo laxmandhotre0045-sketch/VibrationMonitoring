@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vibration Analysis Assistant</title>
+  <style>
+    :root { --bg: #0f1419; --card: #1a2332; --text: #e7ecf3; --muted: #8b9cb3; --accent: #3b82f6; --border: #2d3a4f; --warn: #f59e0b; --ok: #10b981; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    .layout { max-width: 960px; margin: 0 auto; padding: 24px; display: grid; gap: 16px; }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    select, textarea, input[type="file"], input[type="text"] { width: 100%; background: #0b1018; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+    textarea { min-height: 90px; resize: vertical; }
+    button { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-weight: 600; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+    .row > .grow { flex: 1 1 180px; }
+    .answer { white-space: pre-wrap; line-height: 1.5; }
+    .sources { display: grid; gap: 10px; margin-top: 12px; }
+    .source { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #121a26; }
+    .source h4 { margin: 0 0 6px; font-size: 0.9rem; }
+    .meta { color: var(--muted); font-size: 0.8rem; }
+    .status { font-size: 0.85rem; color: var(--muted); }
+    .badge { display: inline-block; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #2d3a4f; color: var(--accent); margin-right: 6px; }
+    .badge.warn { color: var(--warn); }
+    .source img { max-width: 100%; max-height: 200px; margin-top: 8px; border-radius: 6px; }
+    details { margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #121a26; }
+    summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+    .comp { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+    .comp:first-of-type { border-top: none; }
+    .comp code { display: block; white-space: pre-wrap; font-size: 0.8rem; color: var(--muted); margin: 4px 0; }
+    .comp .val { font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    .assump { color: var(--warn); font-size: 0.8rem; margin-top: 4px; }
+    .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .examples button { background: #232f43; color: var(--muted); font-weight: 400; font-size: 0.78rem; padding: 5px 9px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <header>
+      <h1>Vibration Analysis Assistant</h1>
+      <p class="status">Bearing fault frequencies, ISO 10816 severity, unit conversion, and fault diagnosis — grounded in the indexed vibration standards and textbooks. Every computed number shows its inputs and formula.</p>
+    </header>
+
+    <section class="card">
+      <h3>Reference documents</h3>
+      <div class="row">
+        <input type="file" id="pdfFile" accept=".pdf,.docx" class="grow" />
+        <button id="uploadBtn">Upload &amp; Index</button>
+      </div>
+      <p class="status" id="uploadStatus"></p>
+    </section>
+
+    <section class="card">
+      <h3>Ask</h3>
+      <div class="row">
+        <div class="grow">
+          <label for="docSelect">Document</label>
+          <select id="docSelect"><option value="">All ready documents</option></select>
+        </div>
+        <div class="grow">
+          <label for="modeSelect">Mode</label>
+          <select id="modeSelect">
+            <option value="graph">Vibration analyst (graph)</option>
+            <option value="agent">Document agent (legacy)</option>
+            <option value="simple">Simple retrieval</option>
+          </select>
+        </div>
+        <div class="grow">
+          <label for="machineId">Machine ID (optional)</label>
+          <input type="text" id="machineId" placeholder="P-101" />
+        </div>
+        <div class="grow">
+          <label for="pointId">Point (optional)</label>
+          <input type="text" id="pointId" placeholder="3H" />
+        </div>
+      </div>
+
+      <label for="question" style="margin-top:10px">Question</label>
+      <textarea id="question" placeholder="My 55 kW pump on a rigid foundation reads 4.9 mm/s RMS. The bearing is a 6205 at 1750 rpm — what's wrong and what should I do?"></textarea>
+      <div class="examples">
+        <button class="ex">Compute BPFO for an SKF 6205 at 1750 rpm</button>
+        <button class="ex">Is 4.9 mm/s RMS acceptable for a 55 kW pump on a rigid foundation?</button>
+        <button class="ex">Convert 1 g RMS at 100 Hz to mm/s</button>
+        <button class="ex">What causes oil whirl and how do I confirm it?</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="askBtn">Ask</button>
+        <span class="status" id="askStatus"></span>
+      </div>
+
+      <div id="answerBlock" style="margin-top:16px; display:none">
+        <h3>Answer <span id="routeBadge"></span></h3>
+        <div class="answer" id="answer"></div>
+        <div id="computationsBlock"></div>
+        <div id="plotsBlock"></div>
+        <h3 style="margin-top:16px">Sources</h3>
+        <div class="sources" id="sources"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let sessionId = localStorage.getItem('rag_session_id') || '';
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    const api = (path, opts = {}) => fetch(path, opts).then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      return data;
+    });
+
+    async function refreshDocs() {
+      const docs = await api('/api/v1/documents');
+      const select = $('docSelect');
+      select.innerHTML = '<option value="">All ready documents</option>';
+      docs.filter(d => d.status === 'ready').forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.doc_id;
+        opt.textContent = `${d.title} (${d.chunk_count} chunks)`;
+        select.appendChild(opt);
+      });
+    }
+
+    document.querySelectorAll('.ex').forEach(b => {
+      b.onclick = () => { $('question').value = b.textContent; };
+    });
+
+    $('uploadBtn').onclick = async () => {
+      const file = $('pdfFile').files[0];
+      if (!file) return alert('Choose a PDF or Word document first');
+      $('uploadStatus').textContent = 'Uploading and processing...';
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await api('/api/v1/documents/upload', { method: 'POST', body: fd });
+        $('uploadStatus').textContent = `Uploaded: ${res.doc_id} (${res.status})`;
+        await refreshDocs();
+      } catch (e) {
+        $('uploadStatus').textContent = `Error: ${e.message}`;
+      }
+    };
+
+    // The auditability surface: an engineer trusts a number when they can see
+    // the inputs, the formula, and what was assumed.
+    function renderComputations(computations) {
+      const block = $('computationsBlock');
+      block.innerHTML = '';
+      if (!computations || !computations.length) return;
+
+      const details = document.createElement('details');
+      details.open = true;
+      const estimated = computations.filter(c => c.confidence < 1).length;
+      details.innerHTML = `<summary>Computations (${computations.length})${estimated ? ` — ${estimated} with assumptions` : ''}</summary>`;
+
+      computations.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'comp';
+        const inputs = Object.entries(c.inputs || {}).map(([k, v]) => `${k}=${v}`).join(', ');
+        const conf = c.confidence < 1
+          ? `<span class="badge warn">confidence ${c.confidence.toFixed(2)}</span>` : '';
+        const cited = c.supporting_chunk_id
+          ? `<div class="meta">grounded by ${esc(c.supporting_doc_id)} · ${esc(c.supporting_chunk_id)}</div>` : '';
+        const assumptions = (c.assumptions || [])
+          .map(a => `<div class="assump">⚠ ${esc(a)}</div>`).join('');
+        div.innerHTML = `
+          <h4><span class="badge">${esc(c.id)}</span>${esc(c.tool)}${conf}</h4>
+          <div class="meta">inputs: ${esc(inputs)}</div>
+          <div class="val">${esc(c.summary)}</div>
+          ${c.formula ? `<code>${esc(c.formula)}</code>` : ''}
+          ${assumptions}${cited}`;
+        details.appendChild(div);
+      });
+      block.appendChild(details);
+    }
+
+    function renderPlots(plots) {
+      const block = $('plotsBlock');
+      block.innerHTML = '';
+      if (!plots || !plots.length) return;
+      plots.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'source';
+        div.innerHTML = `<h4>${esc(p.title || p.kind)}</h4><img src="${esc(p.url)}" alt="${esc(p.title)}" />`;
+        block.appendChild(div);
+      });
+    }
+
+    $('askBtn').onclick = async () => {
+      const question = $('question').value.trim();
+      if (!question) return;
+      const mode = $('modeSelect').value;
+      const body = { question, top_k: 6 };
+      const docId = $('docSelect').value;
+      if (docId) body.doc_ids = [docId];
+      if (sessionId) body.session_id = sessionId;
+      if ($('machineId').value.trim()) body.machine_id = $('machineId').value.trim();
+      if ($('pointId').value.trim()) body.point_id = $('pointId').value.trim();
+
+      $('askBtn').disabled = true;
+      $('askStatus').textContent = 'Thinking...';
+      try {
+        const res = await api(`/api/v1/chat?mode=${encodeURIComponent(mode)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        sessionId = res.session_id;
+        localStorage.setItem('rag_session_id', sessionId);
+
+        $('answer').textContent = res.answer;
+        $('routeBadge').innerHTML = res.route ? `<span class="badge">${esc(res.route)}</span>` : '';
+        renderComputations(res.computations);
+        renderPlots(res.plots);
+
+        const sources = $('sources');
+        sources.innerHTML = '';
+        (res.sources || []).forEach(s => {
+          const div = document.createElement('div');
+          div.className = 'source';
+          const badge = s.chunk_type && s.chunk_type !== 'clause'
+            ? `<span class="badge">${esc(s.chunk_type)}</span>` : '';
+          const img = s.asset_url ? `<img src="${esc(s.asset_url)}" alt="Figure source" />` : '';
+          div.innerHTML = `<h4>${badge}${esc(s.section_path)}</h4><div class="meta">pp.${s.page_start}-${s.page_end} · score ${s.score} · ${esc(s.doc_id)}</div><p>${esc(s.text)}</p>${img}`;
+          sources.appendChild(div);
+        });
+        $('answerBlock').style.display = 'block';
+        $('askStatus').textContent = '';
+      } catch (e) {
+        $('askStatus').textContent = `Error: ${e.message}`;
+      } finally {
+        $('askBtn').disabled = false;
+      }
+    };
+
+    refreshDocs().catch(() => {});
+  </script>
+</body>
+</html>

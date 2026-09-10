@@ -1,0 +1,210 @@
+{# Condition monitoring report -- Markdown.
+
+   Every quantity in here comes from the ledger. Where a figure appears it is
+   followed by its provenance mark: (M) measured on the machine, (C) computed
+   by the unit-tested domain library, (R) read from an indexed reference.
+   Nothing in this template invents a value, and nothing in it is written by a
+   language model. #}
+# Vibration Condition Report
+
+**{{ identity.machine_name or "Unknown machine" }}**
+{{ identity.mounting_location }}{% if identity.orientation %} ({{ identity.orientation }}){% endif %}
+
+| | |
+|---|---|
+| Machine | {{ identity.machine_name }}{% if identity.machine_id %} &nbsp;·&nbsp; `{{ identity.machine_id }}`{% endif %} |
+| Type | {{ identity.machine_type or "not recorded" }} |
+| Location | {{ identity.plant }}{% if identity.area %} / {{ identity.area }}{% endif %}{% if identity.line %} / {{ identity.line }}{% endif %} |
+| Measurement point | {{ identity.mounting_location }}{% if identity.orientation %}, {{ identity.orientation }}{% endif %} |
+| Sensor | {{ identity.sensor_type or "not recorded" }} &nbsp;·&nbsp; `{{ identity.sensor_id }}` |
+| Reporting window | {{ dataset.window }} |
+| Captures analysed | {{ dataset.captures }}{% if dataset.captures_available and dataset.captures_available != dataset.captures %} of {{ dataset.captures_available }} available{% endif %} |
+| Report generated | {{ meta.generated_at }} |
+
+---
+
+## 1. Summary
+
+{% if assessment -%}
+{# Every figure below comes through ref(), so it is a ledger value rather than
+   a number typed into prose. The verifier rejects this section otherwise. #}
+**{{ assessment.headline }}.** Of {{ ref(assessment.rows_fact) }} threshold assessments across {{ ref(assessment.channels_fact) }} channels, **{{ ref(assessment.critical_fact) }} are critical** and {{ ref(assessment.warning_fact) }} are at warning.{% if assessment.no_baseline %} {{ ref(assessment.no_baseline_fact) }} were not assessed because this sensor has no healthy baseline for those features — *not assessed is not the same as healthy*.{% endif %}
+{%- else -%}
+The summary could not be produced.
+{%- endif %}
+
+{% if calibration and calibration.suspect %}
+> ### ⚠ These thresholds have not been calibrated for this sensor
+>
+> {{ calibration.note }}
+>
+> | Feature | Readings critical | Range measured |
+> |---|---:|---|
+{% for f in calibration.suspect %}
+> | {{ f.name }} | {{ f.critical_share }}% of {{ f.readings }} | {{ "%.5g"|format(f.min) }} to {{ "%.5g"|format(f.max) }} {{ f.unit }} |
+{% endfor %}
+>
+> **This is not a finding about the machine.** Until a healthy baseline exists for this
+> sensor and the thresholds are set from it, the statuses above describe the configuration
+> rather than the equipment.
+{% endif %}
+
+{% if integrity and integrity.identical %}
+> ### ⚠ These captures are not a history
+>
+> {{ integrity.note }}
+>
+> Files seen: {% for f in integrity.filenames %}`{{ f }}`{% if not loop.last %}, {% endif %}{% endfor %} .
+>
+> Everything below describes **one measurement**. Trend figures are shown as
+> unavailable rather than flat, because a flat line here would be an artefact of
+> repeated ingestion, not an observation about the machine.
+{% endif %}
+
+---
+
+## 2. Feature readings
+
+{% if features -%}
+Worst reading per feature across all channels, with the channel and capture it came from.
+
+| Feature | Worst reading | Ch. | Status | Latest | Trend |
+|---|---:|---:|---|---:|---|
+{% for f in features -%}
+| {{ f.name }} | {{ f.worst_value }} <sup>(M)</sup> | {{ f.worst_channel }} | {{ f.worst_status }} | {{ f.latest_value }} | {% if integrity and integrity.identical %}not assessable{% elif f.change_pct is not none %}{{ "%+.0f"|format(f.change_pct) }}% {{ f.direction }}{% else %}—{% endif %} |
+{% endfor %}
+
+{% set critical_features = features | selectattr("worst_status", "equalto", "critical") | list -%}
+{% if critical_features -%}
+**Features carrying a critical reading:**
+{% for f in critical_features %}
+- **{{ f.name }}** — {{ f.worst_value }} on channel {{ f.worst_channel }} ({{ f.channels_critical }} of {{ f.channels_total }} channels critical)
+{% endfor %}
+{%- endif %}
+{%- else -%}
+No feature data was available for this window.
+{%- endif %}
+
+---
+
+## 3. Running speed and velocity
+
+{% if shaft and shaft.ok -%}
+Shaft speed **{{ ref(shaft.fact) }}** ({{ "%.4g"|format(shaft.hz) }} Hz), estimated from the
+vibration spectrum and agreed by {{ shaft.agreeing|length }} of
+{{ shaft.agreeing|length + shaft.dissenting.values()|map('length')|sum }} channels.
+{% if shaft.note %}
+
+{{ shaft.note }}
+{% endif %}
+
+> No capture records a tachometer reading, so this is derived from the signal rather than
+> measured. Every order and bearing frequency below inherits that uncertainty.
+{%- else -%}
+{{ shaft.reason if shaft else "Shaft speed was not determined." }}
+{%- endif %}
+
+{% if velocity and velocity.ok %}
+**1X amplitude converted to velocity:** {{ ref(velocity.fact) }}, integrated at the shaft
+speed on channel {{ velocity.channel }} &mdash; {{ velocity.assumption }}.
+
+{% if velocity.implausible %}
+> ### ⚠ This velocity is not physically plausible
+>
+> ISO 10816-3 places the boundary above which vibration is expected to damage a machine at
+> 7.1&ndash;11.0 mm/s depending on group and mounting. The value above is several times that,
+> at the 1X component alone. A pump genuinely running here would be audibly failing.
+>
+> The likely explanations, in order: the source file is synthetic test data rather than a
+> real measurement; the stored values are not in the unit assumed; or the acquisition chain
+> is mis-scaled. **No severity zone has been assigned, and this figure should not be acted
+> on** until the acquisition chain is confirmed against a known reference.
+{% endif %}
+{% elif velocity %}
+**Velocity was not derived.** {{ velocity.reason }}
+{% endif %}
+
+---
+
+## 4. ISO 10816-3 reference limits
+
+{% if iso and iso.ok -%}
+{% if not iso.comparable -%}
+> **These limits are shown for reference and cannot be applied to the readings above.**
+>
+> ISO 10816-3 zone boundaries are expressed in **mm/s RMS**, broadband 10–1000 Hz,
+> measured on non-rotating parts. The readings in section 2 are stored in
+> {% for u in iso.units_seen %}`{{ u }}`{% if not loop.last %}, {% endif %}{% endfor %} —
+> the platform's own scaled engineering units. Comparing the two would produce a
+> zone the data does not support, so **no zone has been assigned**.
+>
+> To obtain an ISO zone, convert the broadband velocity to mm/s RMS and use the
+> unit-tested tool: `python scripts/vib_cli.py iso --vrms <value> --power-kw <kW> --type <machine> --foundation <rigid|flexible>`
+{%- endif %}
+
+{% if iso.ambiguous %}
+{{ iso.ambiguity_note }}
+{% endif %}
+
+{% for t in iso.tables %}
+**Group {{ t.group }} — {{ t.group_name }}, {{ t.support }} support** <sup>(C)</sup>
+{{ t.scope }}
+
+| Boundary | Velocity |
+|---|---:|
+{% for name, value in t.boundaries.items() -%}
+| Zone {{ name }} | {{ value }} mm/s RMS |
+{% endfor %}
+{% endfor %}
+
+{{ iso.convention }}
+{%- else -%}
+{{ iso.reason if iso else "ISO reference limits were not determined." }}
+{%- endif %}
+
+---
+
+## 5. What was and was not established
+
+{% if meta.incomplete -%}
+**Incomplete sections:**
+{% for item in meta.incomplete %}
+- **{{ item.section }}** — {{ item.why }}
+{%- endfor %}
+{% else -%}
+Every section of this report completed.
+{%- endif %}
+
+**Not attempted in this report:**
+
+- No bearing fault frequencies. A shaft speed is now available, but no machine profile is
+  registered for this machine, so the bearing geometry needed to compute BPFO/BPFI/BSF/FTF
+  is unknown.
+- No ISO severity zone. The standard grades broadband velocity over 10-1000 Hz; only the 1X
+  component has been converted, and it is a lower bound on that band.
+- No trend analysis{% if integrity and integrity.identical %}, because the captures are identical{% endif %}.
+
+---
+
+## 6. Provenance
+
+Every figure in this report, with where it came from. **(M)** measured on the
+machine, **(C)** computed by `app/domain` (unit-tested against published
+references), **(R)** read from an indexed document.
+
+| Id | Quantity | Value | | Source |
+|---|---|---:|---|---|
+{% for f in facts -%}
+| `{{ f.id }}` | {{ f.label }} | {{ f.rendered }} | {{ f.mark }} | {{ f.source }} |
+{% endfor %}
+
+### Caveats carried by this data
+
+{% for c in caveats %}
+- {{ c }}
+{%- endfor %}
+
+---
+
+<sub>Generated by report_agent · {{ meta.generated_at }} · {{ facts|length }} facts ·
+no value in this report was written by a language model.</sub>

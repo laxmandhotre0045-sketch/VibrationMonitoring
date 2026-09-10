@@ -1,0 +1,18 @@
+{
+  "machine_id": "P-101",
+  "name": "Boiler feed pump 101",
+  "type": "pump",
+  "driver": {"kind": "motor", "power_kw": 55, "poles": 4, "line_freq_hz": 50, "rated_rpm": 1480},
+  "driven": {"kind": "centrifugal_pump", "rated_rpm": 1480, "n_vanes": 7},
+  "coupling": {"kind": "direct"},
+  "foundation": "rigid",
+  "bearings": [
+    {"position": "motor_de", "designation": "6312", "shaft": "driver"},
+    {"position": "pump_de", "designation": "6310", "shaft": "driven"}
+  ],
+  "points": [
+    {"point_id": "1H", "location": "motor_de", "direction": "H"},
+    {"point_id": "3H", "location": "pump_de", "direction": "H"},
+    {"point_id": "3A", "location": "pump_de", "direction": "A"}
+  ]
+}
