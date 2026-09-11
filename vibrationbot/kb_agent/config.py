@@ -79,7 +79,7 @@ CAVEATS = [
     "almost identically and the limits do not transfer. The corpus does "
     "discuss ISO 10816 (Cat2 chapter 19, PDF pp.558-562), but its zone "
     "boundaries live in figures rather than text, so they are not quotable "
-    "here -- use the vib_cli.py iso tool for an actual zone.",
+    "here -- use the separate iso_agent for an actual zone.",
     "Displayed equations were largely lost at PDF extraction. In the Mobius "
     "Cat 2 material they survive as empty brackets such as '[ ( ) ( )]', and "
     "the surrounding prose still says 'using the formula below'. Ask this "

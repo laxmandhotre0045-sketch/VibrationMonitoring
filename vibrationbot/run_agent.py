@@ -140,6 +140,44 @@ def _other_agents_paths(chosen: AgentSpec) -> dict[str, Path]:
 # --------------------------------------------------------------------- run --
 
 
+#: Flags the runner owns. Everything else on the line belongs to the agent.
+_RUNNER_FLAGS = {"--with-books", "--no-isolation-check"}
+_RUNNER_OPTIONS = {"--model"}  # take a value
+
+
+def _split_runner_flags(raw: list[str]) -> tuple[list[str], list[str]]:
+    """Separate the runner's own arguments from the agent's.
+
+    Returns (runner args + agent name, everything for the agent). The agent
+    name is whatever comes first that is not one of ours, so the flags may sit
+    on either side of it.
+    """
+    flags: list[str] = []
+    agent: list[str] = []
+    rest: list[str] = []
+    i = 0
+    while i < len(raw):
+        token = raw[i]
+        if token in _RUNNER_FLAGS:
+            flags.append(token)
+        elif token in _RUNNER_OPTIONS:
+            flags.append(token)
+            if i + 1 < len(raw):
+                i += 1
+                flags.append(raw[i])
+        elif any(token.startswith(f"{opt}=") for opt in _RUNNER_OPTIONS):
+            flags.append(token)
+        elif not agent and not token.startswith("-"):
+            agent.append(token)
+        else:
+            rest.append(token)
+        i += 1
+    # Flags first, then the agent name. argparse.REMAINDER starts collecting at
+    # the first token after the positional, so anything of ours left behind it
+    # would be handed to the agent instead of being parsed here.
+    return flags + agent, rest
+
+
 def _run(spec: AgentSpec, argv: list[str]) -> int:
     """Import the chosen agent and hand it its arguments."""
     module = importlib.import_module(f"{spec.module}.__main__")
@@ -166,7 +204,16 @@ def main(argv: list[str] | None = None) -> int:
                         help="Skip the before/after check on other agents' data")
     parser.add_argument("rest", nargs=argparse.REMAINDER,
                         help="Arguments passed through to the agent")
-    args = parser.parse_args(argv)
+
+    # The runner's own flags are lifted out of argv first. argparse.REMAINDER
+    # swallows everything after the agent name, so without this the documented
+    # form -- "run_agent.py kb --with-books ask ..." -- silently passed
+    # --with-books to the agent and the runner never saw it. Flags are pulled
+    # from anywhere rather than forced before the agent name, because putting
+    # them after it is what a reader will type.
+    raw = list(sys.argv[1:] if argv is None else argv)
+    mine, passthrough = _split_runner_flags(raw)
+    args = parser.parse_args(mine + passthrough)
 
     if args.agent == "list":
         print("Agents:\n")
