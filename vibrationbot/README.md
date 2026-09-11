@@ -101,9 +101,48 @@ legacy prompts are untouched.
 
 ---
 
+## The four agents (terminal only, not wired into the dashboard)
+
+Each does one job and runs on its own. `run_agent.py` launches any one of them,
+loads only what that agent needs, and checks afterwards that it left the others'
+data alone.
+
+```bash
+python run_agent.py list                      # what is available
+
+python run_agent.py iso    "zone B/C for a 55 kW pump, separate driver, rigid"
+python run_agent.py sql    data "cooling water pump"
+python run_agent.py report build "cooling water pump" --separate-driver
+python run_agent.py kb --with-books ask "what causes oil whirl"
+```
+
+| Agent | Does | Notes |
+|---|---|---|
+| `iso_agent` | ISO 10816-3 severity limits | **No language model at all** — regex parse, table lookup, code-assembled answer. No API key, no index. |
+| `sql_agent` | Pulls sensor, capture and feature rows from the platform API | Columns derived from the data received, not a declared list |
+| `report_agent` | Builds a condition report | 8 steps, provenance ledger, verifier that blocks on any untraceable number |
+| `kb_agent` | Answers from the 8 indexed books | Opt-in behind `--with-books`: the only one that loads the index and calls a paid API |
+
+Three things the runner does that `python -m <agent>` does not: it defers imports
+until the agent is chosen (so the SQL agent pulls in no faiss and no embedding
+model), it sets one model for every agent that uses one, and it fingerprints
+every *other* agent's write paths before and after the run. That last one is
+checked, not asserted — pointing the report agent's `--out` into the SQL agent's
+export directory reports `ISOLATION : FAILED`.
+
+Each agent also still runs directly: `python -m iso_agent`, `python -m sql_agent`,
+and so on.
+
+---
+
 ## Architecture
 
 ```
+run_agent.py   one entry point; lazy import, isolation check
+iso_agent/     ISO 10816-3 limits — no model, lookup only
+sql_agent/     platform data, schema-driven export
+report_agent/  8-step report pipeline, fact ledger, verifier
+kb_agent/      question answering over the indexed books
 app/
   domain/      deterministic vibration math — no LangChain, no OpenAI
   chat/        the three chat modes; chat/graph/ is the LangGraph analyst

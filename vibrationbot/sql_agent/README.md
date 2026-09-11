@@ -71,7 +71,14 @@ It survives new feature codes without a schema change, and loads into pandas or
 a database without reshaping. Machine identity repeats on every row so a row
 detached from its result still says where it came from.
 
-27 columns, in `CSV_COLUMNS`:
+**Columns are derived from the data, not declared.** `discover_columns()` reads
+the keys the platform actually returned; there is no list of expected fields to
+fall out of step. Against the reference pump this yields **97 columns**.
+
+`PREFERRED_COLUMN_ORDER` fixes the order of the 27 that existed first, so a file
+opened by a human or an old script reads the way it always has. Anything the
+platform adds appears after them, sorted. It is an *order*, not a whitelist, and
+nothing is dropped for being absent from it:
 
 ```
 identity   sensor_id device_id machine_id machine_name machine_type
@@ -79,7 +86,27 @@ identity   sensor_id device_id machine_id machine_name machine_type
 capture    upload_id source original_filename observed_at measured_at
            created_at rotation_speed_rpm sample_count channel_count
 reading    channel feature_code feature_name value unit status computed_at
++ everything else the platform returns - equipment nameplate, bearing
+  numbers, sensor sensitivity, per-feature metadata, and so on
 ```
+
+`CSV_COLUMNS` still exists as an alias for that order so existing callers keep
+working.
+
+### Why it works this way
+
+The previous version was the opposite: a fixed list of 27 names with
+`DictWriter(extrasaction="ignore")` silently discarding everything else. No
+error, no warning.
+
+That cost us the shaft speed. The platform had already computed it and stored it
+in a field called `metadata`, which was not on the list, so it was thrown away in
+transit and the machine's speed appeared to be unknown. `schema_report()` now
+names anything gained or lost, so the next such change announces itself.
+
+Collisions are qualified rather than overwritten: sensor, equipment, capture and
+feature each carry a `created_at`, and a plain merge would keep one and lose
+three. The capture owns the unqualified name, as this export has always meant.
 
 ---
 

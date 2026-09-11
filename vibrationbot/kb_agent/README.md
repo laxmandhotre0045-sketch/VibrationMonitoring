@@ -27,14 +27,18 @@ excerpt, and the excerpt is printed beside the answer so you can check it.
 ## The corpus, as it actually stands
 
 ```
-cat2                  Mobius Institute Category 2 course material   1841 chunks, 150 figures
-condition_monitoring  Condition Monitoring with Vibration Signals   1766 chunks,  71 figures
-test_sample_docx      HR DOCX Manual (ingestion test fixture)          3 chunks
+cat2                           Mobius Institute Category 2 course material   1,841 chunks
+cat3                           Mobius Institute Category 3 course material   1,587 chunks
+condition_monitoring           Condition Monitoring with Vibration Signals    1,766 chunks
+dsp_guide                      The Scientist and Engineer's Guide to DSP      2,942 chunks
+iso_10816_3_2009               ISO 10816-3:2009                                  76 chunks
+noise_and_vibration_analysis   Noise and Vibration Analysis                   1,773 chunks
+practical_machinery_vibration  Practical Machinery Vibration Analysis           882 chunks
+rolling_bearing_analysis       Rolling Bearing Analysis, 4th edition          2,192 chunks
+test_sample_docx               HR DOCX Manual (ingestion test fixture)            3 chunks
 ```
 
-**Two real books, not four.** The other PDFs sitting in `vibrationbot/` — ISO 10816-3,
-Cat3, and three more vdoc.pub textbooks — are *not ingested*. They are files on disk that
-nothing has indexed. To add them:
+**Eight books, 13,059 chunks.** To add another:
 
 ```bash
 python scripts/ingest_folder.py .          # ingest every PDF in a folder
@@ -143,7 +147,7 @@ For calculations, use the domain tools, which are unit-tested against published 
 
 ```bash
 python scripts/vib_cli.py bearing --designation "SKF 6205-2RS" --rpm 1750
-python scripts/vib_cli.py iso --vrms 4.9 --power-kw 55 --type pump --foundation rigid
+python -m iso_agent "is 4.9 mm/s acceptable on a 55 kW pump, separate driver, rigid?"
 ```
 
 ---
@@ -218,7 +222,7 @@ rotordynamics text and the same question will answer.
 
 | Instead of | Ask |
 |---|---|
-| "Is 4.9 mm/s bad?" | "What do the ISO evaluation zones mean and how are the boundaries defined?" — then run `vib_cli.py iso` for the actual zone |
+| "Is 4.9 mm/s bad?" | "What do the ISO evaluation zones mean and how are the boundaries defined?" — then `python -m iso_agent` for the actual zone |
 | "What's the BPFO formula?" | "What is Ball Pass Frequency Outer race and what inputs does its calculation need?" |
 | "Bearing noise" | "Rolling element bearing outer race defect spectrum" |
 | "My pump vibrates" | "Centrifugal pump vane pass frequency vibration causes" |
