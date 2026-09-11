@@ -93,15 +93,14 @@ Rules:
   such as bearing housings. Their zone letters read almost identically and their limits do
   not transfer. If the excerpts only cover one of them, say which one you used and warn that
   it may not be the one the engineer is measuring.
-- NEVER READ A VIBRATION LIMIT OUT OF AN EXCERPT. For any numeric severity limit or zone
-  boundary, call iso_zone_limits and quote what it returns. The ingested copy of ISO 10816-3
-  contains only the Group 1 and Group 2 tables; pumps belong to Groups 3 and 4 whatever their
-  power, so a pump's limit is NOT IN THE DOCUMENT AT ALL and any figure you find for one is
-  the wrong row. The tool holds all four groups and is unit-tested against the published
-  values. If it reports the machine is ambiguous, give both answers and ask the question that
-  separates them -- do not choose.
-  Cite the document for what a zone MEANS and what action it implies; cite the tool for the
-  number.
+- NEVER READ A VIBRATION LIMIT OUT OF AN EXCERPT. This agent does not answer numeric
+  severity limits at all; a separate agent does, from unit-tested tables. The ingested copy
+  of ISO 10816-3 contains only the Group 1 and Group 2 tables; pumps belong to Groups 3 and 4
+  whatever their power, so a pump's limit is NOT IN THE DOCUMENT AT ALL and any figure you
+  find for one is the wrong row.
+  Explain what a zone MEANS and what action it implies -- that is what the books are good
+  for. For the number itself, say it must come from `python -m iso_agent "<the question>"`
+  and do not quote a figure of your own.
 - CHECK THE TABLE'S SCOPE BEFORE QUOTING ITS NUMBER. Standards tables are scoped by machine
   class, rated power, shaft height or speed, and the scope is stated in the table's own
   title. If the question names a machine -- "a 55 kW pump" -- find the table whose scope
@@ -241,9 +240,12 @@ Answer:"""
 # --------------------------------------------------------------------------
 
 
-#: A question asking for a severity limit rather than an explanation.
+#: A question asking for a severity limit rather than an explanation. The limits
+#: themselves now belong to iso_agent; this only recognises when to say so.
 _ASKS_LIMIT_RE = re.compile(
-    r"\b(zone\s*[a-d]\s*(to|/|-)\s*zone\s*[a-d]|zone boundar|"
+    # Second "zone" optional: "zone B/C boundary" is the usual phrasing and
+    # requiring it twice missed exactly the question this most needs to catch.
+    r"\b(zone\s*[a-d]\s*(to|/|-)\s*(zone\s*)?[a-d]\b|zone boundar|"
     r"(vibration|severity|acceptab\w+|allowab\w+|permissib\w+)\s+limit|"
     r"limit .*\b(mm/s|iso)\b|how (high|much) .*(too|acceptable)|"
     r"\biso\s*(10816|20816)\b.*\b(limit|boundar|zone|mm/s)\b|"
@@ -255,113 +257,8 @@ _ASKS_LIMIT_RE = re.compile(
     r"\b(acceptab\w+|too high|within limits)\b.{0,40}\b\d+(\.\d+)?\s*mm\s*/\s*s)",
     re.IGNORECASE,
 )
-_POWER_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(kw|mw|hp)\b", re.IGNORECASE)
-_MACHINE_RE = re.compile(
-    r"\b(pump|motor|fan|blower|compressor|turbine|generator|gearbox|machine)\b",
-    re.IGNORECASE,
-)
-_FOUNDATION_RE = re.compile(r"\b(rigid|flexible)\b", re.IGNORECASE)
-_INTEGRATED_RE = re.compile(r"\bintegrated\s+driver\b", re.IGNORECASE)
-_SEPARATE_RE = re.compile(r"\bseparate\s+driver\b", re.IGNORECASE)
 
 
-def _forced_iso_lookup(question: str) -> dict[str, Any] | None:
-    """Run the ISO tool in code when the question asks for a limit.
-
-    The system prompt instructs the model to call ``iso_zone_limits`` for any
-    numeric limit. Measured, it does not: asked for a 55 kW pump's Zone B/C
-    boundary it went on reading Table A.2 out of the document and never touched
-    the tool. That is the same failure as the search planner -- an instruction
-    the model is free to skip is not a guarantee -- and it has the same fix.
-
-    The lookup happens here, before the model gets a turn, and its result is
-    put into evidence like any other passage. The model may then quote it or
-    ignore it, but it can no longer fail to have it.
-    """
-    if not question or not _ASKS_LIMIT_RE.search(question):
-        return None
-
-    power = None
-    match = _POWER_RE.search(question)
-    if match:
-        value, unit = float(match.group(1)), match.group(2).lower()
-        power = value * 1000 if unit == "mw" else value * 0.7457 if unit == "hp" else value
-
-    machine = (_MACHINE_RE.search(question) or [None, "machine"])[1]
-    foundation = (_FOUNDATION_RE.search(question) or [None, None])[1]
-    integrated: bool | None = None
-    if _INTEGRATED_RE.search(question):
-        integrated = True
-    elif _SEPARATE_RE.search(question):
-        integrated = False
-
-    from kb_agent.tools_iso import iso_zone_limits
-
-    try:
-        payload = iso_zone_limits(
-            machine_type=machine or "machine",
-            power_kw=power,
-            foundation=foundation.lower() if foundation else None,
-            integrated_driver=integrated,
-        )
-    except Exception as exc:  # noqa: BLE001 -- never fail the turn over this
-        logger.warning("Forced ISO lookup failed: %s", exc)
-        return None
-
-    return {
-        "_payload": payload,
-        "doc_id": "iso10816_reference",
-        "chunk_id": "velocity_zone_limits",
-        "chunk_type": "computed",
-        "section_path": "ISO 10816-3 velocity zone limits",
-        "page_start": 0,
-        "page_end": 0,
-        "score": 99.0,  # authoritative: always reaches the answer
-        "text": (
-            "AUTHORITATIVE ZONE LIMITS from app/domain/iso10816 (unit-tested against "
-            "the published values, covering all four groups; the ingested PDF covers "
-            "only Groups 1 and 2). Quote these figures, not any table in a document "
-            "excerpt.\n" + payload
-        ),
-    }
-
-
-def _iso_answer_block(payload: str) -> str:
-    """Format the authoritative limits as text, in code.
-
-    The last resort, and necessary. Injecting the tool's JSON as evidence was
-    not enough: handed Group 3 (2.3 / 4.5 / 7.1) and Group 4 (1.4 / 2.8 / 4.5)
-    the model reported 2.8 for both. It cannot be relied on to read a value out
-    of a structured table any more than out of a flattened one.
-
-    So the figures are written here and placed above the narrative. The model's
-    prose becomes commentary on a statement it did not produce and cannot
-    alter, which is the only arrangement that has held under measurement.
-    """
-    try:
-        data = json.loads(payload)
-    except Exception:  # noqa: BLE001
-        return ""
-    if data.get("error"):
-        return ""
-
-    lines = ["ISO 10816-3 zone boundaries -- from app/domain/iso10816, unit-tested:", ""]
-    if data.get("ambiguous"):
-        lines.append("  " + " ".join(data["ambiguous"].split()))
-        lines.append("")
-    for entry in data.get("results", []):
-        lines.append(
-            f"  Group {entry['group']} -- {entry['group_name']}, {entry['support']} support"
-        )
-        bounds = entry["boundaries_mm_s_rms"]
-        lines.append(
-            "      "
-            + "     ".join(f"{name} {value} mm/s" for name, value in bounds.items())
-        )
-    lines.append("")
-    lines.append("  mm/s RMS, broadband 10-1000 Hz, measured on non-rotating parts.")
-    lines.append("  A value exactly on a boundary belongs to the LOWER zone.")
-    return "\n".join(lines)
 
 
 class SearchPlan(BaseModel):
@@ -630,14 +527,6 @@ class KnowledgeBaseAgent:
             if d["doc_id"] in active
         )
 
-        # Authoritative limits go in before any search, so the model can never
-        # be in the position of having only the document's incomplete tables.
-        iso_fact = _forced_iso_lookup(question)
-        iso_payload = iso_fact.pop("_payload", "") if iso_fact else ""
-        if iso_fact is not None:
-            store.add([iso_fact])
-            trace.append({"step": "iso lookup", "detail": "authoritative limits injected"})
-
         planned_queries = self._plan(question, trace)
         for query in planned_queries:
             step = time.perf_counter()
@@ -771,11 +660,6 @@ class KnowledgeBaseAgent:
                 ]
             )
             answer = (getattr(final, "content", "") or "").strip()
-            block = _iso_answer_block(iso_payload) if iso_payload else ""
-            if block:
-                # Stated by code, above the prose. The model may explain these
-                # figures; it did not choose them and cannot change them.
-                answer = block + "\n\n" + answer
             answer, repaired = _enforce_verbatim_equations(answer, excerpts)
             if repaired:
                 logger.info("Restored verbatim equation(s): %s", ", ".join(repaired))
@@ -784,6 +668,7 @@ class KnowledgeBaseAgent:
             if unsupported_std:
                 logger.warning("Unsupported standard reference(s): %s", unsupported_std)
             answer = _flag_scoped_limits(answer, question)
+            answer = _refer_limits_to_iso_agent(answer, question)
         except Exception as exc:  # noqa: BLE001
             return _fail("kb_answer", f"Could not generate the answer: {exc}")
 
@@ -954,11 +839,21 @@ SCOPED_LIMIT_WARNING = (
     "Note: selecting the right row of a standards severity table -- the right "
     "machine group, support class and column -- is NOT reliable from this "
     "agent. Measured over five runs of one question it chose correctly once. "
-    "The number above may be from the wrong group or the wrong column. Confirm "
-    "it with the deterministic tool, which is unit-tested against the published "
+    "Any figure above may be from the wrong group or the wrong column. The "
+    "limits live in a separate agent that looks them up rather than reading "
+    "them, covering all four groups and unit-tested against the published "
     "values:\n"
-    "    python scripts/vib_cli.py iso --vrms <value> --power-kw <kW> "
-    "--type <machine> --foundation <rigid|flexible>"
+    '    python -m iso_agent "<your question>"'
+)
+
+#: Appended whenever the question asks for a limit, whether or not the answer
+#: stated one. Silence would be worse: a reader who asked for a number and got
+#: prose may take the nearest figure in that prose as the answer.
+LIMIT_REFERRAL = (
+    "This agent explains what the standards say and what a zone means. It does "
+    "not supply severity limits -- the ingested ISO 10816-3 covers Groups 1 and "
+    "2 only, so a pump's limit is not in it at any power. For the number:\n"
+    '    python -m iso_agent "<your question>"'
 )
 
 
@@ -980,9 +875,25 @@ def _flag_scoped_limits(answer: str, question: str) -> str:
         return answer
     if not _LIMIT_RE.search(answer):
         return answer
-    if "vib_cli" in answer:
+    if "iso_agent" in answer:
         return answer
     return f"{answer.rstrip()}\n\n{SCOPED_LIMIT_WARNING}"
+
+
+def _refer_limits_to_iso_agent(answer: str, question: str) -> str:
+    """Point a limits question at the agent that can answer it.
+
+    The ISO lookup used to run inside this agent, in code, because the model
+    could not be trusted to read the right row out of a table. It is now its
+    own agent, which leaves a gap: a reader asks for a limit here and gets
+    prose back. Naming where the number actually lives closes that gap, and
+    costs one paragraph.
+    """
+    if not answer or not _ASKS_LIMIT_RE.search(question or ""):
+        return answer
+    if "iso_agent" in answer:
+        return answer
+    return f"{answer.rstrip()}\n\n{LIMIT_REFERRAL}"
 
 
 def _annotate_equations(answer: str, excerpts: list[dict[str, Any]]) -> str:

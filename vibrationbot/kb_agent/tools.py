@@ -27,7 +27,6 @@ from pydantic import BaseModel, Field
 
 from kb_agent import library
 from kb_agent.config import KB_SNIPPET_CHARS, KB_TOP_K
-from kb_agent.tools_iso import build_iso_tools
 
 logger = logging.getLogger(__name__)
 
@@ -194,4 +193,7 @@ def build_tools(store: library.PassageStore) -> list[StructuredTool]:
     return [
         StructuredTool.from_function(func=func, name=name, args_schema=schema)
         for func, name, schema in specs
-    ] + build_iso_tools()
+    ]
+    # No ISO tool here any more. Severity limits are iso_agent's job, and
+    # leaving the tool exposed would let this agent answer a question it was
+    # measured getting wrong 4 times in 5.
