@@ -371,14 +371,35 @@ def evaluate(kind: str, answer: str, sources: list[dict], question: str = "") ->
                 "says extraction may have dropped operators"
             )
     if kind == "scoped_value":
-        lead = _norm(answer).splitlines()[0].replace(",", ".") if answer else ""
-        if "2.8" not in lead:
-            problems.append("WRONG VALUE -- Group 2 rigid B/C is 2,8 mm/s; not stated up front")
-        for wrong, why in (("4.5", "Table A.1, Group 1 -- wrong machine group"),
-                           ("45 mm", "the displacement column, not velocity"),
-                           ("7.1", "Group 1 flexible -- wrong group and support")):
-            if wrong in lead:
-                problems.append(f"WRONG VALUE -- quoted {wrong!r}: {why}")
+        # This check used to demand "2,8 mm/s" and flag "4.5" as the wrong
+        # machine group. Both were wrong, and wrong in the same way the agent
+        # was: ISO 10816-3 places pumps in Group 3 or Group 4 by DRIVER
+        # ARRANGEMENT, not in Group 1 or 2 by rated power. A 55 kW pump with a
+        # separate driver on a rigid foundation is Group 3, whose B/C boundary
+        # is 4.5 mm/s. 2,8 is Group 4, for an integrated driver.
+        #
+        # So the check demanded the wrong figure and rejected the right one --
+        # it would have failed a correct agent and passed a broken one, which
+        # is worse than having no check at all.
+        #
+        # The expectation is now the behaviour the split introduced: kb_agent
+        # does not answer severity limits, it names the agent that does. The
+        # numbers themselves are covered by iso_agent's own tests, against the
+        # unit-tested tables rather than against a model's reading of a PDF.
+        if "iso_agent" not in (answer or ""):
+            problems.append(
+                "NO REFERRAL -- a scoped limit was asked for and the answer does "
+                "not point at iso_agent, which is the only place the number is "
+                "looked up rather than read"
+            )
+        quoted = [v for v in ("2.8", "4.5", "7.1", "1.4")
+                  if v in _norm(answer or "").replace(",", ".")]
+        if quoted:
+            problems.append(
+                f"QUOTED A LIMIT -- stated {', '.join(quoted)} mm/s. Choosing the "
+                "right row was measured at 1 correct in 5; this agent must refer, "
+                "not answer"
+            )
     if kind == "absent" and not refused:
         problems.append("WRONG REFUSAL -- corpus does not cover this, but it answered")
     if kind == "answerable" and refused and len(cited) < 2:

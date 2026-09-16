@@ -31,6 +31,7 @@ import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -93,22 +94,10 @@ Rules:
   such as bearing housings. Their zone letters read almost identically and their limits do
   not transfer. If the excerpts only cover one of them, say which one you used and warn that
   it may not be the one the engineer is measuring.
-- NEVER READ A VIBRATION LIMIT OUT OF AN EXCERPT. This agent does not answer numeric
-  severity limits at all; a separate agent does, from unit-tested tables. The ingested copy
-  of ISO 10816-3 contains only the Group 1 and Group 2 tables; pumps belong to Groups 3 and 4
-  whatever their power, so a pump's limit is NOT IN THE DOCUMENT AT ALL and any figure you
-  find for one is the wrong row.
-  Explain what a zone MEANS and what action it implies -- that is what the books are good
-  for. For the number itself, say it must come from `python -m iso_agent "<the question>"`
-  and do not quote a figure of your own.
-- CHECK THE TABLE'S SCOPE BEFORE QUOTING ITS NUMBER. Standards tables are scoped by machine
-  class, rated power, shaft height or speed, and the scope is stated in the table's own
-  title. If the question names a machine -- "a 55 kW pump" -- find the table whose scope
-  covers 55 kW and quote THAT one. ISO 10816-3 Table A.1 is Group 1, machines above 300 kW;
-  Table A.2 is Group 2, above 15 kW up to 300 kW. Quoting A.1 for a 55 kW machine gives a
-  limit roughly 60% too high and reads as authoritative. Name the group and the power range
-  you matched, so the engineer can see the match was made. If no table's scope covers the
-  machine, say so rather than using the nearest one.
+- NEVER QUOTE A NUMERIC SEVERITY LIMIT. Not from an excerpt, not from a table, not from
+  memory. A separate agent answers those from unit-tested tables; say the number must come
+  from `python -m iso_agent "<the question>"`. Explain what a zone MEANS and what action it
+  implies -- that is what these books are good for.
 - Distinguish what a source states from what it implies. "ISO 10816-3 sets the Zone B/C
   boundary at X" is a statement; "so your machine is fine" is not, unless a source says it.
 - EXCERPTS MARKED (table) ARE A VISION MODEL'S RENDERING, recognisable by markdown pipes
@@ -533,22 +522,50 @@ class KnowledgeBaseAgent:
         library.warm_models()
 
         planned_queries = self._plan(question, trace)
-        for query in planned_queries:
-            step = time.perf_counter()
-            try:
-                hits = library.search(query, active, top_k, None)
-            except Exception as exc:  # noqa: BLE001 — one bad query must not end the turn
-                logger.warning("Planned search failed for %r: %s", query[:60], exc)
-                trace.append({"step": "planned search", "detail": f"{query} -> failed: {exc}"})
+
+        # The planned searches are independent of one another, and measured at
+        # roughly 1.5s each they were the second largest cost in a question
+        # after the model loading. Running them concurrently turns that from a
+        # sum into a maximum.
+        #
+        # Results are collected first and applied afterwards, in the planner's
+        # order. Letting threads write into the store as they finished would
+        # make the excerpt numbering depend on which search happened to return
+        # first, so the same question could cite [3] for different passages on
+        # different runs.
+        step = time.perf_counter()
+        gathered: list[tuple[str, list[dict[str, Any]] | None, str]] = []
+        if planned_queries:
+            with ThreadPoolExecutor(max_workers=min(4, len(planned_queries))) as pool:
+                futures = {
+                    pool.submit(library.search, query, active, top_k, None): query
+                    for query in planned_queries
+                }
+                done: dict[str, tuple[list[dict[str, Any]] | None, str]] = {}
+                for future in as_completed(futures):
+                    query = futures[future]
+                    try:
+                        done[query] = (future.result(), "")
+                    except Exception as exc:  # noqa: BLE001 — one bad query must not end the turn
+                        logger.warning("Planned search failed for %r: %s", query[:60], exc)
+                        done[query] = (None, str(exc))
+            gathered = [(q, *done.get(q, (None, "not run"))) for q in planned_queries]
+
+        elapsed = int((time.perf_counter() - step) * 1000)
+        for query, hits, error in gathered:
+            if hits is None:
+                trace.append({"step": "planned search", "detail": f"{query} -> failed: {error}"})
                 continue
             if query.lower() not in {q.lower() for q in store.searches}:
                 store.searches.append(query)
             store.add(hits)
+            trace.append({"step": "planned search", "detail": f"{query} -> {len(hits)} hits"})
+        if gathered:
             trace.append(
                 {
-                    "step": "planned search",
-                    "detail": f"{query} -> {len(hits)} hits",
-                    "ms": int((time.perf_counter() - step) * 1000),
+                    "step": "planned searches",
+                    "detail": f"{len(gathered)} run concurrently",
+                    "ms": elapsed,
                 }
             )
 
