@@ -896,6 +896,14 @@ _LIMIT_RE = re.compile(r"\b\d+[.,]\d+\s*mm\s*/\s*s", re.IGNORECASE)
 #: The question pins a machine to a table row by its rating.
 _RATING_RE = re.compile(r"\b\d+(?:[.,]\d+)?\s*(kW|MW|hp)\b", re.IGNORECASE)
 
+#: A velocity figure with its unit attached -- "4.5 mm/s", "2,8 mm/s RMS".
+#: Deliberately requires the unit: a bare number in prose may be a power, a
+#: speed or a count, and redacting those would damage the explanation this
+#: agent is actually good at.
+_VELOCITY_VALUE_RE = re.compile(
+    r"\b\d+(?:[.,]\d+)?\s*mm\s*/\s*s(?:\s*(?:rms|r\.m\.s\.?))?", re.IGNORECASE
+)
+
 SCOPED_LIMIT_WARNING = (
     "Note: selecting the right row of a standards severity table -- the right "
     "machine group, support class and column -- is NOT reliable from this "
@@ -936,9 +944,25 @@ def _flag_scoped_limits(answer: str, question: str) -> str:
         return answer
     if not _LIMIT_RE.search(answer):
         return answer
-    if "iso_agent" in answer:
-        return answer
-    return f"{answer.rstrip()}\n\n{SCOPED_LIMIT_WARNING}"
+
+    # Withheld, not merely footnoted. Appending a warning below the number was
+    # disclosure without prevention: the figure stayed on the page, in bold, at
+    # the top, and a reader who takes the first number they see is exactly the
+    # reader this is for.
+    #
+    # The prompt has said "never quote a severity limit" for several runs and
+    # the agent still does, intermittently. That is the same shape as the
+    # equation guard -- an instruction the model is free to skip is not a
+    # guarantee -- and it gets the same treatment: the value is removed by code
+    # and replaced with where the real answer lives.
+    #
+    # Only fires when the question names a rated machine, which is the case
+    # where a row has to be chosen and choosing was measured at 1 correct in 5.
+    # A general explanation of what a zone means keeps its numbers.
+    redacted, count = _VELOCITY_VALUE_RE.subn("[limit withheld - see below]", answer)
+    if count:
+        logger.info("Withheld %d scoped severity limit(s) from the answer", count)
+    return f"{redacted.rstrip()}\n\n{SCOPED_LIMIT_WARNING}"
 
 
 def _refer_limits_to_iso_agent(answer: str, question: str) -> str:

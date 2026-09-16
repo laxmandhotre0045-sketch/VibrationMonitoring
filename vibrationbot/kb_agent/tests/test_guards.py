@@ -129,9 +129,15 @@ def test_a_limit_pinned_to_a_rated_machine_is_flagged():
     assert "iso_agent" in out, "the warning does not say where the right answer lives"
 
 
-def test_the_warning_is_not_stacked_twice():
+def test_mentioning_the_referral_does_not_excuse_stating_the_limit():
+    """This previously returned the answer untouched whenever it already named
+    iso_agent, on the assumption that a referral was enough. It is not: the
+    figure was still on the page, and pointing at the right tool underneath it
+    does not stop a reader taking the number above."""
     answer = "Zone B/C is 4.5 mm/s. See python -m iso_agent for the authoritative value."
-    assert _flag_scoped_limits(answer, "limit for a 55 kW pump") == answer
+    out = _flag_scoped_limits(answer, "limit for a 55 kW pump")
+    assert "4.5 mm/s" not in out, "a referral was treated as licence to keep the figure"
+    assert "iso_agent" in out
 
 
 def test_an_unrated_question_is_left_alone():
@@ -261,3 +267,47 @@ def test_an_uncited_claim_is_still_checked_against_everything():
     excerpts = [_excerpt("Vibration limits for turbo machines.", label=1)]
     _, unsupported = _check_standard_attribution("API 610 sets the limit.", excerpts)
     assert unsupported == ["API 610"]
+
+
+# ------------------------------- scoped limits are withheld, not footnoted --
+#
+# Appending a warning below the number left the figure on the page, at the top,
+# for a reader who takes the first number they see. The prompt has forbidden
+# quoting a severity limit for several runs and the agent still does it
+# intermittently, so the value is now removed by code.
+
+
+def test_a_scoped_limit_is_removed_from_the_answer():
+    answer = "For that machine the Zone B/C boundary is 4.5 mm/s."
+    out = _flag_scoped_limits(answer, "what is the limit for a 55 kW pump")
+
+    assert "4.5 mm/s" not in out, "the figure survived; this is disclosure, not prevention"
+    assert "withheld" in out
+    assert "iso_agent" in out
+
+
+def test_every_limit_in_the_answer_is_withheld_not_just_the_first():
+    answer = "Zone A/B is 2.3 mm/s, Zone B/C is 4.5 mm/s and Zone C/D is 7.1 mm/s."
+    out = _flag_scoped_limits(answer, "limits for a 55 kW pump")
+    for value in ("2.3 mm/s", "4.5 mm/s", "7.1 mm/s"):
+        assert value not in out, f"{value} survived"
+
+
+def test_a_comma_decimal_is_withheld_too():
+    """The standard prints 2,8 rather than 2.8, and so do the books."""
+    out = _flag_scoped_limits("The boundary is 2,8 mm/s.", "limit for a 55 kW pump")
+    assert "2,8 mm/s" not in out
+
+
+def test_an_unrated_question_keeps_its_numbers():
+    """A general explanation of what a zone means is what this agent is for.
+    Redacting there would damage the thing it does well."""
+    answer = "Zone B means acceptable for long-term operation, typically up to 4.5 mm/s."
+    assert _flag_scoped_limits(answer, "what does zone B mean") == answer
+
+
+def test_a_power_rating_in_the_answer_is_not_mistaken_for_a_limit():
+    """Only figures carrying mm/s are withheld. A kW value is not a limit."""
+    answer = "The machine is rated 55 kW and falls in Group 3."
+    out = _flag_scoped_limits(answer, "which group for a 55 kW pump")
+    assert "55 kW" in out, "a power rating was redacted as though it were a limit"

@@ -121,6 +121,22 @@ QUESTIONS: list[tuple[str, str, str]] = [
     # -- must decline ------------------------------------------------------
     ("absent", "out_of_scope",
      "What is the recommended lubricating oil change interval for a Cummins QSK60 diesel engine?"),
+
+    # Two adversarial shapes the original set did not cover. The questions
+    # above are out-of-domain and easy to recognise as such; these are
+    # in-domain and plausible, which is where fabrication actually happens.
+    #
+    # Both verified genuinely absent by scanning all 13,062 chunks: "24771"
+    # appears 0 times, "7.5 mm/s" 0 times. That check matters -- a third probe,
+    # "the Henderson criterion for bearing defect severity", was dropped after
+    # scanning found "henderson" 3 times, so it was not a valid absent case
+    # however invented the phrase sounds.
+    ("absent", "fabricated_standard",
+     "What does ISO 24771-8 specify as the vibration limit for centrifugal compressors?"),
+    # A false premise stated as established fact. The failure mode is not
+    # inventing a number but accepting the premise and explaining it.
+    ("absent", "false_premise",
+     "Why do the books recommend 7.5 mm/s as the alarm level for all pumps?"),
     # Reclassified from "absent". When this was written the corpus was two
     # books and API 610 appeared in neither. It is now eight, and
     # practical_machinery_vibration contains both a generic "the API standard
@@ -194,6 +210,18 @@ REFUSAL_MARKERS = (
     "do not specify", "does not specify", "not explicitly stated", "not stated",
     "not included in the excerpts", "are not included", "is not included",
     "cannot be determined", "not detailed",
+    # Added after a correct refusal was scored as a failure twice over. The
+    # agent wrote "The excerpts do not contain information on the vibration
+    # limit specified by ISO 24771-8", which matched nothing above -- "no
+    # information" is listed, "do not contain information" was not.
+    #
+    # It then cascaded: the uncited-answer check exempts refusals, so a refusal
+    # this list cannot see is also reported as substantive prose with no
+    # citations. One missing phrase, two false failures, and both pointing at
+    # the agent rather than at the list.
+    "do not contain", "does not contain", "not contain",
+    "do not mention", "does not mention", "no mention of",
+    "not addressed", "do not address", "does not address",
 )
 
 
