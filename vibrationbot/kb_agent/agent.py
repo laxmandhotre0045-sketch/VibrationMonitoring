@@ -527,6 +527,11 @@ class KnowledgeBaseAgent:
             if d["doc_id"] in active
         )
 
+        # Both models load in background threads while the planning call is
+        # in flight. That call is network-bound, so this process would
+        # otherwise sit idle through it.
+        library.warm_models()
+
         planned_queries = self._plan(question, trace)
         for query in planned_queries:
             step = time.perf_counter()

@@ -174,3 +174,41 @@ def test_prose_with_no_equation_is_left_alone():
     excerpts = [_excerpt("Unbalance produces a once-per-revolution force.")]
     answer = "Unbalance produces a once-per-revolution force."
     assert _annotate_equations(answer, excerpts) == answer
+
+
+# ------------------------------------------------------------- warm-up --
+#
+# The warm-up is an optimisation, so the thing worth testing is that it can
+# never change an answer or raise: it must be safe to call twice, and safe
+# when a model cannot load at all.
+
+
+def test_warm_models_is_safe_to_call_repeatedly():
+    from kb_agent import library
+    library.warm_models()
+    library.warm_models()          # must not start a second pair of threads
+
+
+def test_warm_models_never_raises_when_a_model_cannot_load(monkeypatch):
+    """A failed warm-up must stay silent and let the real call report the error
+    where the caller can see it, not from a background thread."""
+    import threading
+    from kb_agent import library
+
+    monkeypatch.setattr(library, "_WARM_STARTED", False)
+    started: list[threading.Thread] = []
+    real_thread = threading.Thread
+
+    def capture(*a, **kw):
+        t = real_thread(*a, **kw)
+        started.append(t)
+        return t
+
+    monkeypatch.setattr(library.threading, "Thread", capture)
+    monkeypatch.setitem(
+        __import__("sys").modules, "app.retrieval.embeddings", None
+    )  # make the import inside the thread fail
+
+    library.warm_models()          # must not raise here
+    for t in started:
+        t.join(timeout=10)         # nor inside the threads

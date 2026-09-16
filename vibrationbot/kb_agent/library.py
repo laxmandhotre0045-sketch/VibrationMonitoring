@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -411,3 +412,55 @@ def format_excerpts(passages: list[dict[str, Any]], text_chars: int) -> str:
             f"    chunk_id: {p.get('chunk_id', '')}\n{text}"
         )
     return "\n\n".join(parts)
+
+
+# --------------------------------------------------------------------------
+# Warm-up
+# --------------------------------------------------------------------------
+
+_WARM_STARTED = False
+_WARM_LOCK = threading.Lock()
+
+
+def warm_models() -> None:
+    """Start loading the two models, in parallel, and return immediately.
+
+    Measured on this corpus, a first question took 37.6s and a second in the
+    same process took 11.8s. The 26s difference was not the search and not the
+    language model -- it was loading the embedding model (~12s) and the
+    cross-encoder reranker (~7s), one after the other. The nine FAISS indexes
+    together take 0.34s and are not worth optimising.
+
+    Two facts make this cheap to fix. The loads do not depend on each other, so
+    they can run at the same time; and the caller's next act is a planning call
+    to the API, which is network-bound and leaves this process idle for around
+    a second. Starting both loads here spends that idle time.
+
+    Both loaders are already lock-guarded singletons, so a later caller that
+    reaches one first simply blocks until the warm thread finishes rather than
+    loading it twice. Failures are ignored on purpose: this is an optimisation,
+    and if a model cannot load, the real call should raise the error where the
+    caller can see it, not here in a background thread.
+    """
+    global _WARM_STARTED
+    with _WARM_LOCK:
+        if _WARM_STARTED:
+            return
+        _WARM_STARTED = True
+
+    def _embed() -> None:
+        try:
+            from app.retrieval.embeddings import get_embeddings
+            get_embeddings().embed_query("warmup")
+        except Exception as exc:  # noqa: BLE001 - advisory only
+            logger.debug("Embedding warm-up skipped: %s", exc)
+
+    def _rerank() -> None:
+        try:
+            from app.retrieval.retrieval_service import _get_reranker
+            _get_reranker().predict([["warmup", "warmup"]])
+        except Exception as exc:  # noqa: BLE001 - advisory only
+            logger.debug("Reranker warm-up skipped: %s", exc)
+
+    for target in (_embed, _rerank):
+        threading.Thread(target=target, daemon=True).start()
