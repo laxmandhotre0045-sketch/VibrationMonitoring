@@ -121,7 +121,23 @@ QUESTIONS: list[tuple[str, str, str]] = [
     # -- must decline ------------------------------------------------------
     ("absent", "out_of_scope",
      "What is the recommended lubricating oil change interval for a Cummins QSK60 diesel engine?"),
-    ("absent", "not_in_corpus",
+    # Reclassified from "absent". When this was written the corpus was two
+    # books and API 610 appeared in neither. It is now eight, and
+    # practical_machinery_vibration contains both a generic "the API standard
+    # specifies..." passage AND "Figure 2.14 Vibration limits - API-610
+    # centrifugal pumps in refinery service".
+    #
+    # So "the corpus does not cover this" stopped being true, and the check
+    # was failing the agent for answering a question the books do cover. The
+    # corpus grew; the expectation did not.
+    #
+    # The right expectation is figure_only. The API-610 pump limits live in a
+    # figure, so the agent must say so rather than state a number -- and in
+    # particular must not offer the generic API shaft-displacement formula as
+    # though it were API 610's answer for pumps. Those are two different
+    # sources one page apart, and conflating them is the error this class
+    # exists to catch.
+    ("figure_only", "api_610_figure",
      "What does API 610 specify as the maximum allowable vibration for a centrifugal pump?"),
 
     # -- an equation that survived extraction MANGLED: quote, never tidy ---
@@ -183,6 +199,29 @@ REFUSAL_MARKERS = (
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "")).lower()
+
+
+#: Three or more single letters separated by spaces -- "R O L L I N G".
+_LETTER_SPACED_RE = re.compile(r"\b(?:[A-Za-z]\s+){2,}[A-Za-z]\b")
+
+
+def _despace(text: str) -> str:
+    """Collapse letter-spaced words, which this corpus is full of.
+
+    PDF extraction renders chapter headings letter by letter, so the Mobius
+    heading "ROLLING ELEMENT BEARING ANALYSIS" arrives as
+
+        R O L L I N G  E L E M E N T  B E A R I N G  A N A L Y S I S
+
+    and a substring search for "rolling" finds nothing. That produced a
+    CITATION TOPIC MISMATCH against an excerpt from the chapter on exactly the
+    subject being discussed -- the check could not read the text, so it
+    reported a defect that was not there.
+
+    Applied only for topic matching. The excerpt itself is never rewritten:
+    what the model was shown is what it was shown.
+    """
+    return _LETTER_SPACED_RE.sub(lambda m: m.group(0).replace(" ", ""), text or "")
 
 
 def check_dangling(answer: str, labels: set[int]) -> list[str]:
@@ -311,7 +350,10 @@ def check_topic_match(answer: str, sources: list[dict], question: str) -> list[s
         if not present:
             continue
         for label in sorted(cited):
-            body = by_label.get(label, "")
+            # Letter-spaced headings are collapsed for matching only. Without
+            # this, an excerpt from "R O L L I N G  E L E M E N T  B E A R I N G
+            # A N A L Y S I S" reads as containing none of those words.
+            body = _despace(by_label.get(label, ""))
             if not body:
                 continue
             # Any content word of any matched phrase is enough.

@@ -112,11 +112,33 @@ def _features(ctx: ReportContext) -> str:
 
 def _iso(ctx: ReportContext) -> str:
     identity = ctx.data["dataset"]["identity"]
+
+    # The equipment record is the default; a command-line flag overrides it.
+    # That order matters: the platform already knows this machine's rated power
+    # and foundation, and asking an operator to retype them is both friction
+    # and a chance to mistype. The flag stays for the case the record is wrong
+    # or absent.
+    power_kw = ctx.power_kw
+    from_record: list[str] = []
+    if power_kw is None and identity.get("rated_power_kw") is not None:
+        power_kw = identity["rated_power_kw"]
+        from_record.append(f"power {power_kw:g} kW")
+
+    foundation = ctx.foundation
+    if foundation is None:
+        derived, why = sources.foundation_class(identity.get("foundation_type"))
+        if derived:
+            foundation = derived
+            from_record.append(why)
+        else:
+            ctx.data.setdefault("iso_notes", []).append(why)
+
     reference = sources.iso_reference(
         ctx.ledger, identity.get("machine_type") or "machine",
-        power_kw=ctx.power_kw, foundation=ctx.foundation,
+        power_kw=power_kw, foundation=foundation,
         integrated_driver=ctx.integrated_driver,
     )
+    reference["from_equipment_record"] = from_record
     # Comparable only when the platform's stored unit is the standard's unit.
     units = set(ctx.data["dataset"].get("units_seen") or [])
     reference["comparable"] = units == {"mm/s"} or units == {"mm/s RMS"}
@@ -213,6 +235,25 @@ def _assess(ctx: ReportContext) -> str:
     return f"{headline} ({critical} critical of {total})"
 
 
+
+def _bearings(ctx: ReportContext) -> str:
+    """Fault frequencies, if the record names a bearing and the speed is known.
+
+    Depends on shaft: every fault frequency is an order of running speed, so
+    without a speed there is nothing to compute. Isolated like every other
+    step -- a machine with no bearing numbers still gets the rest of its
+    report, with this section saying what is missing and why.
+    """
+    result = sources.bearing_frequencies(
+        ctx.ledger, ctx.data["dataset"]["identity"], ctx.data.get("shaft") or {}
+    )
+    ctx.data["bearings"] = result
+    if not result.get("ok"):
+        return result.get("reason", "not computed")
+    named = ", ".join(b["designation"] for b in result["bearings"] if b.get("ok"))
+    return f"{named} at {result['rpm']:g} rpm"
+
+
 STEPS: tuple[Step, ...] = (
     Step("collect", _collect, section="Measurement"),
     Step("integrity", _integrity, requires=("collect",), section="Data integrity"),
@@ -221,6 +262,7 @@ STEPS: tuple[Step, ...] = (
     Step("shaft", _shaft, requires=("collect",), section="Shaft speed"),
     Step("velocity", _velocity, requires=("collect", "shaft"), section="Velocity conversion"),
     Step("calibration", _calibration, requires=("collect",), section="Threshold calibration"),
+    Step("bearings", _bearings, requires=("collect", "shaft"), section="Bearing frequencies"),
     Step("assess", _assess, requires=("collect", "calibration"), section="Executive summary"),
 )
 

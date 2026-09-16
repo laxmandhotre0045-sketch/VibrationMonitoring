@@ -106,9 +106,15 @@ Rules:
   not transfer. If the excerpts only cover one of them, say which one you used and warn that
   it may not be the one the engineer is measuring.
 - NEVER QUOTE A NUMERIC SEVERITY LIMIT. Not from an excerpt, not from a table, not from
-  memory. A separate agent answers those from unit-tested tables; say the number must come
-  from `python -m iso_agent "<the question>"`. Explain what a zone MEANS and what action it
-  implies -- that is what these books are good for.
+  memory, and not even when you are confident it is right. A separate agent answers those
+  from unit-tested tables; say the number must come from `python -m iso_agent "<the
+  question>"`. Explain what a zone MEANS and what action it implies -- that is what these
+  books are good for.
+- IF THE CORPUS DOES NOT COVER WHAT WAS ASKED, SAY SO. Name the searches you ran and state
+  that it was not found. Do NOT answer from the nearest thing you did find: a question about
+  a standard, machine class or technique the books do not contain is answered by saying they
+  do not contain it. Substituting a neighbouring source reads as an answer and is not one --
+  the reader cannot tell that the subject was changed underneath them.
 - Distinguish what a source states from what it implies. "ISO 10816-3 sets the Zone B/C
   boundary at X" is a statement; "so your machine is fine" is not, unless a source says it.
 - EXCERPTS MARKED (table) ARE A VISION MODEL'S RENDERING, recognisable by markdown pipes
@@ -843,14 +849,36 @@ def _check_standard_attribution(
     """
     if not answer:
         return answer, []
-    haystack = " ".join(e.get("text", "") for e in excerpts).lower()
+
+    by_label = {e.get("label"): (e.get("text") or "").lower() for e in excerpts}
+    pooled = " ".join(by_label.values())
+
     unsupported: list[str] = []
-    for body, number in _STANDARD_RE.findall(answer):
-        ref = f"{body.upper()} {number}"
-        # Accept any spacing or punctuation the source happens to use.
-        variants = (f"{body}{number}", f"{body} {number}", f"{body}-{number}")
-        if not any(v.lower() in haystack for v in variants):
-            unsupported.append(ref)
+    # Checked per claim, not per answer. Pooling every excerpt asks only "does
+    # the corpus mention this standard anywhere", which a corpus of eight books
+    # usually does. The question that matters is narrower: does the passage
+    # cited FOR THIS CLAIM state that part number?
+    #
+    # The case that forced this: "API 610 specifies that the maximum allowable
+    # vibration displacement ... [2]", where excerpt 2 says "the API standard
+    # specifies ..." and names no part number, while a different excerpt
+    # elsewhere in the pool carried an API-610 figure caption. Pooled, that
+    # passes. It should not -- the formula belongs to the generic API text, and
+    # attaching a part number to it changes which machines it governs.
+    for line in (answer or "").splitlines():
+        refs = _STANDARD_RE.findall(line)
+        if not refs:
+            continue
+        labels = [int(n) for n in re.findall(r"\[(\d{1,3})\]", line)]
+        # A claim with no citation of its own is checked against the pool, so
+        # an unsupported reference in an opening sentence is still caught.
+        haystack = " ".join(by_label.get(l, "") for l in labels) if labels else pooled
+        for body, number in refs:
+            ref = f"{body.upper()} {number}"
+            # Accept any spacing or punctuation the source happens to use.
+            variants = (f"{body}{number}", f"{body} {number}", f"{body}-{number}")
+            if not any(v.lower() in haystack for v in variants):
+                unsupported.append(ref)
     if not unsupported:
         return answer, []
     named = ", ".join(sorted(set(unsupported)))

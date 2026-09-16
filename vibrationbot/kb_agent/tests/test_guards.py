@@ -212,3 +212,52 @@ def test_warm_models_never_raises_when_a_model_cannot_load(monkeypatch):
     library.warm_models()          # must not raise here
     for t in started:
         t.join(timeout=10)         # nor inside the threads
+
+
+# ------------------------------ per-citation standard attribution --------
+#
+# The guard used to pool every excerpt, so it asked "does the corpus mention
+# this standard anywhere" -- which eight books usually do. The real question is
+# whether the passage cited FOR THAT CLAIM states the part number.
+
+
+def test_a_part_number_stated_by_a_different_excerpt_does_not_excuse_the_claim():
+    """The case that forced the change.
+
+    Excerpt 2 says "the API standard specifies..." and names no part number.
+    Excerpt 5 carries an API-610 figure caption. Pooled, the claim passes;
+    per-citation it does not, which is correct -- the formula belongs to the
+    generic API text, and attaching a part number changes which machines it
+    governs.
+    """
+    excerpts = [
+        _excerpt("The API standard specifies the maximum allowable displacement.", label=2),
+        _excerpt("Figure 2.14 Vibration limits API-610 centrifugal pumps.", label=5),
+    ]
+    answer = "API 610 specifies the maximum allowable vibration displacement [2]."
+
+    flagged, unsupported = _check_standard_attribution(answer, excerpts)
+
+    assert unsupported == ["API 610"], "a pooled excerpt excused an unsupported attribution"
+    assert "WARNING" in flagged
+
+
+def test_the_excerpt_actually_cited_is_what_counts():
+    """Same two excerpts, but the claim cites the one that does state it."""
+    excerpts = [
+        _excerpt("The API standard specifies the maximum allowable displacement.", label=2),
+        _excerpt("Figure 2.14 Vibration limits API-610 centrifugal pumps.", label=5),
+    ]
+    answer = "API 610 covers centrifugal pumps in refinery service [5]."
+
+    flagged, unsupported = _check_standard_attribution(answer, excerpts)
+
+    assert unsupported == []
+    assert flagged == answer
+
+
+def test_an_uncited_claim_is_still_checked_against_everything():
+    """An opening sentence with no citation must not slip through unchecked."""
+    excerpts = [_excerpt("Vibration limits for turbo machines.", label=1)]
+    _, unsupported = _check_standard_attribution("API 610 sets the limit.", excerpts)
+    assert unsupported == ["API 610"]

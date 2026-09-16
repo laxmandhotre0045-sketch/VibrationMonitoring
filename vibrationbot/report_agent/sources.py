@@ -21,6 +21,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
+from app.domain import bearing
 from report_agent.ledger import Ledger
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,18 @@ def collect_measurements(
         "plant": meta.get("plant_name", ""),
         "area": meta.get("area", ""),
         "line": meta.get("line", ""),
+        # The equipment record. These only began arriving when the export
+        # stopped carrying a fixed column list, and they are the reason this
+        # report no longer has to ask the operator for details the platform
+        # already holds. Absent ones stay absent -- a missing nameplate is a
+        # thing to report, not to guess at.
+        "rated_power_kw": _number(_first(rows, "rated_power_kw")),
+        "rated_rpm": _number(_first(rows, "rated_rpm")),
+        "foundation_type": _first(rows, "foundation_type"),
+        "bearing_de": _first(rows, "bearing_number_de"),
+        "bearing_nde": _first(rows, "bearing_number_nde"),
+        "drive_type": _first(rows, "drive_type"),
+        "coupling": _first(rows, "coupling_details"),
     }
 
     window = f"{_short(meta.get('first_observed_at'))} to {_short(meta.get('last_observed_at'))}"
@@ -123,6 +136,45 @@ def collect_measurements(
         "caveats": caveats,
         "units_seen": sorted({r.get("unit", "") for r in rows if r.get("unit")}),
     }
+
+
+def _number(value: Any) -> float | None:
+    """A nameplate figure as a number, or None. Never a guess."""
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+#: The platform records a foundation in plain English; ISO 10816-3 knows only
+#: "rigid" and "flexible". Mapped by keyword, and anything unrecognised returns
+#: None so the report asks rather than assuming. Support class moves the
+#: boundary by a factor of about 1.5, so a wrong guess here is a wrong limit.
+_RIGID_WORDS = ("concrete", "rigid", "grout", "foundation block", "massive", "inertia")
+_FLEXIBLE_WORDS = ("flexible", "spring", "isolator", "skid", "steel frame",
+                   "resilient", "anti-vibration", "baseplate")
+
+
+def foundation_class(described: str | None) -> tuple[str | None, str]:
+    """Translate a described foundation into the standard's two classes.
+
+    Returns (class, why). The reason travels with it because a report that
+    silently decided "rigid" from the word "concrete" has made an engineering
+    judgement the reader cannot see or challenge.
+    """
+    text = (described or "").strip().lower()
+    if not text:
+        return None, "no foundation recorded for this machine"
+    if any(word in text for word in _FLEXIBLE_WORDS):
+        return "flexible", f"read as flexible support from {described!r}"
+    if any(word in text for word in _RIGID_WORDS):
+        return "rigid", f"read as rigid support from {described!r}"
+    return None, (
+        f"the recorded foundation {described!r} does not clearly indicate rigid or "
+        "flexible support, and the two give different limits"
+    )
 
 
 def _first(rows: list[dict[str, Any]], key: str) -> str:
@@ -618,3 +670,84 @@ def iso_reference(
         ) if ambiguous else "",
         "convention": iso10816.BOUNDARY_CONVENTION,
     }
+
+
+def bearing_frequencies(
+    ledger: Ledger,
+    identity: dict[str, Any],
+    shaft: dict[str, Any],
+) -> dict[str, Any]:
+    """Fault frequencies for the bearings named on the equipment record.
+
+    This is the first genuinely new diagnostic the report can offer, and it
+    became possible only because two things landed together: the shaft speed,
+    recovered when the export stopped dropping feature metadata, and the
+    bearing part numbers, which arrived when the export stopped carrying a
+    fixed column list.
+
+    Both are needed. A fault frequency is an order of shaft speed, so without
+    a speed there is nothing to multiply; without a part number there is no
+    geometry to multiply it by.
+
+    Confidence travels with the answer. ``app/domain/bearing`` holds published
+    internal geometry for a handful of bearings and estimates the rest from ISO
+    15 boundary dimensions, which can put the ball count out by one and shift
+    BPFO and BPFI by roughly 10%. An estimate that says so is useful; one that
+    does not is a trap, because a computed frequency reads as exact.
+    """
+    if not shaft.get("ok"):
+        return {"ok": False, "reason": (
+            "No shaft speed, so no bearing frequency can be computed. Every fault "
+            "frequency is a multiple of running speed."
+        )}
+
+    named = [(pos, identity.get(key)) for pos, key in
+             (("drive end", "bearing_de"), ("non-drive end", "bearing_nde"))]
+    named = [(pos, designation) for pos, designation in named if designation]
+    if not named:
+        return {"ok": False, "reason": (
+            "No bearing part number is recorded for this machine, so the geometry "
+            "needed for BPFO, BPFI, BSF and FTF is unknown. Adding the bearing "
+            "numbers to the equipment record is all this needs."
+        )}
+
+    rpm = shaft["rpm"]
+    results: list[dict[str, Any]] = []
+    for position, designation in named:
+        try:
+            geometry = bearing.resolve_bearing(designation)
+            freqs = bearing.fault_frequencies(geometry, float(rpm))
+        except Exception as exc:  # noqa: BLE001 - one bad part number must not end the step
+            logger.warning("Bearing %s (%s) could not be resolved: %s", designation, position, exc)
+            results.append({"position": position, "designation": designation,
+                            "ok": False, "reason": str(exc)})
+            continue
+
+        facts = {}
+        for name, hz, order in (
+            ("BPFO", freqs.bpfo_hz, freqs.bpfo_order),
+            ("BPFI", freqs.bpfi_hz, freqs.bpfi_order),
+            ("BSF", freqs.bsf_hz, freqs.bsf_order),
+            ("FTF", freqs.ftf_hz, freqs.ftf_order),
+        ):
+            fact = ledger.computed(
+                f"{name}, {position} bearing {geometry.designation}",
+                round(hz, 2), "Hz",
+                f"app/domain/bearing from {geometry.source} geometry at {rpm:g} rpm",
+                detail={"order": round(order, 3), "designation": geometry.designation},
+                confidence=geometry.confidence,
+                caveats=list(geometry.assumptions),
+            )
+            facts[name] = {"fact": fact.id, "hz": round(hz, 2), "order": round(order, 3)}
+
+        results.append({
+            "position": position,
+            "designation": geometry.designation,
+            "ok": True,
+            "source": geometry.source,
+            "confidence": geometry.confidence,
+            "assumptions": list(geometry.assumptions),
+            "frequencies": facts,
+        })
+
+    return {"ok": any(r.get("ok") for r in results), "rpm": rpm, "bearings": results}
