@@ -10,10 +10,24 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 from iso_agent.agent import ASKS_LIMIT_RE, answer, parse_question
+
+#: These tests spawn a fresh interpreter, which does not inherit pytest's
+#: sys.path. Without an explicit working directory they fail whenever the
+#: suite is invoked from anywhere but vibrationbot/ -- three false failures
+#: that look exactly like a real regression.
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _in_fresh_interpreter(code: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True, text=True, cwd=str(PACKAGE_ROOT),
+    )
 
 
 # ------------------------------------------------------------- separation --
@@ -30,7 +44,7 @@ def test_iso_agent_does_not_import_the_knowledge_base_agent():
         "leaked=[m for m in sys.modules if m.startswith('kb_agent')]; "
         "print('LEAK' if leaked else 'CLEAN')"
     )
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    out = _in_fresh_interpreter(code)
     assert "CLEAN" in out.stdout, f"iso_agent pulled in kb_agent: {out.stdout} {out.stderr}"
 
 
@@ -42,7 +56,7 @@ def test_iso_agent_loads_no_search_stack():
         "{'faiss','torch','sentence_transformers'}]; "
         "print('HEAVY' if heavy else 'LIGHT')"
     )
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    out = _in_fresh_interpreter(code)
     assert "LIGHT" in out.stdout, f"search stack loaded: {out.stdout} {out.stderr}"
 
 
@@ -54,7 +68,7 @@ def test_answering_needs_no_api_key():
         "print('OK' if iso_agent.answer('zone B/C for a 55 kW pump, "
         "separate driver, rigid').ok else 'FAILED')"
     )
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    out = _in_fresh_interpreter(code)
     assert "OK" in out.stdout, out.stdout + out.stderr
 
 
