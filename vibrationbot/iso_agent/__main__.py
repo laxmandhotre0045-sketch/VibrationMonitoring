@@ -16,7 +16,7 @@ import argparse
 import sys
 import unicodedata
 
-from iso_agent.agent import ASKS_LIMIT_RE, answer
+from iso_agent.agent import answer
 
 _TRANSLIT = {"—": "-", "–": "-", "→": "->", "·": "-"}
 
@@ -39,13 +39,9 @@ def main(argv: list[str] | None = None) -> int:
     result = answer(question)
 
     if not result.ok:
-        print(f"Could not answer: {result.reason}", file=sys.stderr)
-        if not ASKS_LIMIT_RE.search(question):
-            print(
-                "This agent answers severity-limit questions only. For anything "
-                "explanatory, ask the knowledge-base agent instead.",
-                file=sys.stderr,
-            )
+        # answer() already explains an off-topic question in full, including
+        # where to take it instead, so nothing is added here.
+        print(result.reason, file=sys.stderr)
         return 1
 
     if args.json:

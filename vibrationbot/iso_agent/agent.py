@@ -183,10 +183,40 @@ def _format(data: dict[str, Any], q: IsoQuery) -> str:
     return "\n".join(lines)
 
 
+#: Said when the question is not about limits. Naming the other agent matters:
+#: a reader who came here with a diagnostic question and got a bare refusal
+#: has been helped less than one who is told where to go.
+NOT_A_LIMITS_QUESTION = (
+    "This agent answers one thing: ISO 10816-3 severity limits -- what level of "
+    "vibration is acceptable for a given machine.\n\n"
+    "That does not look like a limits question. For anything explanatory -- what "
+    "a fault looks like, what a measurement means, why something happens -- ask "
+    "the knowledge-base agent, which answers from the indexed books:\n"
+    '    python -m kb_agent ask "<your question>"\n\n'
+    "If you did mean a limits question, say so in the standard's terms, for "
+    'example: "zone B/C boundary for a 55 kW pump with a separate driver on a '
+    'rigid foundation".'
+)
+
+
 def answer(question: str) -> IsoAnswer:
     """Answer one limits question, or say why it cannot be answered."""
     if not question or not question.strip():
         return IsoAnswer(ok=False, text="", reason="No question given.")
+
+    # Decline anything that is not a limits question. Without this the agent
+    # answered "what is wrong with the big pump downstairs" with a full set of
+    # boundary tables, because the question contains the word "pump" -- correct
+    # numbers, to a question nobody asked. An agent that answers outside its
+    # subject is a quieter version of the failure this one exists to prevent:
+    # confident output where no judgement was actually applied.
+    if not ASKS_LIMIT_RE.search(question):
+        return IsoAnswer(
+            ok=False,
+            text="",
+            query=parse_question(question),
+            reason=NOT_A_LIMITS_QUESTION,
+        )
 
     q = parse_question(question)
     try:

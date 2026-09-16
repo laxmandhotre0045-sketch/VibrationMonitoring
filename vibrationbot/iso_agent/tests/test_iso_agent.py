@@ -204,3 +204,61 @@ def test_limit_questions_are_recognised(question):
 )
 def test_explanatory_questions_are_not_claimed_by_this_agent(question):
     assert not ASKS_LIMIT_RE.search(question)
+
+
+# ------------------------------------------------------- staying in scope --
+#
+# Before this, "what is wrong with the big pump downstairs" returned a full set
+# of boundary tables, because the question contains the word "pump". Correct
+# numbers, to a question nobody asked. An agent that answers outside its
+# subject is a quieter form of the failure this one exists to prevent.
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "what is wrong with the big pump downstairs",
+        "why is the pump making a noise",
+        "how do I align a pump coupling",
+        "what causes cavitation in a centrifugal pump",
+    ],
+)
+def test_a_question_that_is_not_about_limits_is_declined(question):
+    result = answer(question)
+    assert not result.ok, f"answered an off-topic question: {question!r}"
+    assert "kb_agent" in result.reason, "declined without saying where to go instead"
+
+
+def test_the_decline_does_not_leak_a_limit():
+    """A refusal that still prints the tables has refused nothing."""
+    result = answer("what is wrong with the big pump downstairs")
+    assert result.text == ""
+    for value in ("2.3", "4.5", "7.1", "1.4", "2.8"):
+        assert value not in result.reason
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "zone B/C for a 55 kW pump, separate driver, rigid",
+        "is 4.9 mm/s acceptable on a 75 kW pump",
+        "what is the acceptable vibration limit for a 55 kW motor",
+    ],
+)
+def test_real_limits_questions_are_still_answered(question):
+    assert answer(question).ok, f"declined a genuine limits question: {question!r}"
+
+
+def test_an_underspecified_limits_question_asks_rather_than_declining():
+    """Two different refusals, and they must not be confused.
+
+    "vibration limit for a motor" IS a limits question -- it just cannot be
+    resolved, because motors are grouped by rated power and none was given.
+    That deserves "tell me the power", not "wrong agent, go to the librarian".
+    Pumps differ: they are grouped by driver arrangement, so a pump with no
+    power still resolves to Groups 3 and 4.
+    """
+    result = answer("what is the acceptable vibration limit for a motor")
+    assert not result.ok
+    assert "kb_agent" not in result.reason, "sent a genuine limits question away"
+    assert "power" in result.reason.lower(), "did not say what was missing"
