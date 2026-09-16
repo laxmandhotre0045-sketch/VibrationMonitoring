@@ -8,12 +8,14 @@ model used to get wrong now go through code instead.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+from app.domain import iso10816
 from iso_agent.agent import ASKS_LIMIT_RE, answer, parse_question
 
 #: These tests spawn a fresh interpreter, which does not inherit pytest's
@@ -99,24 +101,68 @@ def test_question_parsing(question, field, expected):
 # ----------------------------------------------------------------- answer --
 
 
+#: Boundaries are READ FROM THE STANDARD'S OWN TABLE, never retyped here.
+#:
+#: This is the lesson of the whole ISO episode. The evaluation harness once
+#: hardcoded "a 55 kW pump is Group 2, so rigid B/C is 2,8 mm/s" -- wrong, and
+#: wrong in exactly the way the agent was, so neither caught the other. A test
+#: that restates a rule can restate it incorrectly.
+#:
+#: The transcription is pinned once, against the published standard, by
+#: BOUNDARY_MATRIX in tests/test_domain_iso.py. Everything downstream derives
+#: from it, so a test here cannot disagree with the source of truth.
+_TABLE = json.loads(
+    (Path(iso10816.__file__).parent / "data" / "iso10816_3.json").read_text(encoding="utf-8")
+)["velocity_rms_mm_s"]
+
+
+def boundary(group: int, support: str, which: str) -> float:
+    """One boundary, from the standard's table. A/B, B/C or C/D."""
+    return _TABLE[str(group)][support][["A/B", "B/C", "C/D"].index(which)]
+
+
 def test_pump_group_is_by_driver_not_power():
     """The defect that started all of this.
 
-    ISO 10816-3 puts pumps in Group 3 or Group 4 by driver arrangement, not by
-    rated power. A model reading the document reported 2.8 for both. The Group
-    3 rigid B/C boundary is 4.5.
+    ISO 10816-3 puts pumps in Group 3 or Group 4 by DRIVER ARRANGEMENT, not by
+    rated power. Groups 1 and 2 are power-banded and contain no pumps. Asked
+    for a 55 kW pump a model read the Group 1/2 tables and reported 2.8; the
+    correct answer for a separate driver on a rigid foundation is Group 3's.
     """
     result = answer("zone B/C for a 55 kW pump with a separate driver, rigid foundation")
     assert result.ok
-    assert "4.5 mm/s" in result.text
+    assert f"{boundary(3, 'rigid', 'B/C')} mm/s" in result.text
     assert "Group 3" in result.text
+
+
+def test_power_does_not_move_a_pump_out_of_its_group():
+    """The precise misreading, pinned. A pump at any power is Group 3 or 4.
+
+    5 kW, 55 kW and 5 MW must all give the same answer. If rated power ever
+    starts selecting the group again, exactly this test fails.
+    """
+    answers = [answer(f"zone B/C for a {p} pump with a separate driver, rigid foundation")
+               for p in ("5 kW", "55 kW", "5 MW")]
+    assert all(r.ok for r in answers)
+    expected = f"{boundary(3, 'rigid', 'B/C')} mm/s"
+    for r, p in zip(answers, ("5 kW", "55 kW", "5 MW")):
+        assert "Group 3" in r.text, f"{p} pump was not Group 3"
+        assert expected in r.text, f"{p} pump gave a different boundary"
+
+
+def test_the_group_1_and_2_boundaries_are_not_used_for_a_pump():
+    """Groups 1 and 3 share a table, as do 2 and 4, which is what made the
+    original error hard to see. The check that matters is the group named."""
+    result = answer("zone B/C for a 55 kW pump with a separate driver, rigid foundation")
+    assert "Group 1" not in result.text and "Group 2" not in result.text
 
 
 def test_unstated_driver_reports_both_groups_rather_than_guessing():
     result = answer("what is the vibration limit for a 55 kW pump")
     assert result.ok
     assert "Group 3" in result.text and "Group 4" in result.text
-    assert "2.3 mm/s" in result.text and "1.4 mm/s" in result.text
+    assert f"{boundary(3, 'rigid', 'A/B')} mm/s" in result.text
+    assert f"{boundary(4, 'rigid', 'A/B')} mm/s" in result.text
 
 
 def test_reading_is_graded_against_the_right_table():

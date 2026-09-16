@@ -133,13 +133,26 @@ QUESTIONS: list[tuple[str, str, str]] = [
     ("verbatim", "equation",
      "What is the formula for Ball Pass Frequency Outer race and what inputs does it need?"),
 
-    # -- a scoped table value: right number, right table -------------------
-    # Regression test for the worst error this agent produced. ISO 10816-3
-    # Table A.1 (Group 1, >300 kW) and Table A.2 (Group 2, 15-300 kW) are the
-    # same shape and differ only in their numbers. A 55 kW pump is Group 2, so
-    # rigid B/C is 2,8 mm/s. The agent answered 4,5 (Table A.1) five times out
-    # of five, then 45 (the displacement column, wrong units) five out of five,
-    # before the table captions were restored.
+    # -- a scoped table value: must refer, not answer ----------------------
+    # Regression test for the worst error this agent produced, and for the
+    # worse one this comment used to contain.
+    #
+    # It previously read "a 55 kW pump is Group 2, so rigid B/C is 2,8 mm/s".
+    # That is wrong. ISO 10816-3 groups pumps by DRIVER ARRANGEMENT, not by
+    # rated power: Group 3 with a separate driver, Group 4 with an integrated
+    # one, at any power. Groups 1 and 2 are power-banded and do not contain
+    # pumps at all. A 55 kW pump with a separate driver on a rigid foundation
+    # is Group 3, whose B/C boundary is 4,5 mm/s -- the very figure the old
+    # check rejected as "wrong machine group".
+    #
+    # So the eval demanded the wrong number and failed the right one. It
+    # encoded the same misreading the agent had, which is why neither caught
+    # the other. The rule itself lives in app/domain/iso10816.py and is pinned
+    # by tests/test_domain_iso.py; nothing here should restate it.
+    #
+    # The expectation now is behavioural: this agent must decline and name
+    # iso_agent. Numbers are checked in iso_agent's tests, against the
+    # unit-tested tables rather than a model's reading of a PDF.
     ("scoped_value", "table_value",
      "What is the ISO 10816-3 Zone B to Zone C boundary in mm/s for a 55 kW pump on a rigid foundation?"),
 ]

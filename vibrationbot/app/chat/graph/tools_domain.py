@@ -208,11 +208,20 @@ def build_domain_tools(ctx: DomainContext) -> list[StructuredTool]:
         notes: list[str] = []
 
         # Precedence matters here, and the model's own argument comes LAST.
-        # ISO groups are defined by machine type and rated power, so they are
-        # derivable — and a model asked for a group will happily guess one.
-        # Observed in practice: a 55 kW pump classified as Group 1. It was
-        # harmless there only because Groups 1 and 3 share limits; on a Group 2
-        # machine the same guess returns the wrong zone with full confidence.
+        # ISO groups are derivable from the machine record, and a model asked
+        # for a group will happily guess one instead.
+        #
+        # Note what "derivable" means, because getting this wrong has cost this
+        # project twice: pumps are grouped by DRIVER ARRANGEMENT -- Group 3
+        # separate, Group 4 integrated -- at any rated power, while Groups 1
+        # and 2 are power-banded and contain no pumps. Rated power alone does
+        # not determine the group. infer_machine_group() in app/domain/iso10816
+        # is the single place that rule is expressed; do not restate it here.
+        #
+        # Observed in practice: a 55 kW pump classified as Group 1. Harmless
+        # only because Groups 1 and 3 happen to share limits; the same guess on
+        # a machine where they differ returns the wrong zone with full
+        # confidence.
         group = ctx.stated.get("machine_group")
         if group is None and profile is not None:
             group = profile.resolved_iso_group()
