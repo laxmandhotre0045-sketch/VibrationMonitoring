@@ -19,6 +19,9 @@ import { cardSizing } from "@/lib/card-sizing";
 import { cardPad, gridGolden, gridMetrics, pageStack } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
+import { useCaptureHistory } from "@/hooks/useCaptureHistory";
+import { DataFreshnessCard } from "@/components/dashboard/DataFreshnessCard";
+import { WindowSummaryCard } from "@/components/dashboard/WindowSummaryCard";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { STATUS_META, relativeTime } from "@/lib/alert-status";
 import type { EquipmentHealthStatus } from "@/types/dashboard";
@@ -27,6 +30,7 @@ export function Dashboard() {
   const { data, isLoading, isError } = useDashboardSummary();
 
   const counts = data?.counts;
+  const { data: history } = useCaptureHistory();
   const hasFleet = (counts?.total ?? 0) > 0;
 
   const fleet = data?.equipment_health ?? [];
@@ -121,6 +125,18 @@ export function Dashboard() {
       {isError && (
         <IndustrialEmptyState message="Unable to load fleet data. Check your connection and try again." />
       )}
+
+      {/* MOM items 10 and 12. Placed above the fleet cards deliberately:
+          every number below is only as current as the feed behind it, so
+          "when did data last arrive" has to be answered before they are read. */}
+      <PageSection title="Data Freshness &amp; History">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <DataFreshnessCard history={history} />
+          {history?.windows.map((w) => (
+            <WindowSummaryCard key={w.days} window={w} />
+          ))}
+        </div>
+      </PageSection>
 
       <PageSection title="Fleet Overview">
         <div className={gridMetrics}>

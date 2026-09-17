@@ -17,6 +17,44 @@ from sqlalchemy.orm import Session
 from app.models.measurement import RawVibrationCapture, RawVibrationChannel
 
 
+def _summary_stats(values: list[float]) -> dict[str, float | None]:
+    """RMS, DC mean, AC RMS and peak for one channel, computed once at write.
+
+    Kept here rather than in the feature extractor because it is storage, not
+    analysis: these four numbers describe the array in the row beside them, and
+    computing them later would mean reading every sample back out again.
+
+    A single pass, without numpy, so storing a capture keeps no dependency the
+    rest of this module does not already have.
+    """
+    n = len(values)
+    if n == 0:
+        return {"rms": None, "dc_mean": None, "ac_rms": None, "peak": None}
+    total = 0.0
+    total_sq = 0.0
+    peak = 0.0
+    for v in values:
+        total += v
+        total_sq += v * v
+        av = -v if v < 0 else v
+        if av > peak:
+            peak = av
+    mean = total / n
+    mean_sq = total_sq / n
+    # Rounding can put the variance fractionally below zero on a near-constant
+    # channel; clamping keeps the square root defined rather than raising on
+    # the quietest data, which is exactly the data an idle machine produces.
+    variance = mean_sq - mean * mean
+    if variance < 0.0:
+        variance = 0.0
+    return {
+        "rms": mean_sq ** 0.5,
+        "dc_mean": mean,
+        "ac_rms": variance ** 0.5,
+        "peak": peak,
+    }
+
+
 def store_capture(
     db: Session,
     *,
@@ -61,11 +99,13 @@ def store_capture(
     for key, values in stored.items():
         if not key.startswith("ch") or not key[2:].isdigit():
             continue
+        floats = [float(v) for v in values]
         db.add(
             RawVibrationChannel(
                 capture_id=capture.id,
                 channel_index=int(key[2:]),
-                samples=[float(v) for v in values],
+                samples=floats,
+                **_summary_stats(floats),
             )
         )
     db.flush()
