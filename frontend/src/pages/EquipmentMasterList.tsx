@@ -160,7 +160,7 @@ export function EquipmentMasterList() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, ID, or plant..."
+              placeholder="Search by name, ID, or plant…"
               className={cn(
                 "w-full pl-11 pr-4 py-2.5 text-base font-normal rounded-lg transition-all",
                 "bg-white border border-border text-foreground",
@@ -216,13 +216,13 @@ export function EquipmentMasterList() {
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               className="w-10 h-10 rounded-lg border-2 border-signal-light border-t-transparent"
             />
-            <p className="text-helper">Loading equipment registry...</p>
+            <p className="text-helper">Loading equipment registry…</p>
           </div>
         ) : isError ? (
           <div className={cn(cardSizing.stateCenter, "text-center")}>
             <p className="font-bold text-destructive">Failed to load equipment.</p>
             <p className="text-helper mt-g2">
-              Make sure the backend is running on port 8000.
+              Check your connection and try again.
             </p>
           </div>
         ) : filtered.length === 0 ? (

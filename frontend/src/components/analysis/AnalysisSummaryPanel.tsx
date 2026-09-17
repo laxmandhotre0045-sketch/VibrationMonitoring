@@ -79,8 +79,8 @@ export function AnalysisSummaryPanel({
               value={selectedUpload.sample_count?.toLocaleString() ?? "—"}
             />
             <MetricCard label="Channels" value={String(selectedUpload.channel_count)} />
-            <MetricCard label="Parse Status" value={selectedUpload.parse_status} />
-            <MetricCard label="Plots Status" value={selectedUpload.plots_status} />
+            <MetricCard label="Parsing" value={selectedUpload.parse_status} />
+            <MetricCard label="Plots" value={selectedUpload.plots_status} />
           </div>
         </>
       )}

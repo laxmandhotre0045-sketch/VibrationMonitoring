@@ -48,7 +48,7 @@ export function TopNav({ onMenuClick, menuOpen }: TopNavProps) {
         <Search size={16} className={cn("absolute left-3 top-1/2 -translate-y-1/2", searchFocused ? "text-signal-light" : "text-muted-foreground")} />
         <input
           type="text"
-          placeholder="Search equipment, plants, alerts..."
+          placeholder="Search equipment, plants, alerts…"
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
           className="w-full pl-10 pr-4 py-2.5 text-base font-normal rounded-lg bg-white border border-border text-brand placeholder:text-placeholder placeholder:font-normal focus:outline-none focus:border-signal-light focus:ring-2 focus:ring-[rgba(245,166,35,0.22)]"

@@ -41,10 +41,10 @@ export function ChannelHealthOverviewCard({
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <OverviewItem label="Current Health State" value={data.health_state} emphasize />
+        <OverviewItem label="Health State" value={data.health_state} emphasize />
         <OverviewItem label="Feature Count" value={String(data.feature_count)} />
         <OverviewItem
-          label="Last Feature Computation"
+          label="Last Computed"
           value={formatComputedAt(data.computed_at)}
         />
         <OverviewItem

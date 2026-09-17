@@ -58,12 +58,29 @@ def channel_samples(parsed: dict[str, Any], channel: int) -> list[float]:
 
 
 def _thin(x: list[float], y: list[float], limit: int) -> tuple[list[float], list[float]]:
-    """Keep every nth point. Used only for transport, after peak detection."""
+    """Reduce to at most `limit` points, keeping the tallest line in each bucket.
+
+    Appendix A trap 6: every-Nth sampling makes the plotted trace peak *lower*
+    than the signal actually does, because the sample that happens to land on
+    the peak is usually the one thrown away. Bucketed max keeps both the peak
+    height and the frequency it sits at, so the trace agrees with the
+    `dominant_amplitude` readout instead of quietly under-reporting it.
+    """
     n = len(x)
-    if n <= limit:
+    if limit <= 0 or n <= limit:
         return x, y
-    step = int(np.ceil(n / limit))
-    return x[::step], y[::step]
+    xa = np.asarray(x, dtype=np.float64)
+    ya = np.asarray(y, dtype=np.float64)
+    edges = np.linspace(0, n, limit + 1).astype(int)
+    out_x: list[float] = []
+    out_y: list[float] = []
+    for start, end in zip(edges[:-1], edges[1:]):
+        if end <= start:
+            continue
+        j = start + int(np.argmax(ya[start:end]))
+        out_x.append(float(xa[j]))
+        out_y.append(float(ya[j]))
+    return out_x, out_y
 
 
 def compute_raw_statistics(samples: list[float], sampling_rate_hz: float) -> dict[str, float]:
@@ -71,13 +88,22 @@ def compute_raw_statistics(samples: list[float], sampling_rate_hz: float) -> dic
 
     RMS / peak / crest / kurtosis come from the shared feature extractor so a
     number shown on the raw page cannot disagree with the same number on the
-    health page. Kurtosis is *excess* kurtosis (Gaussian = 0), matching the
-    stored feature.
+    health page.
+
+    Kurtosis is returned three ways on purpose (Appendix A trap 1):
+    `kurtosis` and `kurtosis_excess` are excess kurtosis (Gaussian = 0), the
+    convention the stored feature and the threshold rules use; `kurtosis_raw`
+    is Pearson (Gaussian = 3). The platform's kurtosis limits of 3.5 warn / 5.0
+    critical are on the excess scale, i.e. 6.5 / 8.0 raw.
+
+    All values are dimensionless or in the channel's engineering unit; none is
+    dB or normalised, per the Appendix A axis rules.
     """
     features = extract_channel_features(samples, sampling_rate_hz)
 
     data = np.asarray(samples, dtype=np.float64)
     peak_to_peak = float(np.max(data) - np.min(data)) if data.size else 0.0
+    peak = float(features["peak"]["value"])
 
     # Fisher-Pearson skewness. scipy.stats is not imported anywhere else in the
     # service layer, so this stays numpy-only for consistency.
@@ -85,12 +111,29 @@ def compute_raw_statistics(samples: list[float], sampling_rate_hz: float) -> dic
     std = float(np.std(data)) if data.size else 0.0
     skewness = float(np.mean((data - mean) ** 3) / std**3) if std > 1e-30 else 0.0
 
+    # Appendix A trap 1 — "kurtosis" means two different things in the reference
+    # system: excess (Gaussian → 0) on the trend endpoint, raw Pearson
+    # (Gaussian → 3) on the statistics-history endpoint. They differ by exactly
+    # 3.0, so a single unqualified field is indistinguishable from the other
+    # convention. Both are returned here under names that cannot be confused.
+    #
+    # `kurtosis` stays EXCESS — it is the stored feature the threshold rules
+    # grade, and renaming it would silently shift every displayed value by 3.
+    kurtosis_excess = float(features["kurtosis"]["value"])
+
+    # Appendix A trap 5 — the reference exposes zero-to-peak and "true peak" as
+    # separate fields holding the same unsigned max|x|. Only the honest one is
+    # returned; `peak` IS zero-to-peak, and there is no signed-peak field to
+    # mistake it for.
     return {
         "rms": float(features["rms"]["value"]),
-        "peak": float(features["peak"]["value"]),
+        "peak": peak,
+        "zero_to_peak": peak,
         "peak_to_peak": peak_to_peak,
         "crest_factor": float(features["crest_factor"]["value"]),
-        "kurtosis": float(features["kurtosis"]["value"]),
+        "kurtosis": kurtosis_excess,
+        "kurtosis_excess": kurtosis_excess,
+        "kurtosis_raw": kurtosis_excess + 3.0,
         "skewness": skewness,
     }
 

@@ -196,7 +196,7 @@ export function MigrationTab({ sensorId, channelCount }: MigrationTabProps) {
               />
 
               <div className="rounded-lg border border-border bg-white p-4">
-                <h4 className="text-sm font-bold text-foreground">What does this plot show?</h4>
+                <h4 className="text-sm font-bold text-foreground">Reading the migration path</h4>
                 <p className="mt-1 text-xs text-muted-foreground">
                   It tracks the 1× vibration amplitude relationship between two casing-mounted
                   accelerometer directions across captures, showing how the directional response

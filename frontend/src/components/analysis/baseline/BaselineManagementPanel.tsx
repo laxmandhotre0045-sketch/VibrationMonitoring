@@ -129,7 +129,7 @@ export function BaselineManagementPanel({
             />
             <input
               type="search"
-              placeholder="Search by baseline name or date..."
+              placeholder="Search by baseline name or date…"
               className={cn(analysisInputClass, "pl-9")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}

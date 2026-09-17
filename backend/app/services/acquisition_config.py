@@ -7,17 +7,16 @@ LOR / FFT SIZING — THE ONE FORMULA USED EVERYWHERE
 ──────────────────────────────────────────────────────────────────────────────
 There are two competing industry conventions for "lines of resolution", and
 mixing them silently doubles or halves every reported frequency. This platform
-uses the *Nyquist-based* one, because that is what the analysis code actually
-computes with:
+follows the reference Java analyser (§5), where **LOR is the FFT block size**:
 
-  Nyquist-based (THIS CODEBASE)
-      LOR = number of spectral lines spanning DC .. Fs/2
-      samples per block  N  = LOR * SAMPLES_PER_LINE  = 2 * LOR
-      frequency resolution   Δf = Fs / N = Fs / (2 * LOR)
-      block time             T  = N / Fs = 1 / Δf
+  Block-size LOR (THIS CODEBASE, matching the reference analyser)
+      N_FFT = max(16, LOR)                    LOR *is* the block, not a count
+      lines returned         = N_FFT / 2 + 1  including DC and Nyquist
+      frequency resolution   Δf = Fs / N_FFT
+      block time             T  = N_FFT / Fs = 1 / Δf
 
     Worked example, Fs = 50 000 Hz, LOR = 2500:
-      N  = 5000 samples,  Δf = 10 Hz,  T = 0.1 s
+      N_FFT = 2500 samples,  Δf = 20 Hz,  T = 0.05 s,  1251 lines
 
   Fmax-based (many portable analysers, and the vendor dashboard we were shown)
       LOR = number of spectral lines spanning DC .. Fmax
@@ -26,10 +25,14 @@ computes with:
     Same inputs plus Fmax = 9000 Hz:
       Δf = 3.6 Hz,  T = 0.277778 s,  N = 13 889 samples
 
-Both are internally consistent; they answer different questions. We keep the
-Nyquist-based one because `signal_processing.compute_fft_spectrum` slices
-`2 * fft_lines` samples per block, so changing the convention here would shift
-the frequency axis of every spectrum already stored in the database.
+Both are internally consistent; they answer different questions. `SAMPLES_PER_LINE`
+is therefore 1, and `signal_processing.compute_fft_spectrum` slices exactly
+`fft_lines` samples per block.
+
+  ⚠ This changed from the earlier `N = 2 × LOR` convention. Every spectrum
+    stored before the change was computed on a block twice this size, so its
+    frequency axis is at half this Δf. Re-generate stored plots and features
+    rather than comparing old and new rows directly.
 
 The Fmax-relative figures are still computed — see `fmax_line_metrics` — and
 surfaced read-only in the UI, so an analyst comparing against a portable
@@ -39,7 +42,11 @@ from typing import Any, Iterable
 
 from app.models.measurement import PlotConfiguration
 from app.models.sensor import SensorConfiguration
-from app.services.signal_processing import SAMPLES_PER_LINE
+from app.services.signal_processing import (
+    MIN_FFT_SIZE,
+    SAMPLES_PER_LINE,
+    acquisition_sample_budget,
+)
 
 DEFAULT_SAMPLE_RATE_HZ = 256_000.0
 DEFAULT_LOR = 51_200
@@ -79,23 +86,27 @@ def compute_acquisition_formula(
     overlap_decimal: float = 0.0,
     average_count: int = 1,
 ) -> dict[str, float]:
-    # lor is lines of resolution, so the device must capture SAMPLES_PER_LINE
-    # samples per line — the same block sizing compute_fft_spectrum applies.
-    # See the module docstring for why this is Fs/(2·LOR) and not Fmax/LOR.
-    required_samples = lor * SAMPLES_PER_LINE
-    block_time = required_samples / sample_rate_hz
-    step = int(required_samples * (1.0 - overlap_decimal))
+    # §5 — LOR is the FFT block size, so the device captures one sample per
+    # line. §11.1 then adds one step per extra average.
+    nfft = max(MIN_FFT_SIZE, lor * SAMPLES_PER_LINE)
+    step, required_samples = acquisition_sample_budget(
+        nfft, average_count, overlap_decimal * 100.0
+    )
+    block_time = nfft / sample_rate_hz
     return {
-        "frequencyResolutionHz": sample_rate_hz / required_samples,
+        # §8 — Δf = Fs / N_FFT.
+        "frequencyResolutionHz": sample_rate_hz / nfft,
+        # §11.1 — one block, not the whole averaged acquisition.
         "blockTimeSeconds": block_time,
         "sampleRateHz": sample_rate_hz,
         "requiredSamples": float(required_samples),
         "overlapDecimal": overlap_decimal,
-        "totalAcquisitionTimeSeconds": block_time * average_count,
+        # §11.1 — every sample the plan needs, independent of Fs.
+        "totalAcquisitionTimeSeconds": required_samples / sample_rate_hz,
         "averageCount": float(average_count),
         "fmaxHz": DEFAULT_FMAX_HZ,
         "lor": float(lor),
-        "stepSizeSamples": float(step if step > 0 else required_samples),
+        "stepSizeSamples": float(step),
     }
 
 

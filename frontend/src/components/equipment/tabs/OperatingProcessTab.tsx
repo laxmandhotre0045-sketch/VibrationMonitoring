@@ -71,7 +71,7 @@ export function OperatingProcessTab() {
           </div>
           <FormField label="Process Details" className="h-full">
             <Controller name="process_details" control={control} render={({ field }) => (
-              <TextareaInput {...field} value={field.value ?? ""} rows={7} placeholder="Process description..." className="h-full" />
+              <TextareaInput {...field} value={field.value ?? ""} rows={7} placeholder="Process description…" className="h-full" />
             )} />
           </FormField>
         </div>
@@ -82,7 +82,7 @@ export function OperatingProcessTab() {
               name="operating_environment"
               control={control}
               render={({ field }) => (
-                <MultiSelect options={OPERATING_ENVIRONMENTS} value={field.value || []} onChange={field.onChange} placeholder="Select environments..." />
+                <MultiSelect options={OPERATING_ENVIRONMENTS} value={field.value || []} onChange={field.onChange} placeholder="Select environments…" />
               )}
             />
           </FormField>
@@ -112,7 +112,7 @@ export function OperatingProcessTab() {
           </FormField>
           <FormField label="Maintenance Notes" className="md:col-span-2 lg:col-span-4">
             <Controller name="maintenance_notes" control={control} render={({ field }) => (
-              <TextareaInput {...field} value={field.value ?? ""} rows={3} placeholder="Maintenance notes..." />
+              <TextareaInput {...field} value={field.value ?? ""} rows={3} placeholder="Maintenance notes…" />
             )} />
           </FormField>
         </div>

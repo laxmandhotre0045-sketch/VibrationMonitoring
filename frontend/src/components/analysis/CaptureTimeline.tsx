@@ -126,7 +126,7 @@ export function CaptureTimeline({
       >
         <div className="flex items-center gap-2 justify-center">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-cta" />
-          <p className="text-sm text-muted-foreground">Loading uploads…</p>
+          <p className="text-sm text-muted-foreground">Loading captures…</p>
         </div>
       </div>
     );
@@ -143,7 +143,7 @@ export function CaptureTimeline({
         <div className="flex flex-wrap gap-2">
           <SummaryStat
             icon={Files}
-            label="Total Files in Range"
+            label="Captures in Range"
             value={totalFiles ?? 0}
             loading={totalFiles == null}
           />
@@ -231,7 +231,7 @@ export function CaptureTimeline({
 
       {hasData && visibleFiles.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
-          <p className={analysisKpiLabelClass}>File Navigation</p>
+          <p className={analysisKpiLabelClass}>Capture Navigation</p>
           <div className="flex items-center gap-1.5">
             <button
               type="button"

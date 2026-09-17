@@ -14,7 +14,7 @@ function LoadingState() {
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         className="w-10 h-10 rounded-lg border-2 border-brand border-t-transparent"
       />
-      <p className="text-helper">Loading equipment data...</p>
+      <p className="text-helper">Loading equipment…</p>
     </div>
   );
 }

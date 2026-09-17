@@ -168,7 +168,7 @@ export function DetailedAnalysisTab({
           {plotsLoading && <p className="text-sm text-muted-foreground">Loading analysis data…</p>}
           {!!plotsError && (
             <p className="text-sm text-destructive font-semibold">
-              Failed to load plots:{" "}
+              Unable to load plots:{" "}
               {(plotsError as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
                 "Try another channel or select a different capture."}
             </p>
@@ -180,7 +180,7 @@ export function DetailedAnalysisTab({
           )}
           {plotsEnabled && plotsData && plotsData.plots.length === 0 && !plotsLoading && (
             <p className="text-sm font-semibold text-signal-dark">
-              No plots returned. Try channel ch0 or check plot configuration.
+              No plots available for this channel. Try another channel or review the plot configuration.
             </p>
           )}
         </div>

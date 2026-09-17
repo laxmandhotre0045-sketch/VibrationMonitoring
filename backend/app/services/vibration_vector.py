@@ -30,7 +30,9 @@ from typing import Any, Sequence
 import numpy as np
 from scipy.fft import fft
 
-#: Same window as compute_fft_spectrum / feature_extraction.
+from app.services.signal_processing import build_window, coherent_gain, remove_mean
+
+#: Same window as compute_fft_spectrum / feature_extraction (§9.1).
 FFT_WINDOW = "Hanning"
 
 #: Phase reference modes. Only SELF is implementable without a keyphasor.
@@ -150,7 +152,7 @@ def compute_vector_blocks(
     """
     Complex FFT at one bin for every block of a capture.
 
-    amplitude = |X[k]| * 2/N   (identical scaling to compute_fft_spectrum)
+    amplitude = 2|X[k]| / (N*CG)   (§10.2 scaling, as compute_fft_spectrum)
     phase     = atan2(Im, Re)
     relative  = wrap(phase - phase_of_block_0)
     """
@@ -169,15 +171,17 @@ def compute_vector_blocks(
     bin_index = max(0, min(bin_index, max_bin))
     bin_hz = bin_index * bin_width
 
-    window = np.hanning(bs)
+    window = build_window(bs, FFT_WINDOW)
+    cg = coherent_gain(window)
     blocks: list[dict[str, Any]] = []
     reference_phase: float | None = None
 
     for start in range(0, n - bs + 1, step):
-        segment = data[start : start + bs] * window
+        # §10.1 - the block mean is removed before the transform.
+        segment = remove_mean(data[start : start + bs]) * window
         spectrum = fft(segment)
         value = spectrum[bin_index]
-        amplitude = float(np.abs(value) * (2.0 / bs))
+        amplitude = float(np.abs(value) * (2.0 / (bs * cg)))
         raw_phase = math.degrees(math.atan2(float(value.imag), float(value.real)))
 
         # De-rotate to a common origin (sample 0).

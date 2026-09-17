@@ -55,6 +55,27 @@ class WaterfallOut(BaseModel):
     y_label: str
     z_label: str
 
+    # ── Appendix A axis contract ────────────────────────────────────────────
+    #: This is a STACKED-SPECTRA waterfall: one spectrum per capture file, not
+    #: an STFT of a single capture. The two have different Y axes and must not
+    #: be conflated — an STFT's Y is elapsed time within one capture, uniform
+    #: at hop/Fs, whereas this Y is a list of capture timestamps.
+    waterfall_kind: str = "stacked_spectra"
+    x_unit: str = "Hz"
+    x_scale: str = "linear"
+    #: Capture timestamps in stacking order, one per row of `captures`. Plot
+    #: against real datetimes or treat as categorical.
+    y_values: List[datetime] = Field(default_factory=list)
+    y_unit: str = "datetime"
+    y_scale: str = "linear"
+    #: Captures are selected by recency/randomness, so the gap between adjacent
+    #: rows is NOT constant. Never assume a uniform step on this axis.
+    y_uniform: bool = False
+    z_unit: str
+    z_scale: str = "linear"
+    #: Linear 0-to-peak, never RMS and never dB.
+    amplitude_convention: str = "0-peak"
+
     sensor_label: Optional[str] = None
     orientation: Optional[str] = None
     mounting_location: Optional[str] = None

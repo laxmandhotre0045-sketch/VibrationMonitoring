@@ -76,7 +76,7 @@ export function LoginPage() {
     try {
       const me = await login(email.trim(), password);
       setPassword("");
-      showToast("Welcome back! Signed in successfully.", "success");
+      showToast("Signed in successfully.", "success");
 
       if (me.must_change_password) {
         navigate("/change-password", { replace: true });
@@ -93,7 +93,7 @@ export function LoginPage() {
           // the request (CORS). Saying "check your credentials" here sends people
           // hunting for a password problem that does not exist.
           message =
-            "Cannot reach the server. Check that the API is running and that this address is allowed by CORS_ORIGINS.";
+            "Unable to reach the server. Check your network connection, or contact your administrator.";
         } else if (typeof detail === "string") {
           message = detail;
         } else if (err.response.status === 401) {

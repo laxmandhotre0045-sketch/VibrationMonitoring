@@ -103,7 +103,7 @@ export function FeatureTrendCardsSection({
                 query, so ten per-card buttons all fired this same refetch. */}
             <button
               type="button"
-              title="Refresh factor trends"
+              title="Refresh feature trends"
               onClick={() => void refetch()}
               disabled={isFetching}
               className={cn(
@@ -120,14 +120,14 @@ export function FeatureTrendCardsSection({
 
       {enabled && isComputing && (
         <p className="text-sm text-muted-foreground">
-          Computing factor trends for this capture (first load may take a few seconds)…
+          Computing feature trends for this capture (first load may take a few seconds)…
         </p>
       )}
 
       {enabled && isError && (
         <p className="text-sm text-destructive font-semibold">
           {(error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-            "Failed to load factor trends. Re-upload the file if features were not computed."}
+            "Unable to load feature trends. Re-upload the capture if features were not computed."}
         </p>
       )}
 
