@@ -38,3 +38,5 @@ gateway/acquisition_data/
 gateway/archive/
 gateway/sent/
 gateway/*.log
+
+gateway/archive_under_load/
