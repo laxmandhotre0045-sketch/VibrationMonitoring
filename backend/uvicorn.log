@@ -1,50 +1,7 @@
-INFO:     Started server process [6496]
+INFO:     Started server process [39432]
 INFO:     Waiting for application startup.
 INFO:     Super admin already exists — skipping seed
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:51947 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51949 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51953 - "GET /api/v1/acquisition/config?device_id=08%3AF9%3AE0%3AAD%3AFB%3A36 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51955 - "POST /api/v1/ingest/raw HTTP/1.1" 201 Created
-INFO:     127.0.0.1:51969 - "OPTIONS /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51970 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51971 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:63254 - "GET /api/v1/acquisition/config?device_id=08%3AF9%3AE0%3AAD%3AFB%3A36 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60652 - "POST /api/v1/ingest/raw HTTP/1.1" 201 Created
-INFO:     127.0.0.1:61087 - "OPTIONS /api/v1/auth/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "OPTIONS /api/v1/auth/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "OPTIONS /api/v1/dashboard/summary HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61087 - "OPTIONS /api/v1/lookups/plants HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "OPTIONS /api/v1/sensors HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "GET /api/v1/dashboard/summary HTTP/1.1" 401 Unauthorized
-INFO:     127.0.0.1:61087 - "GET /api/v1/lookups/plants HTTP/1.1" 401 Unauthorized
-INFO:     127.0.0.1:61957 - "GET /api/v1/sensors HTTP/1.1" 401 Unauthorized
-INFO:     127.0.0.1:61957 - "OPTIONS /api/v1/auth/refresh HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "POST /api/v1/auth/refresh HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "GET /api/v1/dashboard/summary HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61087 - "GET /api/v1/lookups/plants HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "GET /api/v1/sensors HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "OPTIONS /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61957 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58390 - "GET /api/v1/acquisition/config?device_id=08%3AF9%3AE0%3AAD%3AFB%3A36 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58392 - "POST /api/v1/ingest/raw HTTP/1.1" 201 Created
-INFO:     127.0.0.1:51753 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56339 - "GET /api/v1/dashboard/summary HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56339 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58591 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55555 - "GET /api/v1/dashboard/summary HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55555 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55562 - "GET /api/v1/acquisition/config?device_id=08%3AF9%3AE0%3AAD%3AFB%3A36 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55564 - "POST /api/v1/ingest/raw HTTP/1.1" 201 Created
-INFO:     127.0.0.1:51852 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64550 - "GET /api/v1/dashboard/summary HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64550 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50377 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57456 - "GET /api/v1/dashboard/summary HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57456 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58835 - "GET /api/v1/acquisition/config?device_id=08%3AF9%3AE0%3AAD%3AFB%3A36 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58837 - "POST /api/v1/ingest/raw HTTP/1.1" 201 Created
-INFO:     127.0.0.1:52685 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51121 - "GET /api/v1/dashboard/summary HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60786 - "GET /api/v1/dashboard/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52511 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52512 - "GET /api/v1/ai/analysis HTTP/1.1" 200 OK

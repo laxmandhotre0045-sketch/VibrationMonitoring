@@ -8,6 +8,7 @@ from fastapi.openapi.utils import get_openapi
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.routers.acquisition import router as acquisition_router
+from app.routers.ai import router as ai_router
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
 from app.routers.dashboard import router as dashboard_router
@@ -91,6 +92,7 @@ app.add_middleware(
 )
 
 app.include_router(acquisition_router)
+app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(baselines_router)
 app.include_router(dashboard_router)
