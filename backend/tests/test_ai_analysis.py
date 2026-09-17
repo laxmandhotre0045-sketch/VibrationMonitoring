@@ -21,6 +21,7 @@ from app.services.ai_analysis import (
     _rule_thresholds,
     _rule_tones,
     _headline,
+    _SEVERITY_ORDER,
     RULES,
 )
 from app.services.ai_context import AIContext, ChannelContext
@@ -45,6 +46,20 @@ def ctx(*, running: bool, channels: list[ChannelContext],
         cannot_conclude=cannot or [],
         provenance={},
     )
+
+
+def run_rules(c: AIContext):
+    """Every rule, sorted exactly as analyse() sorts them.
+
+    The tests previously passed _headline an UNSORTED list while production
+    sorts first. _headline picks hard[0], so the assertions were being made
+    against an ordering production never produces -- the test could pass while
+    the real headline named a different finding.
+    """
+    findings = [f for rule in RULES for f in rule(c)]
+    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 9),
+                                 f.channel_index if f.channel_index is not None else -1))
+    return findings
 
 
 def chan(index=0, **kw) -> ChannelContext:
@@ -159,8 +174,7 @@ def test_headline_on_an_idle_machine_never_claims_a_machine_fault():
     channels = [chan(index=i, threshold_status={"rms": "above critical limit 0.02"})
                 for i in range(8)]
     c = ctx(running=False, channels=channels)
-    findings = [f for rule in RULES for f in rule(c)]
-    head = _headline(c, findings)
+    head = _headline(c, run_rules(c))
     assert "stopped" in head.lower()
     for word in ("fault", "failure", "defect", "damage"):
         assert word not in head.lower()
@@ -170,15 +184,54 @@ def test_headline_names_instrumentation_when_that_is_the_real_problem():
     channels = [chan(index=2, artefacts=["Mains pickup: 50 Hz at 37x."]),
                 chan(index=7, artefacts=["Mains pickup: 50 Hz at 34x."])]
     c = ctx(running=False, channels=channels)
-    findings = [f for rule in RULES for f in rule(c)]
-    head = _headline(c, findings)
+    head = _headline(c, run_rules(c))
     assert "mains interference" in head
     assert "2 channel" in head
 
 
 def test_headline_on_a_clean_running_machine_says_so_plainly():
     c = ctx(running=True, channels=[chan(index=0, threshold_status={"rms": "within limit 0.01"})])
-    findings = [f for rule in RULES for f in rule(c)]
-    head = _headline(c, findings)
+    head = _headline(c, run_rules(c))
     assert "running" in head.lower()
     assert "no measured value is outside its limit" in head
+
+
+def test_headline_on_a_running_machine_names_the_most_severe_finding():
+    """The untested branch. _headline reads findings[0] after sorting, so this
+    pins that the sort actually puts the worst item first -- otherwise the
+    headline names whichever rule happened to run first."""
+    channels = [
+        chan(index=0, threshold_status={"rms": "within limit 0.01"}),
+        chan(index=5, threshold_status={"rms": "above critical limit 0.02"}),
+        chan(index=2, artefacts=["Mains pickup: 50 Hz at 37x."]),
+    ]
+    c = ctx(running=True, channels=channels)
+    findings = run_rules(c)
+    head = _headline(c, findings)
+    assert "need attention on a running machine" in head
+    # whatever it names must be a warning-level finding that actually exists
+    named = head.split("the most severe is: ")[-1].rstrip(".")
+    assert any(f.title == named and f.severity in ("critical", "warning")
+               for f in findings), f"headline named {named!r}, which is not a warning finding"
+
+
+def test_findings_are_ordered_worst_first():
+    """What the severity sort actually controls.
+
+    An earlier attempt tried to pin the ordering through the headline, but
+    _headline re-filters to warnings itself, so reversing the sort left it
+    unchanged and the test passed against a mutant. The ordering that matters
+    is the list a reader scans: informational items must not sit above
+    warnings, because a reader stops partway down.
+    """
+    channels = [
+        chan(index=0, threshold_status={"rms": "above critical limit 0.02"}),
+        chan(index=2, artefacts=["Mains pickup: 50 Hz at 37x."]),
+    ]
+    c = ctx(running=True, channels=channels)
+    findings = run_rules(c)
+    ranks = [_SEVERITY_ORDER[f.severity] for f in findings]
+    assert ranks == sorted(ranks), (
+        "findings are not worst-first: "
+        + ", ".join(f"{f.severity}" for f in findings))
+    assert findings[0].severity in ("critical", "warning")

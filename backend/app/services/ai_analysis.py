@@ -33,7 +33,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.services import ai_context
-from app.services.ai_context import AIContext, ChannelContext
+from app.services.ai_context import AIContext, TONE_PROMINENCE_MIN
 
 Severity = Literal["critical", "warning", "advisory", "informational"]
 Confidence = Literal["high", "medium", "low"]
@@ -131,9 +131,9 @@ def _rule_no_tone(ctx: AIContext) -> list[Finding]:
         detail=("The largest spectral line on these channels stands only "
                 + ", ".join(f"ch{c.index} {c.dominant_prominence:.0f}x"
                             for c in quiet[:8])
-                + " above the noise floor. An FFT always returns a largest "
-                  "bin; below roughly 12x it is noise, not a frequency worth "
-                  "naming."),
+                + f" above the noise floor. An FFT always returns a largest "
+                  f"bin; below {TONE_PROMINENCE_MIN:.0f}x it is noise, not a "
+                  f"frequency worth naming."),
         severity="informational", confidence="high",
         evidence={"channels": [c.index for c in quiet]},
         caveat=("Do not quote these dominant frequencies as machine orders."),
@@ -179,8 +179,8 @@ def _rule_tones(ctx: AIContext) -> list[Finding]:
         detail=(f"Strongest is ch{strongest.index} at "
                 f"{strongest.dominant_frequency_hz:.0f} Hz, "
                 f"{strongest.dominant_prominence:.0f}x the noise floor"
-                + (f"; ch" + ", ch".join(str(c.index) for c in shared if c is not strongest)
-                   + f" carry the same frequency, so it is one source, not several"
+                + ("; ch" + ", ch".join(str(c.index) for c in shared if c is not strongest)
+                   + " carry the same frequency, so it is one source, not several"
                    if len(shared) > 1 else "")
                 + "."),
         severity="advisory", confidence="medium",

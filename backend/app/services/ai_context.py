@@ -56,9 +56,22 @@ from app.services.raw_analysis import (
 from app.services.threshold_defaults import THRESHOLD_RULE_DEFAULTS
 
 #: Below this the largest spectral line is not a tone, it is the tallest part
-#: of the noise. Measured on idle captures here: genuine broadband noise sits
-#: near 30x while real tones reach 100-650x. 12 sits clear of the noise and
-#: well under anything real, and is used only to LABEL, never to hide a value.
+#: of the noise.
+#:
+#: Derived rather than tuned, so it does not have to be recalibrated whenever
+#: the line count or averaging changes. For a spectrum of N lines of pure
+#: Rayleigh-magnitude noise the largest line sits about 3.4x the median at
+#: N=1600 and 3.6x at N=3200, reaching 4.7x in the worst of 200 simulated
+#: runs. Twelve is roughly three times that worst case: comfortably above what
+#: noise alone produces, and far below the 36-276x that the real tones on this
+#: deployment reach.
+#:
+#: An earlier version of this comment claimed noise sat "near 30x", which was a
+#: misreading of channels that genuinely carry tones -- and would have meant
+#: noise passing this threshold, since 30 > 12.
+#:
+#: Used only to LABEL. The frequency is always reported; this says whether it
+#: means anything.
 TONE_PROMINENCE_MIN = 12.0
 
 #: AC RMS above which the machine is treated as turning. The measured idle
