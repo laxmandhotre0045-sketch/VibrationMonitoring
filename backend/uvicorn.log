@@ -1,0 +1,5 @@
+INFO:     Started server process [26124]
+INFO:     Waiting for application startup.
+INFO:     Super admin already exists — skipping seed
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)

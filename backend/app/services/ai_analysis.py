@@ -33,7 +33,12 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.services import ai_context
-from app.services.ai_context import AIContext, TONE_PROMINENCE_MIN
+from app.services.ai_context import (
+    AIContext,
+    ARTEFACT_MAINS,
+    ARTEFACT_MAINS_AMBIGUOUS,
+    TONE_PROMINENCE_MIN,
+)
 
 Severity = Literal["critical", "warning", "advisory", "informational"]
 Confidence = Literal["high", "medium", "low"]
@@ -104,7 +109,22 @@ def _rule_instrumentation(ctx: AIContext) -> list[Finding]:
     out: list[Finding] = []
     for ch in ctx.channels:
         for art in ch.artefacts:
-            if art.startswith("Mains pickup"):
+            if art.startswith(ARTEFACT_MAINS_AMBIGUOUS):
+                # Reported, not suppressed. The measurement cannot separate
+                # mains from a shaft order at this line spacing, and saying so
+                # is the finding -- silently dropping it would leave a reader
+                # believing the channel is clean.
+                out.append(Finding(
+                    code="mains_or_shaft_ambiguous",
+                    title=f"ch{ch.index}: 50 Hz line cannot be attributed",
+                    detail=art,
+                    severity="advisory", confidence="low",
+                    channel_index=ch.index,
+                    evidence={"dominant_frequency_hz": ch.dominant_frequency_hz},
+                    caveat=("Do not treat this as either a fault or an "
+                            "instrument problem until it is resolved."),
+                ))
+            elif art.startswith(ARTEFACT_MAINS):
                 out.append(Finding(
                     code="mains_ingress",
                     title=f"ch{ch.index}: electrical interference, not vibration",
@@ -151,7 +171,7 @@ def _rule_tones(ctx: AIContext) -> list[Finding]:
     running = ctx.data_state.get("machine_running")
     tonal = [c for c in ctx.channels
              if c.dominant_is_a_tone and c.dominant_frequency_hz is not None
-             and not any(a.startswith("Mains pickup") for a in c.artefacts)]
+             and not any(a.startswith(ARTEFACT_MAINS) for a in c.artefacts)]
     if not tonal:
         return []
 

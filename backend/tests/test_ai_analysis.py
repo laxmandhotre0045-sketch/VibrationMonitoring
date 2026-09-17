@@ -235,3 +235,133 @@ def test_findings_are_ordered_worst_first():
         "findings are not worst-first: "
         + ", ".join(f"{f.severity}" for f in findings))
     assert findings[0].severity in ("critical", "warning")
+
+
+# ------------------------------------------------ mains vs shaft ambiguity --
+#
+# The pump is rated 1480 rpm, so its shaft turns at 24.67 Hz and its EVEN
+# orders land on the mains harmonics: 2x = 49.33 Hz against 50 Hz, 4x = 98.67
+# against 100, and so on. At the configured 4 Hz line spacing those share a
+# bin. Applied blindly to a running machine, the mains test flagged seven of
+# eight channels as electrical.
+
+from app.services.ai_context import (          # noqa: E402
+    ARTEFACT_MAINS,
+    ARTEFACT_MAINS_AMBIGUOUS,
+    _shaft_hz_from_rating,
+    _shaft_order_collision,
+)
+
+
+def test_a_shaft_order_landing_on_mains_is_detected_as_a_collision():
+    shaft = _shaft_hz_from_rating({"rated_rpm": 1480})
+    collides, order, needed = _shaft_order_collision(shaft, resolution_hz=4.0)
+    assert collides
+    assert order == 2
+    assert needed < 0.7, "the resolution asked for must actually separate them"
+
+
+def test_a_machine_whose_orders_miss_mains_is_not_ambiguous():
+    """1750 rpm puts 2x at 58.3 Hz — eight lines clear of mains."""
+    shaft = _shaft_hz_from_rating({"rated_rpm": 1750})
+    collides, _, _ = _shaft_order_collision(shaft, resolution_hz=4.0)
+    assert not collides
+
+
+def test_finer_resolution_removes_the_ambiguity():
+    shaft = _shaft_hz_from_rating({"rated_rpm": 1480})
+    assert _shaft_order_collision(shaft, resolution_hz=4.0)[0] is True
+    assert _shaft_order_collision(shaft, resolution_hz=0.5)[0] is False
+
+
+def test_a_missing_or_unusable_rpm_never_raises():
+    for bad in ({}, {"rated_rpm": None}, {"rated_rpm": 0}, {"rated_rpm": "n/a"}):
+        assert _shaft_hz_from_rating(bad) is None
+        assert _shaft_order_collision(_shaft_hz_from_rating(bad), 4.0)[0] is False
+
+
+def test_an_ambiguous_line_is_reported_not_dropped():
+    """The bug this pins.
+
+    Consumers matched the prose prefix "Mains pickup", so the ambiguous
+    artefact — introduced later with different wording — was silently dropped
+    by every one of them. A reader would have seen a clean channel.
+    """
+    channels = [chan(index=3, artefacts=[
+        f"{ARTEFACT_MAINS_AMBIGUOUS}: 50 Hz line at 139x the noise floor. "
+        f"It cannot be separated from the 2x shaft order at 49.33 Hz."])]
+    findings = _rule_instrumentation(ctx(running=True, channels=channels))
+    assert len(findings) == 1
+    assert findings[0].code == "mains_or_shaft_ambiguous"
+    assert findings[0].confidence == "low"
+
+
+def test_an_ambiguous_line_is_not_called_electrical_interference():
+    channels = [chan(index=3, artefacts=[f"{ARTEFACT_MAINS_AMBIGUOUS}: 50 Hz line."])]
+    findings = _rule_instrumentation(ctx(running=True, channels=channels))
+    assert findings[0].code != "mains_ingress"
+    assert "electrical interference" not in findings[0].title
+
+
+def test_an_unambiguous_mains_line_is_still_called_interference():
+    """The narrowing must not swallow the real case."""
+    channels = [chan(index=2, artefacts=[f"{ARTEFACT_MAINS}: 50 Hz line at 56x."])]
+    findings = _rule_instrumentation(ctx(running=False, channels=channels))
+    assert findings[0].code == "mains_ingress"
+    assert findings[0].severity == "warning"
+
+
+# ------------------------------------------- the decision itself, not the helpers --
+#
+# These cover mains_artefact() directly. The decision used to be inline in
+# build(), which needs a database, so it was untested -- and a mutation that
+# disabled the collision check passed the entire suite.
+
+from app.services.ai_context import mains_artefact          # noqa: E402
+
+CLEAN = {"h1": 2.0, "h2": 1.0, "h3": 1.0, "h4": 1.0}
+MAINS_LIKE = {"h1": 56.0, "h2": 8.0, "h3": 9.0, "h4": 34.0}
+SHAFT_1480_HZ = 1480 / 60.0
+
+
+def test_no_artefact_when_there_is_no_50hz_line():
+    assert mains_artefact(CLEAN, SHAFT_1480_HZ, 4.0, running=True) is None
+
+
+def test_no_artefact_when_the_fundamental_has_no_harmonic():
+    lonely = {"h1": 56.0, "h2": 2.0, "h3": 1.0, "h4": 1.0}
+    assert mains_artefact(lonely, SHAFT_1480_HZ, 4.0, running=False) is None
+
+
+def test_stopped_machine_gets_an_outright_mains_claim():
+    art = mains_artefact(MAINS_LIKE, SHAFT_1480_HZ, 4.0, running=False)
+    assert art.startswith(ARTEFACT_MAINS)
+    assert "machine is stopped" in art
+
+
+def test_running_machine_with_a_colliding_order_gets_an_ambiguity():
+    """The bug. At 1480 rpm the 2x order is 0.67 Hz from mains and the line
+    spacing is 4 Hz, so claiming 'electrical interference' is unsupportable."""
+    art = mains_artefact(MAINS_LIKE, SHAFT_1480_HZ, 4.0, running=True)
+    assert art.startswith(ARTEFACT_MAINS_AMBIGUOUS)
+    assert "2x shaft order" in art
+    assert "share a bin" in art
+
+
+def test_running_machine_whose_orders_miss_mains_still_gets_a_mains_claim():
+    """The narrowing must not make the detector useless on other machines."""
+    art = mains_artefact(MAINS_LIKE, 1750 / 60.0, 4.0, running=True)
+    assert art.startswith(ARTEFACT_MAINS)
+    assert ARTEFACT_MAINS_AMBIGUOUS not in art
+
+
+def test_finer_resolution_restores_the_claim_on_a_running_machine():
+    art = mains_artefact(MAINS_LIKE, SHAFT_1480_HZ, 0.5, running=True)
+    assert art.startswith(ARTEFACT_MAINS)
+
+
+def test_unknown_rpm_does_not_block_a_mains_claim():
+    """No nameplate means no known collision. Withholding here would hide a
+    real instrument fault on every machine with an incomplete record."""
+    art = mains_artefact(MAINS_LIKE, None, 4.0, running=True)
+    assert art.startswith(ARTEFACT_MAINS)

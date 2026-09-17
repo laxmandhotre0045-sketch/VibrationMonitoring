@@ -86,6 +86,14 @@ IDLE_CEILING_G = 0.0244
 MAINS_HZ = 50.0
 MAINS_ARTEFACT_RATIO = 12.0
 
+#: Artefact kinds, as prefixes. Consumers match on these rather than on the
+#: sentence that follows, which is written for a person and will be reworded.
+#: The ambiguous case was introduced as free prose and every consumer dropped
+#: it silently, because they were all matching "Mains pickup".
+ARTEFACT_MAINS = "Mains pickup"
+ARTEFACT_MAINS_AMBIGUOUS = "Ambiguous mains or shaft order"
+ARTEFACT_NO_TONE = "No tone"
+
 
 @dataclass
 class Provenance:
@@ -166,6 +174,84 @@ def _machine_details(db: Session, sensor) -> dict[str, Any]:
     return out
 
 
+def _shaft_hz_from_rating(machine: dict[str, Any]) -> Optional[float]:
+    """Shaft frequency from the nameplate RPM.
+
+    Configured, not measured -- the plate says what the machine is rated for,
+    not what it is doing. Good enough to ask "could a shaft order land here",
+    which is a question about arithmetic, not about the current speed.
+    """
+    rpm = machine.get("rated_rpm")
+    try:
+        rpm = float(rpm)
+    except (TypeError, ValueError):
+        return None
+    return rpm / 60.0 if rpm > 0 else None
+
+
+def _shaft_order_collision(shaft_hz: Optional[float],
+                           resolution_hz: float) -> tuple[bool, int, float]:
+    """Does any shaft order land within one line of the mains frequency?
+
+    Returns (collides, order, resolution_needed). "Within one line" is the
+    honest test: two frequencies closer together than the line spacing are the
+    same measurement, whatever their true values.
+    """
+    if not shaft_hz or shaft_hz <= 0 or resolution_hz <= 0:
+        return False, 0, 0.0
+    order = max(1, round(MAINS_HZ / shaft_hz))
+    separation = abs(MAINS_HZ - shaft_hz * order)
+    if separation > resolution_hz:
+        return False, order, 0.0
+    # A third of the separation puts them in clearly different bins rather
+    # than merely adjacent ones.
+    return True, order, max(separation / 3.0, 0.01)
+
+
+def mains_artefact(ratios: dict[str, float], shaft_hz: Optional[float],
+                   resolution_hz: float, running: bool) -> Optional[str]:
+    """Decide what a 50 Hz line means, or say that it cannot be decided.
+
+    Pulled out of build() so it can be tested without a database. It was inline
+    and therefore untested, and a mutation that disabled the collision check --
+    the exact bug this exists to fix -- passed the whole suite.
+
+    The decision is a resolution problem, not a threshold one. A pump rated
+    1480 rpm turns at 24.67 Hz, so its even orders land on the mains harmonics:
+    2x = 49.33 Hz against 50 Hz, only 0.67 Hz apart, while the configured line
+    spacing is 4 Hz. They share a bin and no threshold can separate them. What
+    separates them is the machine's state -- mains is present whether or not
+    the shaft turns -- so the claim is only made outright when it is stopped.
+    """
+    fundamental = ratios.get("h1", 0.0)
+    harmonics = {n: ratios.get(f"h{n}", 0.0) for n in (2, 3, 4)}
+    strongest_n = max(harmonics, key=lambda n: harmonics[n]) if harmonics else None
+    if (fundamental < MAINS_ARTEFACT_RATIO or strongest_n is None
+            or harmonics[strongest_n] < MAINS_ARTEFACT_RATIO):
+        return None
+
+    collides, order, needed_df = _shaft_order_collision(shaft_hz, resolution_hz)
+    if collides and running:
+        return (
+            f"{ARTEFACT_MAINS_AMBIGUOUS}: {MAINS_HZ:g} Hz line at "
+            f"{fundamental:.0f}x the noise floor. It cannot be separated from "
+            f"the {order}x shaft order at {shaft_hz * order:.2f} Hz: the line "
+            f"spacing is {resolution_hz:.1f} Hz and they are "
+            f"{abs(MAINS_HZ - shaft_hz * order):.2f} Hz apart, so they share a "
+            f"bin. Resolve with a low-frequency capture of {needed_df:.2f} Hz "
+            f"spacing or better, or compare against a capture with the machine "
+            f"stopped -- mains persists, a shaft order does not."
+        )
+    return (
+        f"{ARTEFACT_MAINS}: {MAINS_HZ:g} Hz line at {fundamental:.0f}x the "
+        f"noise floor, with its harmonic at {MAINS_HZ * strongest_n:.0f} Hz at "
+        f"{harmonics[strongest_n]:.0f}x. This is electrical ingress, not motion"
+        + ("; the machine is stopped, so no shaft order can account for it"
+           if not running else "")
+        + "."
+    )
+
+
 def _threshold_status(stats: dict[str, float],
                       ac_rms: Optional[float] = None) -> dict[str, str]:
     """Compare against the platform's factory limits, naming each limit used.
@@ -237,6 +323,7 @@ def build(db: Session, sensor_id: Optional[UUID] = None) -> AIContext:
 
     mapping = acq.get("channelMapping") or []
     channels: list[ChannelContext] = []
+    spectra: dict[int, dict] = {}
     running_votes: list[float] = []
 
     for idx in range(int(upload.channel_count or 0)):
@@ -277,37 +364,11 @@ def build(db: Session, sensor_id: Optional[UUID] = None) -> AIContext:
         ctx.dominant_prominence = spec.get("dominant_prominence")
         ctx.noise_floor_amplitude = spec.get("noise_floor_amplitude")
         ctx.dominant_is_a_tone = (ctx.dominant_prominence or 0.0) >= TONE_PROMINENCE_MIN
+        spectra[idx] = spec
 
-        # Mains ingress, checked per channel rather than assumed from a list.
-        # Hard-coding "ch2 and ch7" would go stale the moment the cable is
-        # fixed, and would miss it appearing anywhere else.
-        # Mains ingress, from the ratios measured on the full spectrum.
-        # Searching the returned arrays would search a decimated copy, where a
-        # harmonic that survives thinning is luck rather than evidence.
-        ratios = spec.get("mains_line_ratios") or {}
-        fundamental = ratios.get("h1", 0.0)
-        harmonics = {n: ratios.get(f"h{n}", 0.0) for n in (2, 3, 4)}
-        strongest_n = max(harmonics, key=lambda n: harmonics[n]) if harmonics else None
-        # A single 50 Hz line is not proof: a machine order can sit there too.
-        # Mains carries harmonics, so requiring one separates electrical ingress
-        # from a mechanical coincidence. On the captures measured here it makes
-        # no difference -- ch2 and ch7 carry both -- but it is the criterion
-        # that stays right when a shaft happens to run at 3000 rpm.
-        if (fundamental >= MAINS_ARTEFACT_RATIO
-                and strongest_n is not None
-                and harmonics[strongest_n] >= MAINS_ARTEFACT_RATIO):
-            ctx.artefacts.append(
-                f"Mains pickup: {MAINS_HZ:g} Hz line at {fundamental:.0f}x the "
-                f"noise floor, with its harmonic at "
-                f"{MAINS_HZ * strongest_n:.0f} Hz at "
-                f"{harmonics[strongest_n]:.0f}x. This is electrical ingress, "
-                f"not motion. On a {MAINS_HZ:g} Hz supply it coincides with a "
-                f"{MAINS_HZ * 60:.0f} rpm shaft order and must not be read as "
-                f"one."
-            )
         if not ctx.dominant_is_a_tone:
             ctx.artefacts.append(
-                f"No tone: the largest line ({ctx.dominant_frequency_hz:.0f} Hz) "
+                f"{ARTEFACT_NO_TONE}: the largest line ({ctx.dominant_frequency_hz:.0f} Hz) "
                 f"is only {ctx.dominant_prominence:.0f}x the noise floor. An FFT "
                 f"always has a largest bin; this one carries no information."
             )
@@ -315,6 +376,33 @@ def build(db: Session, sensor_id: Optional[UUID] = None) -> AIContext:
 
     peak_ac = max(running_votes) if running_votes else 0.0
     running = peak_ac > RUNNING_AC_RMS_G
+
+    # Artefact detection runs here rather than inside the loop above, because
+    # whether a 50 Hz line is mains or a shaft order depends on whether the
+    # shaft is turning -- and that is only known once every channel has been
+    # measured.
+    machine_details = _machine_details(db, sensor)
+    resolution_hz = float(next(iter(spectra.values()), {}).get(
+        "frequency_resolution_hz") or 0.0) if spectra else 0.0
+    for ctx in channels:
+        spec = spectra.get(ctx.index)
+        if not spec:
+            continue
+        artefact = mains_artefact(
+            spec.get("mains_line_ratios") or {},
+            shaft_hz=_shaft_hz_from_rating(machine_details),
+            resolution_hz=resolution_hz,
+            running=running,
+        )
+        if artefact:
+            ctx.artefacts.append(artefact)
+        if not ctx.dominant_is_a_tone:
+            ctx.artefacts.append(
+                f"{ARTEFACT_NO_TONE}: the largest line "
+                f"({ctx.dominant_frequency_hz:.0f} Hz) is only "
+                f"{ctx.dominant_prominence:.0f}x the noise floor. An FFT always "
+                f"has a largest bin; this one carries no information."
+            )
 
     history = capture_history.history(db, sensor_id=sensor.id)
 
@@ -337,7 +425,7 @@ def build(db: Session, sensor_id: Optional[UUID] = None) -> AIContext:
                         if c.trend_blocked_reason), None)
         if blocked:
             cannot.append(f"Whether levels are rising over {w.days} days: {blocked}.")
-    if any(a.startswith("Mains pickup") for c in channels for a in c.artefacts):
+    if any(a.startswith(ARTEFACT_MAINS) for c in channels for a in c.artefacts):
         cannot.append(
             "That any 50 Hz content is mechanical. At least one channel carries "
             "mains ingress, which is electrical."
@@ -345,7 +433,7 @@ def build(db: Session, sensor_id: Optional[UUID] = None) -> AIContext:
 
     return AIContext(
         generated_at=now,
-        machine=_machine_details(db, sensor),
+        machine=machine_details,
         acquisition={
             "sample_rate_hz": acq.get("sampleRateHz"),
             "ksps": acq.get("ksps"),
