@@ -20,8 +20,7 @@ import { cardPad, gridGolden, gridMetrics, pageStack } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 import { useCaptureHistory } from "@/hooks/useCaptureHistory";
-import { DataFreshnessCard } from "@/components/dashboard/DataFreshnessCard";
-import { WindowSummaryCard } from "@/components/dashboard/WindowSummaryCard";
+import { DataFreshnessStrip } from "@/components/dashboard/DataFreshnessStrip";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { STATUS_META, relativeTime } from "@/lib/alert-status";
 import type { EquipmentHealthStatus } from "@/types/dashboard";
@@ -126,17 +125,10 @@ export function Dashboard() {
         <IndustrialEmptyState message="Unable to load fleet data. Check your connection and try again." />
       )}
 
-      {/* MOM items 10 and 12. Placed above the fleet cards deliberately:
-          every number below is only as current as the feed behind it, so
-          "when did data last arrive" has to be answered before they are read. */}
-      <PageSection title="Data Freshness &amp; History">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <DataFreshnessCard history={history} />
-          {history?.windows.map((w) => (
-            <WindowSummaryCard key={w.days} window={w} />
-          ))}
-        </div>
-      </PageSection>
+      {/* Whether the feed is current qualifies every number below, so it
+          is stated once, in a line. The detail it summarises lives on
+          Sensor Data, where it is consulted rather than re-read. */}
+      <DataFreshnessStrip history={history} />
 
       <PageSection title="Fleet Overview">
         <div className={gridMetrics}>

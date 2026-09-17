@@ -36,18 +36,18 @@ function describeAge(seconds: number | null): string {
 function freshness(seconds: number | null) {
   if (seconds === null) {
     return { tone: "unknown", label: "No data", Icon: AlertTriangle,
-             text: "text-slate-400", ring: "border-slate-500/40" };
+             text: "text-muted-foreground", ring: "border-border" };
   }
   if (seconds > DEAD_AFTER_S) {
     return { tone: "dead", label: "Feed stopped", Icon: AlertTriangle,
-             text: "text-rose-400", ring: "border-rose-500/50" };
+             text: "text-machine-critical", ring: "border-machine-critical/40" };
   }
   if (seconds > STALE_AFTER_S) {
     return { tone: "stale", label: "Running late", Icon: Clock,
-             text: "text-amber-400", ring: "border-amber-500/50" };
+             text: "text-machine-warning", ring: "border-machine-warning/40" };
   }
   return { tone: "live", label: "Live", Icon: CheckCircle2,
-           text: "text-emerald-400", ring: "border-emerald-500/40" };
+           text: "text-machine-healthy", ring: "border-machine-healthy/30" };
 }
 
 export function DataFreshnessCard({ history }: { history?: CaptureHistory }) {
@@ -59,12 +59,12 @@ export function DataFreshnessCard({ history }: { history?: CaptureHistory }) {
     <GlassCard className={cardPad} equalHeight>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wider text-slate-400">Latest data entry</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Latest data entry</p>
           <p className={cn("mt-2 text-2xl font-semibold tabular-nums", state.text)}>
             {last ? describeAge(last.age_seconds) : "No captures yet"}
           </p>
           {last && (
-            <p className="mt-1 text-sm text-slate-300">
+            <p className="mt-1 text-sm text-foreground">
               {new Date(last.at).toLocaleString()}
             </p>
           )}
@@ -81,40 +81,40 @@ export function DataFreshnessCard({ history }: { history?: CaptureHistory }) {
       </div>
 
       {last ? (
-        <dl className="mt-4 space-y-1.5 border-t border-white/10 pt-3 text-sm">
+        <dl className="mt-4 space-y-1.5 border-t border-border pt-3 text-sm">
           <div className="flex justify-between gap-3">
-            <dt className="text-slate-400">Machine</dt>
-            <dd className="truncate text-slate-200">{last.machine_name}</dd>
+            <dt className="text-muted-foreground">Machine</dt>
+            <dd className="truncate text-foreground">{last.machine_name}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-slate-400">Sensor</dt>
-            <dd className="truncate text-slate-200">{last.sensor_location}</dd>
+            <dt className="text-muted-foreground">Sensor</dt>
+            <dd className="truncate text-foreground">{last.sensor_location}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-slate-400">Capture</dt>
-            <dd className="tabular-nums text-slate-200">
+            <dt className="text-muted-foreground">Capture</dt>
+            <dd className="tabular-nums text-foreground">
               {last.sample_count.toLocaleString()} × {last.channel_count} ch @{" "}
               {(last.sample_rate_hz / 1000).toFixed(1)} kSPS
             </dd>
           </div>
           {history && history.entries_by_date.length > 0 && (
             <div className="flex justify-between gap-3">
-              <dt className="text-slate-400">Days with data</dt>
-              <dd className="tabular-nums text-slate-200">
+              <dt className="text-muted-foreground">Days with data</dt>
+              <dd className="tabular-nums text-foreground">
                 {history.entries_by_date.length}
               </dd>
             </div>
           )}
         </dl>
       ) : (
-        <p className="mt-4 border-t border-white/10 pt-3 text-sm text-slate-400">
+        <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
           Nothing has been ingested for this sensor yet.
         </p>
       )}
 
       {history && history.entries_by_date.length > 0 && (
-        <div className="mt-4 border-t border-white/10 pt-3">
-          <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-slate-400">
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
             <Database size={12} /> Entry dates
           </p>
           <ul className="space-y-1 text-sm">
@@ -122,10 +122,10 @@ export function DataFreshnessCard({ history }: { history?: CaptureHistory }) {
                 list is a real gap in monitoring rather than a rendering choice. */}
             {history.entries_by_date.slice(0, 5).map((d) => (
               <li key={d.date} className="flex justify-between gap-3 tabular-nums">
-                <span className="text-slate-300">{d.date}</span>
-                <span className="text-slate-400">
+                <span className="text-foreground">{d.date}</span>
+                <span className="text-muted-foreground">
                   {d.count} {d.count === 1 ? "capture" : "captures"}
-                  <span className="ml-2 text-slate-500">
+                  <span className="ml-2 text-muted-foreground">
                     {d.first_at.slice(11, 16)}–{d.last_at.slice(11, 16)}
                   </span>
                 </span>
@@ -133,7 +133,7 @@ export function DataFreshnessCard({ history }: { history?: CaptureHistory }) {
             ))}
           </ul>
           {history.entries_by_date.length > 5 && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               +{history.entries_by_date.length - 5} earlier{" "}
               {history.entries_by_date.length - 5 === 1 ? "day" : "days"}
             </p>
