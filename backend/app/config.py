@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     jwt_access_expire_minutes: int = 30
     jwt_refresh_expire_days: int = 7
 
+    #: Optional. Without it the platform still produces every finding and a
+    #: summary -- a language model only changes how the summary reads, never
+    #: what it says. See services/ai_summary.py.
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+
     initial_admin_email: str = ""
     initial_admin_password: str = ""
     initial_admin_name: str = "Platform Administrator"

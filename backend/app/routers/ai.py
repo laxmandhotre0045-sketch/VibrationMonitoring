@@ -15,11 +15,12 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
-from app.services import ai_analysis, ai_context
+from app.services import ai_analysis, ai_bot, ai_context, ai_summary, llm
 
 router = APIRouter(
     prefix="/api/v1/ai",
@@ -59,3 +60,46 @@ def get_ai_analysis(
     a model can narrate the result.
     """
     return ai_analysis.to_dict(ai_analysis.analyse(db, sensor_id))
+
+
+@router.get("/summary", summary="Plain-language summary and suggestions (MOM item 6)")
+def get_ai_summary(
+    sensor_id: Optional[UUID] = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """The findings, said in a sentence someone can act on.
+
+    A language model narrates what the rules decided, and the text is verified
+    before it is returned: every number in it must appear in the findings it
+    was given. If there is no API key, the call fails, or verification rejects
+    the text, the platform writes the summary itself and says so in `source`.
+    """
+    return ai_summary.to_dict(ai_summary.build(db, sensor_id))
+
+
+@router.get("/status", summary="Whether a language model is configured")
+def get_ai_status():
+    """Surfaced so a blank narration is diagnosable from the UI rather than
+    looking like a bug."""
+    return {
+        "llm_configured": llm.is_configured(),
+        "model": llm.model_name() if llm.is_configured() else None,
+    }
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+    sensor_id: Optional[UUID] = None
+
+
+@router.post("/ask", summary="Ask a question about this machine (MOM item 5)")
+def ask_ai(payload: AskRequest, db: Session = Depends(get_db)):
+    """Answers from the findings, or refuses.
+
+    A refusal is a normal outcome, not an error: the data cannot answer most
+    questions about a stopped machine, and `refused_reason` says which. Answers
+    are verified the same way summaries are -- every number must appear in the
+    findings -- and an answer that fails is withheld rather than shown with a
+    warning, because there is no template to fall back to.
+    """
+    return ai_bot.to_dict(ai_bot.ask(db, payload.question, payload.sensor_id))

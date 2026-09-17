@@ -111,3 +111,52 @@ export interface CaptureHistory {
   entries_by_date: EntryDate[];
   windows: WindowSummary[];
 }
+
+// --- MOM items 4, 5 and 6: AI analysis, summaries and questions ------------
+
+export interface AIFinding {
+  code: string;
+  title: string;
+  detail: string;
+  severity: "critical" | "warning" | "advisory" | "informational";
+  confidence: "high" | "medium" | "low";
+  channel_index: number | null;
+  evidence: Record<string, unknown>;
+  /** What stops a true statement being used for a question it cannot answer. */
+  caveat: string | null;
+}
+
+export interface AIAnalysis {
+  generated_at: string;
+  headline: string;
+  findings: AIFinding[];
+  cannot_conclude: string[];
+  context_summary: Record<string, unknown>;
+}
+
+export interface AISummary {
+  generated_at: string;
+  headline: string;
+  summary: string;
+  suggestions: string[];
+  /** "model" when a language model wrote the prose, "template" when the
+   *  platform did. Shown to the reader rather than hidden. */
+  source: "model" | "template";
+  rejected_reason: string | null;
+  model: string | null;
+}
+
+export interface AIAnswer {
+  generated_at: string;
+  question: string;
+  answer: string;
+  source: "model" | "refused" | "unavailable";
+  refused_reason: string | null;
+  grounded_on: string[];
+  model: string | null;
+}
+
+export interface AIStatus {
+  llm_configured: boolean;
+  model: string | null;
+}

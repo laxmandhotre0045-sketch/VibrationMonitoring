@@ -40,3 +40,6 @@ gateway/sent/
 gateway/*.log
 
 gateway/archive_under_load/
+
+# Server logs, not source.
+backend/uvicorn.log
