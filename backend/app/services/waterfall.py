@@ -17,13 +17,14 @@ from sqlalchemy.orm import Session
 from app.crud import measurement as measurement_crud
 from app.models.measurement import SensorDataUpload
 from app.schemas.measurement import PlotSeriesOut
+from app.services.signal_processing import DATA_TYPE_UNITS
 from app.services.plot_storage import (
     compute_config_fingerprint,
     get_or_load_single_plot,
     plot_result_to_series,
 )
 
-#: Window applied by signal_processing.compute_fft_spectrum (np.hanning).
+#: Window applied by signal_processing.compute_fft_spectrum (build_window, §9.1).
 FFT_WINDOW = "Hanning"
 
 #: A local maximum counts as a peak when it stands this far above its surroundings,
@@ -37,12 +38,6 @@ DEFAULT_MAX_POINTS = 512
 #: draw from the most recent WATERFALL_POOL_LIMIT captures rather than all history.
 WATERFALL_POOL_LIMIT = 1000
 
-#: Engineering unit shown on the amplitude axis, per plot-config data_type.
-DATA_TYPE_UNITS = {
-    "acceleration": "g",
-    "velocity": "mm/s",
-    "displacement": "um",
-}
 
 
 def amplitude_axis_label(data_type: str) -> str:
@@ -290,8 +285,17 @@ def build_waterfall(
         "amplitude_min": ranges.amp_min,
         "amplitude_max": ranges.amp_max,
         "x_label": "Frequency (Hz)",
-        "y_label": "Capture # (order)",
+        # Appendix A trap 3 — the row axis is capture *time*, not a uniform
+        # index. The label names both so a chart that plots row order cannot
+        # imply the captures are evenly spaced.
+        "y_label": "Capture time (non-uniform)",
         "z_label": amplitude_axis_label(data_type),
+        "waterfall_kind": "stacked_spectra",
+        "x_unit": "Hz",
+        "y_values": [c["captured_at"] for c in captures],
+        "y_unit": "datetime",
+        "y_uniform": False,
+        "z_unit": DATA_TYPE_UNITS.get(data_type, "g"),
         "sensor_label": sensor.sensor_type,
         "orientation": sensor.orientation,
         "mounting_location": sensor.mounting_location,

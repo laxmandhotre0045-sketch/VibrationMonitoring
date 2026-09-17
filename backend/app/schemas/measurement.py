@@ -10,6 +10,7 @@ PLOT_TYPES = [
     "circular_time_waveform",
     "fft_spectrum",
     "envelope_spectrum",
+    "envelope_waveform",
     "trend_plot",
 ]
 

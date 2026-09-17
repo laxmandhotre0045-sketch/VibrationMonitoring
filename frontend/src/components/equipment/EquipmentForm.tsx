@@ -16,6 +16,10 @@ import { OperatingProcessTab } from "./tabs/OperatingProcessTab";
 import { SensorsOrientationTab } from "./tabs/SensorsOrientationTab";
 import { ReviewSaveTab } from "./tabs/ReviewSaveTab";
 import { EquipmentPageShell } from "./EquipmentPageShell";
+import { AssetIntelligencePanel } from "./AssetIntelligencePanel";
+import { AssetHealthPanel } from "./AssetHealthPanel";
+import { CompletenessEngine } from "./CompletenessEngine";
+import { MachineVisualizationPanel } from "./MachineVisualizationPanel";
 import { FORM_STEPS, stepFieldNames } from "@/lib/form-intelligence";
 import { cardHover } from "@/lib/card-hover";
 import { cn } from "@/lib/utils";
@@ -72,60 +76,88 @@ function FormBody({
         <FormBreadcrumb editId={editId} />
         <DigitalTwinHeader data={data} isEdit={!!editId} />
 
-        {/* Full-bleed: the form is the page. The asset-preview aside that used
-            to sit beside it only restated fields already on screen, and it cost
-            the form roughly a third of its width on every desktop breakpoint. */}
-        <div className="w-full min-w-0 space-y-g5">
-          <FormStepper
-            activeStep={activeTab}
-            completedSteps={completedTabs}
-            onStepClick={setActiveTab}
-          />
+        {/* The intelligence sidebar is back, but not on the golden split it
+            used to sit on. `grid-golden` handed it 38.2% from `lg` up, which is
+            the "roughly a third of its width on every desktop breakpoint" the
+            previous revision removed it for.
 
-          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-g5">
-            {/* Keep all tabs mounted so uncontrolled inputs never lose their values */}
-            <div style={{ display: activeTab === 1 ? undefined : "none" }}><BasicDetailsTab onImageSelect={setPendingImage} /></div>
-            <div style={{ display: activeTab === 2 ? undefined : "none" }}><MechanicalDetailsTab /></div>
-            <div style={{ display: activeTab === 3 ? undefined : "none" }}><RotatingComponentsTab /></div>
-            <div style={{ display: activeTab === 4 ? undefined : "none" }}><OperatingProcessTab /></div>
-            <div style={{ display: activeTab === 5 ? undefined : "none" }}><SensorsOrientationTab /></div>
-            <div style={{ display: activeTab === 6 ? undefined : "none" }}><ReviewSaveTab /></div>
+            Instead: one column until `xl`, so every breakpoint that complaint
+            covered renders exactly the full-bleed form it does today. Only at
+            `xl` (1280px) and up does a fixed 340px column appear, and it comes
+            out of the width the form gains at that breakpoint rather than out
+            of the form itself. `minmax(0,1fr)` keeps the form column elastic
+            so its inner grids shrink instead of overflowing.
 
-            <div className={cn("content-card", cardHover.soft)}>
-              <div className="form-actions-bar">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="lg"
-                  className="w-full sm:w-auto min-h-[44px]"
-                  onClick={onBack}
-                  disabled={activeTab === 1}
-                >
-                  ← Back
-                </Button>
-                {activeTab < 6 ? (
+            `items-start` so the sidebar tracks its own height rather than
+            stretching to match the form. */}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-g5 items-start">
+          <div className="w-full min-w-0 space-y-g5">
+            <FormStepper
+              activeStep={activeTab}
+              completedSteps={completedTabs}
+              onStepClick={setActiveTab}
+            />
+
+            {/* Wide 5-across strip, so it belongs in the main column rather than
+                the 340px sidebar. It grades the same five steps the stepper
+                lists, directly under it. */}
+            <CompletenessEngine data={data} />
+
+            <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-g5">
+              {/* Keep all tabs mounted so uncontrolled inputs never lose their values */}
+              <div style={{ display: activeTab === 1 ? undefined : "none" }}><BasicDetailsTab onImageSelect={setPendingImage} /></div>
+              <div style={{ display: activeTab === 2 ? undefined : "none" }}><MechanicalDetailsTab /></div>
+              <div style={{ display: activeTab === 3 ? undefined : "none" }}><RotatingComponentsTab /></div>
+              <div style={{ display: activeTab === 4 ? undefined : "none" }}><OperatingProcessTab /></div>
+              <div style={{ display: activeTab === 5 ? undefined : "none" }}><SensorsOrientationTab /></div>
+              <div style={{ display: activeTab === 6 ? undefined : "none" }}><ReviewSaveTab /></div>
+
+              <div className={cn("content-card", cardHover.soft)}>
+                <div className="form-actions-bar">
                   <Button
                     type="button"
+                    variant="secondary"
                     size="lg"
                     className="w-full sm:w-auto min-h-[44px]"
-                    onClick={onNext}
-                    icon={<ChevronRight size={16} />}
+                    onClick={onBack}
+                    disabled={activeTab === 1}
                   >
-                    Continue
+                    ← Back
                   </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full sm:w-auto min-h-[44px]"
-                    disabled={saving}
-                  >
-                    {saving ? "Saving..." : "Save & Finish"}
-                  </Button>
-                )}
+                  {activeTab < 6 ? (
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="w-full sm:w-auto min-h-[44px]"
+                      onClick={onNext}
+                      icon={<ChevronRight size={16} />}
+                    >
+                      Continue
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full sm:w-auto min-h-[44px]"
+                      disabled={saving}
+                    >
+                      {saving ? "Saving…" : "Save & Finish"}
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          </div>
+
+          {/* Hidden below xl rather than reflowed underneath: stacked beneath a
+              six-step form these three read as more form to fill in. They are
+              guidance about the form, so they either sit beside it or not at
+              all. Inside FormProvider, so the panels watch the live values. */}
+          <div className="hidden xl:flex xl:flex-col gap-g4">
+            <AssetIntelligencePanel activeStep={activeTab} />
+            <AssetHealthPanel data={data} />
+            <MachineVisualizationPanel data={data} />
+          </div>
         </div>
       </div>
     </EquipmentPageShell>
@@ -183,10 +215,10 @@ export function EquipmentForm({ initialData, editId }: EquipmentFormProps) {
       let equipment;
       if (editId) {
         equipment = await updateEquipment(editId, data);
-        showToast("Equipment updated successfully!", "success");
+        showToast("Equipment updated successfully.", "success");
       } else {
         equipment = await createEquipment(data);
-        showToast("Equipment saved successfully!", "success");
+        showToast("Equipment saved successfully.", "success");
       }
       if (pendingImage && equipment.id) {
         await uploadEquipmentImage(equipment.id, pendingImage);

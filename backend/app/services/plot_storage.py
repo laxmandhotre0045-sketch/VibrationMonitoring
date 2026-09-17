@@ -20,11 +20,13 @@ from app.services.plot_generator import (
     resolve_active_channel,
 )
 
-# Bumped to v2 when compute_fft_spectrum was corrected: Hann scaling moved to
-# the window's coherent gain and fft_lines became a line count. The fingerprint
-# covers this constant, so every cached plot recomputes instead of serving the
-# old, roughly-halved amplitudes.
-ALGORITHM_VERSION = "v2"
+# Bumped to v3 when the DSP moved onto the reference analyser's formulas:
+# LOR became the FFT block size rather than a line count (halving Δf), the
+# record mean is now removed before every transform, DC and Nyquist are no
+# longer doubled, and the envelope spectrum gained a 2-5 kHz band-pass. The
+# fingerprint covers this constant, so every cached plot recomputes instead of
+# serving spectra built on a block twice the size.
+ALGORITHM_VERSION = "v3"
 
 
 def compute_config_fingerprint(config: dict[str, Any]) -> str:

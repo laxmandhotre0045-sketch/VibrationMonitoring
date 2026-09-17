@@ -202,7 +202,11 @@ export function VibrationAnalysisPage() {
       queryClient.invalidateQueries({ queryKey: ["plots", "upload", upload.id] });
       queryClient.invalidateQueries({ queryKey: ["upload-factor-trends", upload.id] });
       queryClient.invalidateQueries({ queryKey: ["upload-features", upload.id] });
-      setActiveTab("trend");
+      // Land on Status (Health), not Trend. Trend is now only a pointer card
+      // saying its content moved here, so sending the user there after an
+      // upload showed them a redirect notice instead of their new capture.
+      // The two queries invalidated just above are what this tab reads.
+      setActiveTab("health");
       setPdfFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -292,7 +296,7 @@ export function VibrationAnalysisPage() {
                 setSensorId("");
               }}
             >
-              <option value="">Select equipment...</option>
+              <option value="">Select equipment…</option>
               {equipmentList?.items.map((eq) => (
                 <option key={eq.id} value={eq.id}>
                   {eq.machine_name} — {eq.plant_name}
@@ -312,7 +316,7 @@ export function VibrationAnalysisPage() {
               }}
               disabled={!equipmentId}
             >
-              <option value="">Select sensor...</option>
+              <option value="">Select sensor…</option>
               {sensors.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.sensor_type} — {s.mounting_location}
@@ -343,7 +347,7 @@ export function VibrationAnalysisPage() {
         <AnalysisSectionHeader
           icon={Upload}
           title="Upload Sensor Data"
-          subtitle="CSV or PDF with rows: timestamp_, ch0, ch1, ... and numeric values."
+          subtitle="CSV or PDF with a timestamp column followed by one numeric column per channel."
         />
         <div className={analysisBodyStack}>
           <div className="flex flex-col md:flex-row md:items-end gap-g2">

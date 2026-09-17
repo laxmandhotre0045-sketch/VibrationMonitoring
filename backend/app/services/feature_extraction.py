@@ -6,8 +6,15 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from scipy.fft import fft, fftfreq
-from scipy.signal import hilbert
+
+from app.services.signal_processing import (
+    build_window,
+    coherent_gain,
+    frequency_axis_hz,
+    magnitude_spectrum_half,
+    rectified_envelope,
+    remove_mean,
+)
 
 SHAFT_FREQ_MIN_HZ = 5.0
 SHAFT_FREQ_MAX_HZ = 120.0
@@ -33,14 +40,20 @@ def _to_array(samples: list[float]) -> np.ndarray:
 
 
 def _compute_fft_magnitudes(samples: np.ndarray, sampling_rate_hz: float) -> tuple[np.ndarray, np.ndarray]:
+    """Single-sided 0-peak spectrum of the whole channel, per §10.
+
+    One Hann-windowed block over the full record: the mean is removed first
+    (§10.1), amplitude is corrected by the window's coherent gain, and DC and
+    Nyquist are not doubled (§10.2). Shares its primitives with
+    `compute_fft_spectrum`, so a feature and a plotted spectrum cannot disagree.
+    """
     n = len(samples)
     if n < 4:
         raise ValueError("Need at least 4 samples for FFT")
-    window = np.hanning(n)
-    # Normalise by the window's coherent gain (sum, not n) so peak amplitudes
-    # stay true to the input signal — Hann halves them otherwise.
-    spectrum = np.abs(fft(samples * window))[: n // 2] * (2.0 / window.sum())
-    freqs = fftfreq(n, d=1.0 / sampling_rate_hz)[: n // 2]
+    window = build_window(n, "HANNING")
+    cg = coherent_gain(window)
+    spectrum = magnitude_spectrum_half(remove_mean(samples) * window, n, cg)
+    freqs = frequency_axis_hz(spectrum.size, sampling_rate_hz, n)
     return freqs, spectrum
 
 
@@ -94,8 +107,10 @@ def extract_channel_features(
     amp_2x = _magnitude_at_freq(freqs, spectrum, 2.0 * shaft_hz)
     amp_3x = _magnitude_at_freq(freqs, spectrum, 3.0 * shaft_hz)
 
-    analytic = hilbert(data)
-    envelope = np.abs(analytic)
+    # §17.3 — gE envelope: rectify, then a single 1-pole low-pass at 500 Hz.
+    # Full-band and Hilbert-free; the Hilbert path (§17.1) belongs to the
+    # envelope *spectrum*, not to this scalar.
+    envelope = rectified_envelope(data, sampling_rate_hz)
     env_rms = float(np.sqrt(np.mean(envelope ** 2)))
 
     mean_mag = float(np.mean(spectrum))

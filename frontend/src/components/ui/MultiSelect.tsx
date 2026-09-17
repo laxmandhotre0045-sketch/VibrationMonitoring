@@ -11,7 +11,7 @@ interface MultiSelectProps {
   error?: boolean;
 }
 
-export function MultiSelect({ options, value, onChange, placeholder = "Select...", error }: MultiSelectProps) {
+export function MultiSelect({ options, value, onChange, placeholder = "Select…", error }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 

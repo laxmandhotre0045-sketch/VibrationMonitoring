@@ -384,7 +384,7 @@ export function AcquisitionSection() {
     <SettingsSectionCard
       icon={<Waves size={20} aria-hidden />}
       title="Acquisition & DAQ"
-      description="Sample rate, FFT sizing and channel wiring for the selected sensor. The Python collector reads these values from GET /api/v1/acquisition/config."
+      description="Sample rate, FFT sizing and channel wiring for the selected sensor. The data collector reads these values from the platform."
     >
       <div className="space-y-g4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -628,7 +628,7 @@ export function AcquisitionSection() {
             <Block
               icon={<Calculator size={16} aria-hidden />}
               title="Calculated Acquisition"
-              description="Derived from the settings above using the same formula as the backend. Read-only."
+              description="Derived from the settings above. Read-only."
             >
               {derived ? (
                 <>
@@ -789,7 +789,7 @@ export function AcquisitionSection() {
               <ReadOut
                 label="Device ID"
                 value={config.data.deviceId || 'Not set'}
-                hint={config.data.deviceId ? 'Collector may fetch config with ?device_id=…' : 'Set device_id under Equipment Master'}
+                hint={config.data.deviceId ? 'Collector may fetch config with ?device_id=…' : 'Set the Device ID under Equipment Master'}
               />
               <ReadOut
                 label="Platform sensor ID"

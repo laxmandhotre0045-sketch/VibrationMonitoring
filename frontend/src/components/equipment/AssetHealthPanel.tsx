@@ -29,7 +29,7 @@ export function AssetHealthPanel({ data }: AssetHealthPanelProps) {
     <div className={cn("bg-card border border-border rounded-xl", cardHover.panel)}>
       <div className="px-g4 py-g3 border-b border-border flex items-center gap-g2">
         <Activity size={20} className="text-signal-dark" />
-        <h3 className="text-section-title text-brand">Asset Intelligence</h3>
+        <h3 className="text-section-title text-brand">Readiness Breakdown</h3>
       </div>
       <div className="card-pad space-y-g4">
         {RING_CONFIG.map((ring) => (

@@ -28,7 +28,7 @@ export function RotatingComponentsTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-g4">
           <FormField label="Bearing Details" className="lg:col-span-2">
             <Controller name="bearing_details" control={control} render={({ field }) => (
-              <TextareaInput {...field} value={field.value ?? ""} rows={3} placeholder="Bearing type, size, and details..." />
+              <TextareaInput {...field} value={field.value ?? ""} rows={3} placeholder="Bearing type, size, and details…" />
             )} />
           </FormField>
           <div className="flex flex-col gap-g4">

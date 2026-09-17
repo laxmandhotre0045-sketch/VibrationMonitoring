@@ -119,7 +119,7 @@ export function Dashboard() {
       />
 
       {isError && (
-        <IndustrialEmptyState message="Couldn't load fleet dashboard data. Check that the backend is reachable and try again." />
+        <IndustrialEmptyState message="Unable to load fleet data. Check your connection and try again." />
       )}
 
       <PageSection title="Fleet Overview">
@@ -256,7 +256,7 @@ export function Dashboard() {
         <GlassCard hover={false} className={cardPad} delay={0.4}>
           <div className="flex items-center gap-g2 mb-g3">
             <Radio size={16} className="text-signal-dark" />
-            <h3 className="text-card-title text-brand">Signal Analytics Feed</h3>
+            <h3 className="text-card-title text-brand">Recent Uploads</h3>
           </div>
           {activity.length > 0 ? (
             <>
@@ -290,7 +290,7 @@ export function Dashboard() {
               />
             </>
           ) : (
-            <IndustrialEmptyState message="No signal uploads yet. Upload sensor data from Equipment Master to see activity here." />
+            <IndustrialEmptyState message="No sensor data uploaded yet. Upload from Equipment Master to see activity here." />
           )}
         </GlassCard>
       )}

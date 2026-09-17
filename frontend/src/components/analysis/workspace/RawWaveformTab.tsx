@@ -92,7 +92,7 @@ function RawWaveformPlotInner({ data, channel, onRefresh, isRefreshing }: RawWav
       }
       height={CHART_HEIGHT}
       variant="primary"
-      hint="X = timestamp_ (s) · Y = raw sample value · scroll to zoom, drag the slider to pan"
+      hint="X = time (s) · Y = raw sample value · scroll to zoom, drag the slider to pan"
       statistics={
         <p className="text-[11px] text-muted-foreground">
           Sample Rate: {data.sampleRate.toLocaleString()} SPS · Channels: {data.channelCount} ·
@@ -287,7 +287,7 @@ export function RawWaveformTab({ sensorId }: RawWaveformTabProps) {
       <AnalysisSectionHeader
         icon={Radio}
         title="Raw Vibration Data"
-        subtitle="Unprocessed 25 kSPS samples exactly as received from the device — not FFT or processed data."
+        subtitle="Unprocessed 25 kSPS samples exactly as received from the device, before any FFT or signal processing."
         className="mb-0 pb-0 border-b-0"
       />
 
@@ -308,9 +308,8 @@ export function RawWaveformTab({ sensorId }: RawWaveformTabProps) {
         <div className="rounded-xl border border-dashed border-border bg-muted/10 px-6 py-8 text-center">
           <h3 className="text-base font-bold text-foreground">No raw snapshots for this sensor</h3>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-            Raw data arrives from <code>global_uploader.py</code> via{" "}
-            <code>POST /api/v1/ingest/raw</code>. Register this sensor's{" "}
-            <code>device_id</code> and point the uploader at that endpoint.
+            Raw data is streamed directly by the acquisition device. Register this sensor&rsquo;s
+            device ID with the data collector to begin receiving snapshots.
           </p>
         </div>
       )}

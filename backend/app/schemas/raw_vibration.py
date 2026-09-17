@@ -83,13 +83,27 @@ class RawSnapshotListOut(BaseModel):
 
 
 class RawStatisticsOut(BaseModel):
-    """Time-domain statistics of one channel of one snapshot."""
+    """Time-domain statistics of one channel of one snapshot.
+
+    Every value here is time-domain, in the channel's engineering unit or
+    dimensionless. Nothing is dB, normalised or frequency-derived, per the
+    Appendix A axis rules.
+    """
     rms: float
+    #: Unsigned max|x| — zero-to-peak. Exposed twice under both names it is
+    #: known by, because the reference system's "true peak" is this same
+    #: unsigned value and not, despite the name, a signed peak.
     peak: float
+    zero_to_peak: float
     peak_to_peak: float
     crest_factor: float
-    #: Excess kurtosis — a Gaussian signal reads 0, not 3.
+    #: Excess kurtosis — a Gaussian signal reads 0, not 3. Kept as the default
+    #: `kurtosis` because the stored feature and the threshold rules use this
+    #: scale; `kurtosis_raw` carries the Pearson convention for anything that
+    #: expects a Gaussian to read 3. The two differ by exactly 3.0.
     kurtosis: float
+    kurtosis_excess: float
+    kurtosis_raw: float
     skewness: float
 
 

@@ -62,7 +62,7 @@ function CompareCategorySection({
           <thead>
             <tr className="border-b border-border text-left">
               <th className="px-3 py-2 font-semibold text-muted-foreground">Feature</th>
-              <th className="px-3 py-2 font-semibold text-muted-foreground">Upload Value</th>
+              <th className="px-3 py-2 font-semibold text-muted-foreground">Measured Value</th>
               <th className="px-3 py-2 font-semibold text-muted-foreground">Baseline Value</th>
               <th className="px-3 py-2 font-semibold text-muted-foreground">Difference (%)</th>
               <th className="px-3 py-2 font-semibold text-muted-foreground">Status</th>
@@ -125,7 +125,7 @@ export function FeatureComparisonSection({
               value={selectedBaselineId}
               onChange={(e) => onBaselineChange(e.target.value)}
             >
-              <option value="">Select baseline...</option>
+              <option value="">Select baseline…</option>
               {baselineOptions.map((baseline) => (
                 <option key={baseline.id} value={baseline.id}>
                   {baseline.name}

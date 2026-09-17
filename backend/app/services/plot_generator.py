@@ -7,6 +7,7 @@ from app.schemas.measurement import PLOT_TYPES, PLOT_TYPE_ALIASES, PlotSeriesOut
 from app.services.signal_processing import (
     compute_circular_time_waveform,
     compute_envelope_spectrum,
+    compute_envelope_waveform,
     compute_fft_spectrum,
     compute_time_waveform,
     compute_trend_plot,
@@ -28,6 +29,9 @@ PLOT_COMPUTERS = {
         float(cfg["sampling_rate_hz"]),
         fft_lines=cfg.get("fft_lines"),
         frequency_max_hz=cfg.get("frequency_max_hz"),
+    ),
+    "envelope_waveform": lambda ts, samples, cfg: compute_envelope_waveform(
+        samples, float(cfg["sampling_rate_hz"])
     ),
     "trend_plot": lambda ts, samples, cfg: compute_trend_plot(
         ts, samples, float(cfg["sampling_rate_hz"])

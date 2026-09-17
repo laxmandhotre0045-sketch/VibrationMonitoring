@@ -83,7 +83,7 @@ function useWaterfallHeight(): number {
 
 function errorDetail(error: unknown): string {
   const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-  return detail || "Could not load waterfall data. Check the sensor selection and try again.";
+  return detail || "Unable to load waterfall data. Check the sensor selection and try again.";
 }
 
 interface WaterfallTabProps {
