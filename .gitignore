@@ -16,3 +16,25 @@ alembic/versions/__pycache__/
 
 # TLS material for the local HTTPS listener — private key, never commit.
 certs/
+
+# Gateway configuration references. These are marked CONFIDENTIAL and carry
+# broker usernames and passwords in clear text. One of them sat untracked but
+# unignored in the repository root, which is one `git add -A` from being
+# published -- the same way .env.bak-before-psycopg-fix reached GitHub.
+*Configuration_Reference*.pdf
+*CFG*.pdf
+Vibration_Gateway_Configuration_Reference_*.pdf
+
+# The gateway env TEMPLATE carries no secrets and is documentation; the
+# filled-in .env beside it stays ignored by the .env* rule above.
+!gateway/.env.example
+
+# The ingest API key is a real secret.
+gateway/.ingest_key
+
+# Gateway runtime output: captured waveforms, the local archive and logs.
+# These are measurement data and machine-specific state, not source.
+gateway/acquisition_data/
+gateway/archive/
+gateway/sent/
+gateway/*.log

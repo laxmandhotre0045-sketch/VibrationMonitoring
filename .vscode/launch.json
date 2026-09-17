@@ -1,0 +1,74 @@
+{
+  // Debug configurations for running the platform from the editor instead of the
+  // docker-compose stack. The database still comes from Docker (see tasks.json);
+  // only the backend and frontend run locally, which is what makes breakpoints and
+  // hot reload work.
+  //
+  // Postgres is published on host port 5433, not 5432 — docker-compose maps
+  // "5433:5432". The DATABASE_URL in .env already points at 5433, so nothing here
+  // needs to override it.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend (FastAPI)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--host", "0.0.0.0",
+        "--port", "8000",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/backend/.env",
+      "console": "integratedTerminal",
+      // Without this the reloader's child process is the one serving requests and
+      // breakpoints never bind.
+      "subProcess": true,
+      "justMyCode": false
+    },
+    {
+      "name": "Frontend (Vite dev server)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Frontend (debug in Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      // Attach only once Vite is actually serving, or Chrome opens on a dead port.
+      "preLaunchTask": "frontend: wait for dev server"
+    },
+    {
+      "name": "Vibrationbot (chat API)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--port", "8100", "--reload"],
+      "cwd": "${workspaceFolder}/vibrationbot",
+      "python": "${workspaceFolder}/vibrationbot/.venv/Scripts/python.exe",
+      "console": "integratedTerminal",
+      "subProcess": true,
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      // The one to press: starts Postgres, applies migrations, then brings up both
+      // dev servers under the debugger.
+      "name": "Run platform (backend + frontend)",
+      "configurations": ["Backend (FastAPI)", "Frontend (Vite dev server)"],
+      "preLaunchTask": "platform: prepare",
+      "stopAll": true
+    }
+  ]
+}
