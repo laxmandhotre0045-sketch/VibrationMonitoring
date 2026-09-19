@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { STATUS_META, relativeTime } from "@/lib/alert-status";
+import { STATUS_TONES, toneForHealthStatus, type StatusTone } from "@/lib/status-box";
+import { StatusBadge, StatusRail } from "@/components/ui/StatusBox";
 import type { EquipmentHealthStatus } from "@/types/dashboard";
 
 export function Dashboard() {
@@ -82,30 +84,48 @@ export function Dashboard() {
   const activityOffset = (activityPage - 1) * ACTIVITY_PER_PAGE;
   const visibleActivity = activity.slice(activityOffset, activityOffset + ACTIVITY_PER_PAGE);
 
-  const kpis = [
+  // Each counter is lit in the colour of the state it counts, and dimmed when
+  // that state is empty — a glowing red rail over "Critical 0" reads as an
+  // alarm from across the room.
+  const kpis: {
+    label: string;
+    value: string | number;
+    icon: typeof Gauge;
+    text: string;
+    tone: StatusTone;
+    dim: boolean;
+  }[] = [
     {
       label: "Fleet Health",
       value: counts?.average_health_score != null ? `${counts.average_health_score}%` : "—",
       icon: Gauge,
       text: "text-brand",
+      tone: "caution",
+      dim: counts?.average_health_score == null,
     },
     {
       label: "Critical",
       value: counts ? counts.critical : "—",
       icon: AlertTriangle,
       text: "text-machine-critical",
+      tone: "critical",
+      dim: !counts?.critical,
     },
     {
       label: "Warning",
       value: counts ? counts.warning : "—",
       icon: Activity,
       text: "text-machine-warning",
+      tone: "warning",
+      dim: !counts?.warning,
     },
     {
       label: "Healthy",
       value: counts ? counts.normal : "—",
       icon: ShieldCheck,
       text: "text-machine-healthy",
+      tone: "healthy",
+      dim: !counts?.normal,
     },
   ];
 
@@ -127,7 +147,13 @@ export function Dashboard() {
           {kpis.map((stat, i) => {
             const Icon = stat.icon;
             return (
-              <GlassCard key={stat.label} equalHeight delay={0.05 + i * 0.05} className={cardPad}>
+              <GlassCard
+                key={stat.label}
+                equalHeight
+                delay={0.05 + i * 0.05}
+                className={cn(cardPad, "relative overflow-hidden")}
+              >
+                <StatusRail tone={stat.tone} dim={stat.dim} className="w-[4px]" />
                 <div className={cn(cardSizing.kpiBody, "gap-g3")}>
                   <div className="w-9 h-9 rounded-lg bg-white border border-border flex items-center justify-center shrink-0">
                     <Icon size={18} className={stat.text} />
@@ -169,24 +195,29 @@ export function Dashboard() {
                 <div className={cn(cardSizing.scrollFill, "grid grid-cols-1 sm:grid-cols-2 gap-g2 content-start")}>
                   {visibleFleet.map((eq) => {
                     const meta = STATUS_META[eq.status];
+                    const tone = toneForHealthStatus(eq.status);
                     return (
                       <Link
                         key={eq.equipment_id}
                         to={`/equipment/${eq.equipment_id}/edit`}
                         className={cn(
-                          "rounded-lg border px-g3 py-g2 transition-all hover:-translate-y-0.5 hover:shadow-md",
-                          meta.box
+                          "relative overflow-hidden rounded-lg border border-border bg-white",
+                          "px-g3 py-g2 pl-g4 transition-all hover:-translate-y-0.5 hover:shadow-md",
+                          STATUS_TONES[tone].wash
                         )}
                       >
+                        <StatusRail tone={tone} />
                         <div className="flex items-center justify-between gap-g2">
                           <p className="font-semibold text-brand truncate">{eq.machine_name}</p>
-                          <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", meta.dot)} />
+                          <StatusBadge tone={tone}>{meta.label}</StatusBadge>
                         </div>
                         <p className="text-xs text-muted-foreground truncate mt-g1">
                           {eq.plant_name} · {eq.area}
                         </p>
-                        <div className="flex items-center justify-between mt-g2">
-                          <span className={cn("text-xs font-semibold", meta.text)}>{meta.label}</span>
+                        <div className="flex items-center justify-between gap-g2 mt-g2">
+                          <span className="text-xs font-semibold text-brand">
+                            {eq.health_score != null ? `Health ${eq.health_score}` : ""}
+                          </span>
                           <span className="text-xs text-muted-foreground">{relativeTime(eq.last_upload_at)}</span>
                         </div>
                       </Link>
@@ -215,18 +246,22 @@ export function Dashboard() {
               <>
                 <div className={cn(cardSizing.scrollFill, "space-y-g2 pr-1")}>
                   {visibleAlerts.map((alert, i) => {
-                    const meta = STATUS_META[alert.status as EquipmentHealthStatus] ?? STATUS_META.no_baseline;
+                    const status = (alert.status as EquipmentHealthStatus) ?? "no_baseline";
+                    const meta = STATUS_META[status] ?? STATUS_META.no_baseline;
+                    const tone = toneForHealthStatus(status);
                     return (
                       <div
                         key={`${alert.equipment_id}-${alert.channel}-${alert.feature_code}-${alertOffset + i}`}
                         className={cn(
-                          "rounded-lg border px-g3 py-g2 transition-all hover:-translate-y-0.5 hover:shadow-md",
-                          meta.box
+                          "relative overflow-hidden rounded-lg border border-border bg-white",
+                          "px-g3 py-g2 pl-g4 transition-all hover:-translate-y-0.5 hover:shadow-md",
+                          STATUS_TONES[tone].wash
                         )}
                       >
+                        <StatusRail tone={tone} />
                         <div className="flex items-center justify-between gap-g2">
                           <p className="font-semibold text-brand text-sm truncate">{alert.machine_name}</p>
-                          <span className={cn("text-xs font-semibold shrink-0", meta.text)}>{meta.label}</span>
+                          <StatusBadge tone={tone}>{meta.label}</StatusBadge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-g1">
                           {alert.feature_name ?? alert.feature_code} · CH-{alert.channel + 1} ·{" "}

@@ -149,7 +149,16 @@ def compute_ai_readiness(equipment: Equipment) -> dict:
         "machine_train_configured": equipment.machine_train_configured or False,
         "asset_status_set": equipment.asset_status not in (None, ""),
         "sensor_coverage": sensor_coverage,
-        "bearing_database_mapped": equipment.bearing_database_mapped or False,
+        # A bearing resolved against the catalogue *is* the mapping this check
+        # asks about, so it satisfies it outright. The manual flag stays as an
+        # override: records ticked before the catalogue existed keep their score,
+        # and a machine whose bearing is genuinely not catalogued can still be
+        # marked mapped by hand.
+        "bearing_database_mapped": bool(
+            equipment.bearing_database_mapped
+            or equipment.bearing_de_catalog_id
+            or equipment.bearing_nde_catalog_id
+        ),
         "operating_mode_configured": (
             equipment.operating_speed_min is not None and
             equipment.operating_speed_max is not None

@@ -10,6 +10,7 @@ from app.database import SessionLocal, engine
 from app.routers.acquisition import router as acquisition_router
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
+from app.routers.bearings import router as bearings_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.equipment import router as equipment_router
 from app.routers.exports import router as exports_router
@@ -93,6 +94,7 @@ app.add_middleware(
 app.include_router(acquisition_router)
 app.include_router(auth_router)
 app.include_router(baselines_router)
+app.include_router(bearings_router)
 app.include_router(dashboard_router)
 app.include_router(equipment_router)
 app.include_router(exports_router)

@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bell, ShieldCheck } from "lucide-react";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 import { STATUS_META, relativeTime } from "@/lib/alert-status";
+import { STATUS_TONES, toneForHealthStatus } from "@/lib/status-box";
+import { StatusBadge, StatusRail } from "@/components/ui/StatusBox";
 import type { EquipmentHealthStatus } from "@/types/dashboard";
 import { cn } from "@/lib/utils";
 
@@ -70,25 +72,26 @@ export function NotificationBell({ className }: NotificationBellProps) {
                 ) : (
                   <div className="p-2 space-y-g2">
                     {alerts.map((alert, i) => {
-                      const meta =
-                        STATUS_META[alert.status as EquipmentHealthStatus] ?? STATUS_META.no_baseline;
+                      const status = (alert.status as EquipmentHealthStatus) ?? "no_baseline";
+                      const meta = STATUS_META[status] ?? STATUS_META.no_baseline;
+                      const tone = toneForHealthStatus(status);
                       return (
                         <Link
                           key={`${alert.equipment_id}-${alert.channel}-${alert.feature_code}-${i}`}
                           to={`/equipment/${alert.equipment_id}/edit`}
                           onClick={() => setOpen(false)}
                           className={cn(
-                            "block rounded-lg border px-3 py-2.5 transition-colors hover:brightness-95",
-                            meta.box
+                            "relative block overflow-hidden rounded-lg border border-border bg-white",
+                            "px-3 py-2.5 pl-4 transition-colors hover:brightness-95",
+                            STATUS_TONES[tone].wash
                           )}
                         >
+                          <StatusRail tone={tone} />
                           <div className="flex items-center justify-between gap-2">
                             <p className="font-semibold text-brand text-sm truncate">
                               {alert.machine_name}
                             </p>
-                            <span className={cn("text-xs font-semibold shrink-0", meta.text)}>
-                              {meta.label}
-                            </span>
+                            <StatusBadge tone={tone}>{meta.label}</StatusBadge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-g1">
                             {alert.feature_name ?? alert.feature_code} · CH-{alert.channel + 1} ·{" "}

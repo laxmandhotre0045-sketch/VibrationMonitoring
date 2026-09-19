@@ -20,6 +20,8 @@ import { AssetIntelligencePanel } from "./AssetIntelligencePanel";
 import { AssetHealthPanel } from "./AssetHealthPanel";
 import { CompletenessEngine } from "./CompletenessEngine";
 import { MachineVisualizationPanel } from "./MachineVisualizationPanel";
+import { DigitalTwinSection } from "./digital-twin/DigitalTwinSection";
+import { MountingRowsProvider } from "./digital-twin/DigitalTwinContext";
 import { FORM_STEPS, stepFieldNames } from "@/lib/form-intelligence";
 import { cardHover } from "@/lib/card-hover";
 import { cn } from "@/lib/utils";
@@ -111,6 +113,14 @@ function FormBody({
               <div style={{ display: activeTab === 4 ? undefined : "none" }}><OperatingProcessTab /></div>
               <div style={{ display: activeTab === 5 ? undefined : "none" }}><SensorsOrientationTab /></div>
               <div style={{ display: activeTab === 6 ? undefined : "none" }}><ReviewSaveTab /></div>
+
+              {/* One viewer for the whole form, not one per step: the six step
+                  panels above all stay mounted behind `display:none`, so a
+                  viewer inside each would hold four WebGL contexts open for a
+                  single machine. Sitting here it also survives step changes
+                  without reloading, and is visible on every breakpoint rather
+                  than only where the xl sidebar is. */}
+              <DigitalTwinSection activeStep={activeTab} equipmentId={editId} />
 
               <div className={cn("content-card", cardHover.soft)}>
                 <div className="form-actions-bar">
@@ -235,19 +245,24 @@ export function EquipmentForm({ initialData, editId }: EquipmentFormProps) {
 
   return (
     <FormProvider {...methods}>
-      <FormBody
-        activeTab={activeTab}
-        completedTabs={completedTabs}
-        setActiveTab={goToTab}
-        editId={editId}
-        pendingImage={pendingImage}
-        setPendingImage={setPendingImage}
-        saving={saving}
-        onNext={() => goToTab(activeTab + 1)}
-        onBack={() => setActiveTab((t) => Math.max(1, t - 1))}
-        onSubmit={onSubmit}
-        onInvalid={onInvalid}
-      />
+      {/* Holds the Step 5 mounting rows so the sensors table and the Digital
+          Twin read the same values. Still UI-only state — what the form saves
+          is unchanged. */}
+      <MountingRowsProvider>
+        <FormBody
+          activeTab={activeTab}
+          completedTabs={completedTabs}
+          setActiveTab={goToTab}
+          editId={editId}
+          pendingImage={pendingImage}
+          setPendingImage={setPendingImage}
+          saving={saving}
+          onNext={() => goToTab(activeTab + 1)}
+          onBack={() => setActiveTab((t) => Math.max(1, t - 1))}
+          onSubmit={onSubmit}
+          onInvalid={onInvalid}
+        />
+      </MountingRowsProvider>
     </FormProvider>
   );
 }
