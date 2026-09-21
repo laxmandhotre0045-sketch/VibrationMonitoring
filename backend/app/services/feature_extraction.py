@@ -7,6 +7,11 @@ from typing import Any
 
 import numpy as np
 
+from app.ai.time_features import (
+    TIME_FEATURE_CODES,
+    extract_time_features,
+)
+
 from app.services.signal_processing import (
     build_window,
     coherent_gain,
@@ -21,6 +26,10 @@ SHAFT_FREQ_MAX_HZ = 120.0
 FFT_BAND_MAX_HZ = 500.0
 SEGMENT_COUNT = 32
 
+#: The ten the platform started with, then the thirteen time-domain features
+#: from VIK-018. APPENDED, never reordered: the frontend treats this as a
+#: positional contract, so inserting a code in the middle silently relabels
+#: every feature after it.
 FEATURE_CODES = [
     "rms",
     "peak",
@@ -32,7 +41,7 @@ FEATURE_CODES = [
     "amplitude_3x",
     "envelope_rms",
     "noise_floor",
-]
+] + TIME_FEATURE_CODES
 
 
 def _to_array(samples: list[float]) -> np.ndarray:
@@ -122,7 +131,7 @@ def extract_channel_features(
         "sample_count": n,
     }
 
-    return {
+    result = {
         "rms": {"value": rms, "unit": "scaled_eng", "metadata": {}},
         "peak": {"value": peak, "unit": "scaled_eng", "metadata": {}},
         "crest_factor": {"value": crest, "unit": "dimensionless", "metadata": {}},
@@ -138,6 +147,12 @@ def extract_channel_features(
         "envelope_rms": {"value": env_rms, "unit": "scaled_eng", "metadata": {}},
         "noise_floor": {"value": noise_db, "unit": "dB", "metadata": {"reference": "mean_fft_magnitude"}},
     }
+
+    # VIK-018. The shaft estimate is already computed above, so the modulation
+    # index gets a real shaft rate rather than falling back to envelope
+    # variability -- which is a different quantity under the same name.
+    result.update(extract_time_features(data, sampling_rate_hz, shaft_hz=shaft_hz))
+    return result
 
 
 def extract_segment_trends(
