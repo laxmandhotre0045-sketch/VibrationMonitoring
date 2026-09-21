@@ -1,7 +1,9 @@
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsType } from "echarts";
+import { Info } from "lucide-react";
 import type { HealthMetricTrend } from "@/types/health-status";
+import { MetricInsightModal } from "@/components/analysis/health/MetricInsightModal";
 import { buildHealthTrendOption, formatHealthMetricDisplay } from "@/lib/health-trend-option";
 import { GRAPH_KPI_CARD_HEIGHT } from "@/lib/chart-constants";
 import { resetChartZoom } from "@/lib/graph-interactions";
@@ -61,6 +63,7 @@ function metricHeading(metric: HealthMetricTrend): { name: string; unit: string 
 
 export function HealthMetricCard({ metric, channelLabel, className }: HealthMetricCardProps) {
   const chartRef = useRef<ReactECharts>(null);
+  const [insightOpen, setInsightOpen] = useState(false);
 
   const option = useMemo(
     () => buildHealthTrendOption(metric, channelLabel),
@@ -99,15 +102,37 @@ export function HealthMetricCard({ metric, channelLabel, className }: HealthMetr
   const heading = metricHeading(metric);
 
   const headerExtra = (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1",
-        "text-[11px] font-bold uppercase tracking-[0.08em]",
-        STATUS_STYLES[metric.status]
-      )}
-    >
-      <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOTS[metric.status])} aria-hidden />
-      {STATUS_LABELS[metric.status]}
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1",
+          "text-[11px] font-bold uppercase tracking-[0.08em]",
+          STATUS_STYLES[metric.status]
+        )}
+      >
+        <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOTS[metric.status])} aria-hidden />
+        {STATUS_LABELS[metric.status]}
+      </span>
+
+      {/* Sits with the status badge because it explains it: the badge says
+          which side of the limit the reading fell, this says why and what to
+          do next. */}
+      <button
+        type="button"
+        onClick={() => setInsightOpen(true)}
+        title={`AI reading for ${heading.name}`}
+        aria-label={`AI reading for ${heading.name}`}
+        className={cn(
+          // Same 32px box as the toolbar buttons beside it, so the header reads
+          // as one row of controls rather than two sizes of button.
+          "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+          "border-signal-light/45 bg-signal-light/10 text-signal-dark transition-colors",
+          "hover:border-signal-light hover:bg-signal-light/20",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,107,0,0.45)]"
+        )}
+      >
+        <Info size={14} strokeWidth={2.5} aria-hidden />
+      </button>
     </span>
   );
 
@@ -131,42 +156,50 @@ export function HealthMetricCard({ metric, channelLabel, className }: HealthMetr
   );
 
   return (
-    <GraphWorkspace
-      className={cn("h-full", className)}
-      variant="primary"
-      height={GRAPH_KPI_CARD_HEIGHT}
-      title={heading.unit ? `${heading.name} (${heading.unit})` : heading.name}
-      titleNode={titleNode}
-      subtitle={subtitle}
-      headerExtra={headerExtra}
-      toolbarPlacement="header"
-      statistics={
-        <p className="text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Time Range
-        </p>
-      }
-      onReset={metric.available ? handleReset : undefined}
-      onExport={metric.available ? handleExport : undefined}
-      onChartResize={handleResize}
-      toolbarActions={[...KPI_TOOLBAR_ACTIONS]}
-    >
-      {({ height: chartHeight, isFullscreen }) =>
-        metric.available ? (
-          <EchartsGraphViewport
-            chartRef={chartRef}
-            option={option}
-            chartHeight={chartHeight}
-            isFullscreen={isFullscreen}
-            baseLineWidth={1.75}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center px-3">
-            <p className="text-sm text-muted-foreground text-center">
-              Not available for this capture
-            </p>
-          </div>
-        )
-      }
-    </GraphWorkspace>
+    <>
+      <MetricInsightModal
+        open={insightOpen}
+        metric={metric}
+        channelLabel={channelLabel}
+        onClose={() => setInsightOpen(false)}
+      />
+      <GraphWorkspace
+        className={cn("h-full", className)}
+        variant="primary"
+        height={GRAPH_KPI_CARD_HEIGHT}
+        title={heading.unit ? `${heading.name} (${heading.unit})` : heading.name}
+        titleNode={titleNode}
+        subtitle={subtitle}
+        headerExtra={headerExtra}
+        toolbarPlacement="header"
+        statistics={
+          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Time Range
+          </p>
+        }
+        onReset={metric.available ? handleReset : undefined}
+        onExport={metric.available ? handleExport : undefined}
+        onChartResize={handleResize}
+        toolbarActions={[...KPI_TOOLBAR_ACTIONS]}
+      >
+        {({ height: chartHeight, isFullscreen }) =>
+          metric.available ? (
+            <EchartsGraphViewport
+              chartRef={chartRef}
+              option={option}
+              chartHeight={chartHeight}
+              isFullscreen={isFullscreen}
+              baseLineWidth={1.75}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center px-3">
+              <p className="text-sm text-muted-foreground text-center">
+                Not available for this capture
+              </p>
+            </div>
+          )
+        }
+      </GraphWorkspace>
+    </>
   );
 }

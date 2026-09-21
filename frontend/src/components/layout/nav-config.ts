@@ -3,6 +3,7 @@ import {
   Cpu,
   Activity,
   Database,
+  Sparkles,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -46,6 +47,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Database,
     active: true,
     matchPaths: ["/sensor-data"],
+    roles: ["super_admin", "admin", "user"],
+  },
+  {
+    path: "/ai-analysis",
+    label: "AI Analysis",
+    icon: Sparkles,
+    active: true,
+    matchPaths: ["/ai-analysis"],
     roles: ["super_admin", "admin", "user"],
   },
   {

@@ -47,6 +47,14 @@ class Equipment(Base):
     bearing_details = Column(Text, nullable=True)
     bearing_number_de = Column(String(100), nullable=True)
     bearing_number_nde = Column(String(100), nullable=True)
+    # Link to the bearing catalogue, by its own Bearing ID. Only the id is kept:
+    # copying the seven catalogue fields onto every machine would go stale the
+    # moment the catalogue is corrected, and the numbers are one join away.
+    # Deliberately not a foreign key — the catalogue is optional reference data
+    # that a deployment may not have loaded, and an equipment record must stay
+    # saveable either way.
+    bearing_de_catalog_id = Column(Integer, nullable=True)
+    bearing_nde_catalog_id = Column(Integer, nullable=True)
     gearbox_ratio = Column(Numeric(8, 3), nullable=True)
     gear_teeth = Column(Integer, nullable=True)
     motor_pole_count = Column(Integer, nullable=True)

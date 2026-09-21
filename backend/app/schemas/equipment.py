@@ -81,6 +81,10 @@ class EquipmentBase(BaseModel):
     bearing_details: Optional[str] = None
     bearing_number_de: Optional[str] = None
     bearing_number_nde: Optional[str] = None
+    # Bearing ID in the fault-frequency catalogue, when the fitted bearing was
+    # matched to it. Null means the bearing is recorded as free text only.
+    bearing_de_catalog_id: Optional[int] = None
+    bearing_nde_catalog_id: Optional[int] = None
     gearbox_ratio: Optional[Decimal] = None
     gear_teeth: Optional[int] = None
     motor_pole_count: Optional[int] = None
@@ -139,6 +143,8 @@ class EquipmentUpdate(BaseModel):
     bearing_details: Optional[str] = None
     bearing_number_de: Optional[str] = None
     bearing_number_nde: Optional[str] = None
+    bearing_de_catalog_id: Optional[int] = None
+    bearing_nde_catalog_id: Optional[int] = None
     gearbox_ratio: Optional[Decimal] = None
     gear_teeth: Optional[int] = None
     motor_pole_count: Optional[int] = None

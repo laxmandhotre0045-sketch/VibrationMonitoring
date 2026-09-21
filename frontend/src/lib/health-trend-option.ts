@@ -129,6 +129,26 @@ function formatElapsed(seconds: number, spanSeconds: number): string {
   return `${seconds.toFixed(1)} s`;
 }
 
+/**
+ * A round tick step for a span the axis no longer gets to round off itself.
+ *
+ * Pinning the time axis to the data takes the bounds away from ECharts, and the
+ * tick step with them — left alone it would divide the span into fifths and
+ * label them 52 ms, 103 ms, 155 ms. This puts the step back on the 1 / 2 / 2.5 /
+ * 5 decades an eye reads as round.
+ */
+function niceTickInterval(span: number, divisions: number): number {
+  if (!(span > 0) || divisions <= 0) return 0;
+  const raw = span / divisions;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const fraction = raw / magnitude;
+  // Nearest nice step, not the next one up: a 252 ms span wants 50.4 ms per
+  // division, and rounding that up lands on 100 ms — halving the ticks to
+  // 0 / 100 / 200 to avoid overshooting by four tenths of a millisecond.
+  const step = fraction < 1.5 ? 1 : fraction < 3 ? 2 : fraction < 7 ? 5 : 10;
+  return step * magnitude;
+}
+
 export function buildHealthTrendOption(
   metric: HealthMetricTrend,
   channelLabel?: string
@@ -136,8 +156,27 @@ export function buildHealthTrendOption(
   const seriesData = metric.trendX.map((x, i) => [x, metric.trendY[i]] as [number, number]);
 
   const xValues = metric.trendX.filter((v) => Number.isFinite(v));
-  const xSpan = xValues.length > 1 ? Math.max(...xValues) - Math.min(...xValues) : 0;
+  const xMin = xValues.length ? Math.min(...xValues) : 0;
+  const xMax = xValues.length ? Math.max(...xValues) : 0;
+  const xSpan = xValues.length > 1 ? xMax - xMin : 0;
   const formatYTick = axisTickFormatter(metric.trendY);
+
+  // Left to itself ECharts rounds the upper bound up to the next round number,
+  // which on a 258 ms capture drew the grid out to 300 ms and left the last
+  // sixth of every card empty, past the final reading. Pinning the axis to the
+  // data ends it on the trace; the interval keeps the ticks round anyway, and
+  // the floor puts the first one on a multiple of the step rather than on the
+  // first segment's midpoint. A single reading has no span to pin to — that is
+  // the one case where ECharts choosing the bounds is what you want.
+  const tickInterval = niceTickInterval(xSpan, INDUSTRIAL_AXIS_GRID.splitNumber);
+  const xBounds =
+    xSpan > 0 && tickInterval > 0
+      ? {
+          min: Math.floor(xMin / tickInterval) * tickInterval,
+          max: xMax,
+          interval: tickInterval,
+        }
+      : { scale: true };
 
   const capturedAt = metric.capturedAt ? new Date(metric.capturedAt) : null;
   const captureValid = capturedAt !== null && !Number.isNaN(capturedAt.getTime());
@@ -196,9 +235,7 @@ export function buildHealthTrendOption(
     xAxis: {
       type: "value",
       show: true,
-      // No pinned min/max: ECharts picks round bounds, so the ticks land on
-      // even intervals instead of hanging a ragged one off each end.
-      scale: true,
+      ...xBounds,
       ...axis,
       axisLine: { show: false },
       axisTick: { show: false },

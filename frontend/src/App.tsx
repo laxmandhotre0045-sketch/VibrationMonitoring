@@ -12,6 +12,7 @@ import { NewEquipmentPage, EditEquipmentPage } from "@/pages/EquipmentMaster";
 import { SettingsPage } from "@/pages/Settings";
 import { VibrationAnalysisPage } from "@/pages/VibrationAnalysis";
 import { SensorDataPage } from "@/pages/SensorData";
+import { AiAnalysisPage } from "@/pages/AiAnalysis";
 import { LoginPage } from "@/pages/Login";
 import { UnauthorizedPage } from "@/pages/Unauthorized";
 import { ChangePasswordPage } from "@/pages/ChangePassword";
@@ -88,6 +89,14 @@ export default function App() {
                   element={
                     <ProtectedRoute roles={[...ALL_ROLES]}>
                       <SensorDataPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ai-analysis"
+                  element={
+                    <ProtectedRoute roles={[...ALL_ROLES]}>
+                      <AiAnalysisPage />
                     </ProtectedRoute>
                   }
                 />

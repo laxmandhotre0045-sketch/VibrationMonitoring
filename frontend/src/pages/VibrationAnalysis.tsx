@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Upload, Settings2, Trash2 } from "lucide-react";
 import { listEquipment, getEquipment } from "@/api/equipment";
 import { useLayout } from "@/contexts/LayoutContext";
@@ -101,6 +102,62 @@ export function VibrationAnalysisPage() {
     queryFn: () => getEquipment(equipmentId),
     enabled: !!equipmentId,
   });
+
+  /**
+   * Deep link from the Equipment Master Digital Twin.
+   *
+   * Clicking a sensor on the 3D model and choosing "View Analysis" arrives
+   * here with the equipment and the sensor's mounting location and
+   * orientation, which is what identifies it — sensors have no channel column.
+   * Applied once and then consumed, so it never fights a later manual change
+   * or a plant switch. Without these params the page behaves exactly as before.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedEquipmentId = searchParams.get("equipmentId");
+  const linkedLocation = searchParams.get("mountingLocation");
+  const linkedOrientation = searchParams.get("orientation");
+  const deepLinkApplied = useRef(false);
+
+  useEffect(() => {
+    if (deepLinkApplied.current) return;
+    if (!linkedEquipmentId) {
+      deepLinkApplied.current = true;
+      return;
+    }
+    if (equipmentId !== linkedEquipmentId) {
+      setEquipmentId(linkedEquipmentId);
+      return;
+    }
+    const loaded = (equipment as EquipmentOut | undefined)?.sensors;
+    if (!loaded) return; // still fetching
+
+    const match = loaded.find(
+      (sensor) =>
+        sensor.mounting_location === linkedLocation && sensor.orientation === linkedOrientation
+    );
+    if (match?.id) setSensorId(match.id);
+
+    deepLinkApplied.current = true;
+    // Drop only the three params this owns, so any other query string the page
+    // picks up later survives.
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("equipmentId");
+        next.delete("mountingLocation");
+        next.delete("orientation");
+        return next;
+      },
+      { replace: true }
+    );
+  }, [
+    equipment,
+    equipmentId,
+    linkedEquipmentId,
+    linkedLocation,
+    linkedOrientation,
+    setSearchParams,
+  ]);
 
   const { data: plotConfig } = useQuery({
     queryKey: ["plot-config", sensorId],

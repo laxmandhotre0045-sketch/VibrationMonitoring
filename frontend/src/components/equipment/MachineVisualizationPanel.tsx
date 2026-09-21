@@ -10,7 +10,13 @@ interface MachineVisualizationPanelProps {
   className?: string;
 }
 
-function MachineIllustration({ type }: { type: string }) {
+/**
+ * The existing 2D asset schematic.
+ *
+ * Exported so the Digital Twin panel can reuse it as its WebGL fallback
+ * instead of inventing a second set of machine drawings.
+ */
+export function MachineIllustration({ type }: { type: string }) {
   const stroke = "#15366D";
   const accent = "#F5A623";
   const light = "#E5E7EB";

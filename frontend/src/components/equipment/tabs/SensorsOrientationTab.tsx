@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useFormContext, useFieldArray, Controller } from "react-hook-form";
 import { Radio, Plus, Trash2 } from "lucide-react";
 import { EquipmentFormData } from "@/types/equipment";
@@ -6,6 +6,7 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Button } from "@/components/ui/Button";
 import { SelectInput, TextInput, inputBase } from "@/components/ui/FormField";
 import { SensorMountingDiagram } from "../SensorMountingDiagram";
+import { useMountingRows } from "@/components/equipment/digital-twin/DigitalTwinContext";
 import { cn } from "@/lib/utils";
 
 const SENSOR_TYPES = [
@@ -27,23 +28,16 @@ const SENSITIVITY_UNITS = ["mV/g", "mV/mm/s", "mV/µm", "mA", "V"];
 const SAMPLING_RATES = ["512 Hz", "1024 Hz", "2048 Hz", "4096 Hz", "8192 Hz", "16384 Hz", "32768 Hz", "65536 Hz", "Custom"];
 const FREQUENCY_RANGES = ["0-500 Hz", "0-1000 Hz", "0-2000 Hz", "0-5000 Hz", "0-10000 Hz", "0-20000 Hz", "Custom"];
 
-const DEFAULT_SENSOR_ROWS = [
-  { label: "DE Horizontal", location: "DE Horizontal", mountingLocation: "Bearing Housing DE", orientation: "Horizontal" },
-  { label: "DE Vertical", location: "DE Vertical", mountingLocation: "Bearing Housing DE", orientation: "Vertical" },
-  { label: "DE Axial", location: "DE Axial", mountingLocation: "Bearing Housing DE", orientation: "Axial" },
-  { label: "NDE Horizontal", location: "NDE Horizontal", mountingLocation: "Bearing Housing NDE", orientation: "Horizontal" },
-  { label: "NDE Vertical", location: "NDE Vertical", mountingLocation: "Bearing Housing NDE", orientation: "Vertical" },
-  { label: "NDE Axial", location: "NDE Axial", mountingLocation: "Bearing Housing NDE", orientation: "Axial" },
-];
-
 export function SensorsOrientationTab() {
   const { control, watch, register } = useFormContext<EquipmentFormData>();
   const { fields, append, remove } = useFieldArray({ control, name: "sensors" });
   const sensors = watch("sensors") || [];
 
-  const [defaultRows, setDefaultRows] = useState(
-    DEFAULT_SENSOR_ROWS.map((r) => ({ ...r, selectedMounting: r.mountingLocation, selectedOrientation: r.orientation }))
-  );
+  // These six rows have always been local UI state rather than sensor records,
+  // and still are — they have only moved into a provider so the 3D Digital
+  // Twin, which renders outside this tab, shows the same values as the table.
+  // Nothing about what this step saves has changed.
+  const { rows: defaultRows, setRows: setDefaultRows } = useMountingRows();
 
   const diagramOrientations: Record<string, string> = {};
   defaultRows.forEach((row) => {

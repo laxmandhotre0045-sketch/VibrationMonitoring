@@ -62,6 +62,10 @@ export const equipmentSchema = z.object({
   bearing_details: z.string().optional().nullable(),
   bearing_number_de: z.string().optional().nullable(),
   bearing_number_nde: z.string().optional().nullable(),
+  // Bearing ID in the fault-frequency catalogue, set when the fitted bearing is
+  // matched against it. Null means the bearing is recorded as free text only.
+  bearing_de_catalog_id: optionalNumber((n) => n.int().positive()),
+  bearing_nde_catalog_id: optionalNumber((n) => n.int().positive()),
   gearbox_ratio: optionalNumber((n) => n.positive()),
   gear_teeth: optionalNumber((n) => n.int().positive()),
   motor_pole_count: optionalNumber((n) => n.int()),
