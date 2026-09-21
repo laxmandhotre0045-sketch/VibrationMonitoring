@@ -7,6 +7,10 @@ from typing import Any
 
 import numpy as np
 
+from app.ai.envelope_features import (
+    ENVELOPE_FEATURE_CODES,
+    extract_envelope_features,
+)
 from app.ai.shaft_speed import ShaftSpeed, resolve_shaft_speed
 from app.ai.frequency_features import (
     FREQUENCY_FEATURE_CODES,
@@ -46,7 +50,7 @@ FEATURE_CODES = [
     "amplitude_3x",
     "envelope_rms",
     "noise_floor",
-] + TIME_FEATURE_CODES + FREQUENCY_FEATURE_CODES
+] + TIME_FEATURE_CODES + FREQUENCY_FEATURE_CODES + ENVELOPE_FEATURE_CODES
 
 
 def _to_array(samples: list[float]) -> np.ndarray:
@@ -102,6 +106,8 @@ def extract_channel_features(
     samples: list[float],
     sampling_rate_hz: float,
     machine: "ShaftSpeed | None" = None,
+    bearing_orders: dict | None = None,
+    with_envelope: bool = True,
 ) -> dict[str, dict[str, Any]]:
     """Every feature for one channel.
 
@@ -208,6 +214,20 @@ def extract_channel_features(
     # this cannot start a second FFT -- the ticket's "one spectrum per segment
     # and fan out", enforced by the signature.
     result.update(extract_frequency_features(freqs, spectrum, shaft_hz=for_orders))
+
+    # VIK-020. Whole record only, and that is a physical limit rather than a
+    # saving: a segment is a thirty-second of the capture -- 434 samples on a
+    # real one -- and an envelope spectrum of 434 samples has 98 Hz lines,
+    # coarser than the gap between any two bearing frequencies on this
+    # machine. The transform also costs 30 ms, so running it on all 32
+    # segments would turn a 0.2 s capture into 8 s for numbers that could not
+    # be read anyway.
+    if with_envelope:
+        result.update(extract_envelope_features(
+            data, sampling_rate_hz,
+            freqs=freqs, amplitudes=spectrum,
+            shaft_hz=for_orders, bearing_orders=bearing_orders,
+        ))
     return result
 
 
@@ -216,6 +236,7 @@ def extract_segment_trends(
     sampling_rate_hz: float,
     machine: "ShaftSpeed | None" = None,
     *,
+    bearing_orders: dict | None = None,
     num_segments: int = SEGMENT_COUNT,
 ) -> dict[str, dict[str, Any]]:
     """Compute per-segment trend series for each feature code."""
@@ -250,14 +271,24 @@ def extract_segment_trends(
     # thirty-second of it. Measured: 330 calls per channel, 2,640 for an
     # 8-channel capture. Now 33 and 264.
     per_segment = [
-        extract_channel_features(segment.tolist(), sampling_rate_hz, machine)
+        extract_channel_features(segment.tolist(), sampling_rate_hz, machine,
+                                 bearing_orders, with_envelope=False)
         for segment in segments
     ]
-    whole_record = extract_channel_features(samples, sampling_rate_hz, machine)
+    whole_record = extract_channel_features(samples, sampling_rate_hz, machine,
+                                            bearing_orders, with_envelope=False)
 
     result: dict[str, dict[str, Any]] = {}
     for code in FEATURE_CODES:
-        scalar = whole_record[code]
+        # The envelope features have no per-segment series and are absent
+        # here rather than carried with an empty one. A segment is a
+        # thirty-second of the capture -- 434 samples on a real one -- and an
+        # envelope spectrum of that has 98 Hz lines, coarser than the gap
+        # between any two bearing frequencies on this machine. A trend of
+        # numbers that cannot be read is not a trend.
+        scalar = whole_record.get(code)
+        if scalar is None:
+            continue
         result[code] = {
             "trend_x": trend_x,
             "trend_y": [float(feats[code]["value"]) for feats in per_segment],
@@ -273,6 +304,7 @@ def extract_all_channels(
     channel_count: int,
     sampling_rate_hz: float,
     machine: "ShaftSpeed | None" = None,
+    bearing_orders: dict | None = None,
 ) -> dict[int, dict[str, dict[str, Any]]]:
     channels = parsed_data.get("channels", {})
     effective = parsed_data.get("channel_count", channel_count)
@@ -283,7 +315,8 @@ def extract_all_channels(
         samples = channels.get(key, [])
         if not samples or len(samples) < 4:
             continue
-        result[ch] = extract_channel_features(samples, sampling_rate_hz, machine)
+        result[ch] = extract_channel_features(samples, sampling_rate_hz, machine,
+                                              bearing_orders)
 
     return result
 
@@ -293,6 +326,7 @@ def extract_all_channel_trends(
     channel_count: int,
     sampling_rate_hz: float,
     machine: "ShaftSpeed | None" = None,
+    bearing_orders: dict | None = None,
 ) -> dict[int, dict[str, dict[str, Any]]]:
     channels = parsed_data.get("channels", {})
     effective = parsed_data.get("channel_count", channel_count)
@@ -303,6 +337,7 @@ def extract_all_channel_trends(
         samples = channels.get(key, [])
         if not samples or len(samples) < 4:
             continue
-        result[ch] = extract_segment_trends(samples, sampling_rate_hz, machine=machine)
+        result[ch] = extract_segment_trends(samples, sampling_rate_hz, machine=machine,
+                                            bearing_orders=bearing_orders)
 
     return result

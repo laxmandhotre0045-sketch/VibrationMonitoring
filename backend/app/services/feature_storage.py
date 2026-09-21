@@ -126,6 +126,40 @@ def machine_shaft_speed(db: Session, upload: SensorDataUpload,
     )
 
 
+def machine_bearing_orders(db: Session, upload: SensorDataUpload) -> dict | None:
+    """FTF/BSF/BPFO/BPFI for the bearing this sensor is watching.
+
+    From the catalogue via VIK-010, which resolved the plant's spelling
+    ("6312-C3") onto a real row. The drive end is used: it carries the load
+    and is where defects appear first, and a sensor on the casing sees both
+    anyway.
+
+    None when no bearing is resolved, which the envelope features report as
+    "not looked for" rather than as nothing found. Those are different
+    answers and only one of them is reassuring.
+    """
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    if sensor is None or not getattr(sensor, "equipment_id", None):
+        return None
+
+    row = db.execute(text("""
+        SELECT b.ftf, b.bsf, b.bpfo, b.bpfi, b.designation
+          FROM equipment_masters e
+          JOIN bearing_fault_frequencies b
+            ON b.source_bearing_id = e.bearing_de_catalog_id
+         WHERE e.id = :eid
+    """), {"eid": str(sensor.equipment_id)}).fetchone()
+    if row is None:
+        return None
+
+    orders = {name: (float(getattr(row, name)) if getattr(row, name) is not None else None)
+              for name in ("ftf", "bsf", "bpfo", "bpfi")}
+    if not any(orders.values()):
+        return None
+    orders["designation"] = row.designation
+    return orders
+
+
 def persist_upload_features_and_trends(
     db: Session,
     upload: SensorDataUpload,
@@ -148,6 +182,7 @@ def persist_upload_features_and_trends(
     baseline_refs = _baseline_ref_map(db, upload.sensor_id)
 
     machine = machine_shaft_speed(db, upload, parsed_data, sampling_rate_hz)
+    bearing_orders = machine_bearing_orders(db, upload)
     logger.info(
         "Shaft speed for upload %s: %s (%s, confidence %.2f)",
         upload.id,
@@ -156,9 +191,9 @@ def persist_upload_features_and_trends(
     )
 
     scalars = extract_all_channels(parsed_data, upload.channel_count,
-                                   sampling_rate_hz, machine)
+                                   sampling_rate_hz, machine, bearing_orders)
     trends = (extract_all_channel_trends(parsed_data, upload.channel_count,
-                                         sampling_rate_hz, machine)
+                                         sampling_rate_hz, machine, bearing_orders)
               if with_trends else {})
 
     feature_crud.delete_measurement_features(db, upload.id)

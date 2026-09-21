@@ -26,6 +26,7 @@ import numpy as np
 import pytest
 
 import app.services.feature_extraction as fe
+from app.ai.envelope_features import ENVELOPE_FEATURE_CODES
 from app.services.feature_extraction import (
     FEATURE_CODES,
     SEGMENT_COUNT,
@@ -89,9 +90,18 @@ def test_the_cost_does_not_scale_with_the_number_of_features(monkeypatch, sample
 
 
 def test_every_code_still_gets_a_full_trend(samples):
-    """Cheaper must not mean less."""
+    """Cheaper must not mean less -- with one deliberate exception.
+
+    The envelope features (VIK-020) have no per-segment series and are
+    absent rather than carried with an empty one. A segment is a
+    thirty-second of the capture, and an envelope spectrum of that has lines
+    coarser than the gap between any two of this machine's bearing
+    frequencies. A trend of unreadable numbers is not a trend.
+    """
     result = extract_segment_trends(samples, RATE)
-    assert set(result) == set(FEATURE_CODES)
+    expected = set(FEATURE_CODES) - set(ENVELOPE_FEATURE_CODES)
+    assert set(result) == expected
+    assert set(ENVELOPE_FEATURE_CODES).isdisjoint(result)
     for code, payload in result.items():
         assert len(payload["trend_y"]) == len(payload["trend_x"])
         assert len(payload["trend_y"]) == SEGMENT_COUNT
@@ -112,7 +122,7 @@ def test_the_scalar_is_the_whole_record_not_a_segment(samples):
     """The headline value must describe the capture, not its last thirty-second."""
     result = extract_segment_trends(samples, RATE)
     whole = fe.extract_channel_features(samples, RATE)
-    for code in FEATURE_CODES:
+    for code in result:
         assert result[code]["value"] == pytest.approx(whole[code]["value"])
 
 

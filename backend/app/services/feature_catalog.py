@@ -5,7 +5,7 @@ One list, read by three things that were previously kept in step by hand: the
 defaults behind "reset to default", and the migration that seeds a fresh
 database. The ticket asks for one source of truth, and this is it.
 
-**Most of these have no alarm limit, on purpose.** The platform measures 36
+**Most of these have no alarm limit, on purpose.** The platform measures 46
 things per channel; published limits exist for a handful. A spectral centroid
 of 3,976 Hz is neither good nor bad on its own, and inventing a number for it
 would repeat the failure the requirement already records: one global RMS
@@ -124,6 +124,28 @@ FEATURE_DEFINITIONS: tuple[FeatureDefinition, ...] = (
                       "Share of energy in lines that stand out at all. The mirror of entropy."),
     FeatureDefinition("peak_drift", "Peak Drift", "fraction",
                       "Movement of the dominant line since the previous capture. Needs two captures."),
+
+    # --- envelope, VIK-020 -------------------------------------------------
+    FeatureDefinition("ftf_band_energy", "Cage (FTF) Energy", "dimensionless",
+                      "Strength of the cage defect rate in the demodulated signal. The cage holds the balls apart."),
+    FeatureDefinition("bsf_band_energy", "Ball Spin (BSF) Energy", "dimensionless",
+                      "Strength of the ball defect rate. On this machine it shares a line with twice shaft speed and with mains."),
+    FeatureDefinition("bpfo_band_energy", "Outer Race (BPFO) Energy", "dimensionless",
+                      "Strength of the outer-race defect rate. The commonest bearing fault, and the clearest in the envelope."),
+    FeatureDefinition("bpfi_band_energy", "Inner Race (BPFI) Energy", "dimensionless",
+                      "Strength of the inner-race defect rate. Modulated at shaft rate as the defect passes through the load zone."),
+    FeatureDefinition("bearing_harmonic_energy", "Bearing Harmonic Energy", "dimensionless",
+                      "How much of a repeating family the strongest defect rate has. A real defect repeats; noise at one frequency does not."),
+    FeatureDefinition("envelope_peak", "Envelope Peak", "scaled_eng",
+                      "The tallest line in the demodulated signal, whatever is causing it."),
+    FeatureDefinition("envelope_kurtosis", "Envelope Kurtosis", "dimensionless",
+                      "How sharply the demodulated energy concentrates into lines. One of the strongest bearing indicators."),
+    FeatureDefinition("demodulated_peak_prominence", "Demodulated Peak Prominence", "dimensionless",
+                      "How far that tallest line stands above the demodulated noise floor."),
+    FeatureDefinition("repetition_impact_frequency", "Impact Repetition Rate", "Hz",
+                      "How often the impacts repeat. Compare it against the bearing frequencies to name the cause."),
+    FeatureDefinition("resonance_band_energy", "Resonance Band Energy", "dimensionless",
+                      "How strongly the structure is ringing at the band that was demodulated. Low means there is no resonance to read."),
 )
 
 #: Features that are recorded and plotted but never alarmed on, because
@@ -137,6 +159,7 @@ INFORMATIONAL: frozenset[str] = frozenset({
     "zero_crossing_rate",   # descriptive; meaningful only beside the others
     "peak_drift",           # a change, already relative, and zero means unknown
     "harmonic_count",       # a count of a family, not a magnitude
+    "repetition_impact_frequency",  # a rate, to be compared, not graded
 })
 
 #: Baseline comparison for a feature with no published limit. Deliberately
@@ -188,3 +211,72 @@ def seed_rows() -> list[dict]:
          "description": d.description, "sort_order": i, "is_active": True}
         for i, d in enumerate(FEATURE_DEFINITIONS, start=1)
     ]
+
+
+# --------------------------------------------------------------- seeding --
+
+def sync_to_database(bind) -> tuple[int, int]:
+    """Bring `feature_definitions` and the factory rules in line with this file.
+
+    Called from the migrations rather than restated by them, which is what
+    makes this module the single source of truth the ticket asks for. Adding
+    a feature group then needs a migration that calls this and nothing else.
+
+    Idempotent, and deliberately asymmetric between the two tables:
+
+      Definitions are upserted. They are descriptive text, the frontend reads
+      them, and the newest wording should win. Existing rows are updated in
+      place rather than replaced, because feature_threshold_rules references
+      them and their ids are worth keeping.
+
+      Rules are only inserted where none exists. Overwriting a limit someone
+      tuned, during an upgrade, is the kind of silent change that surfaces
+      weeks later as an alarm that never fired.
+
+    Returns (definitions written, rules created).
+    """
+    import json as _json
+
+    import sqlalchemy as _sa
+
+    for row in seed_rows():
+        bind.execute(_sa.text("""
+            INSERT INTO feature_definitions (id, code, name, unit, description,
+                                             sort_order, is_active)
+            VALUES (gen_random_uuid(), :code, :name, :unit, :description,
+                    :sort_order, :is_active)
+            ON CONFLICT (code) DO UPDATE SET
+                name        = EXCLUDED.name,
+                unit        = EXCLUDED.unit,
+                description = EXCLUDED.description,
+                sort_order  = EXCLUDED.sort_order,
+                is_active   = EXCLUDED.is_active
+        """), row)
+
+    columns = {c["name"] for c in _sa.inspect(bind).get_columns("feature_threshold_rules")}
+    scoped = [c for c in ("machine_type", "channel") if c in columns]
+    where_global = "".join(f" AND {c} IS NULL" for c in scoped)
+
+    created = 0
+    for code, rule in all_default_rules().items():
+        exists = bind.execute(_sa.text(
+            f"SELECT 1 FROM feature_threshold_rules WHERE feature_code = :code"
+            f"{where_global} LIMIT 1"), {"code": code}).fetchone()
+        if exists:
+            continue
+        bind.execute(_sa.text("""
+            INSERT INTO feature_threshold_rules (id, feature_code, rule_type,
+                                                 normal_max, warning_max,
+                                                 normal_min, warning_min,
+                                                 metadata, is_active)
+            VALUES (gen_random_uuid(), :code, :rule_type, :normal_max,
+                    :warning_max, :normal_min, :warning_min,
+                    CAST(:meta AS jsonb), true)
+        """), {
+            "code": code, "rule_type": rule.rule_type,
+            "normal_max": rule.normal_max, "warning_max": rule.warning_max,
+            "normal_min": rule.normal_min, "warning_min": rule.warning_min,
+            "meta": _json.dumps(rule.metadata or {}),
+        })
+        created += 1
+    return len(FEATURE_DEFINITIONS), created
