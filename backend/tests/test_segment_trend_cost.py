@@ -45,9 +45,12 @@ def count_calls(monkeypatch, samples):
     calls = {"n": 0}
     original = fe.extract_channel_features
 
-    def counting(sample_list, rate):
+    def counting(sample_list, rate, *args, **kwargs):
+        # Forwards whatever it is given. The shaft speed was added as a third
+        # argument later, and a stub with a fixed signature turns that into a
+        # TypeError inside the thing being measured rather than a count.
         calls["n"] += 1
-        return original(sample_list, rate)
+        return original(sample_list, rate, *args, **kwargs)
 
     monkeypatch.setattr(fe, "extract_channel_features", counting)
     result = extract_segment_trends(samples, RATE)

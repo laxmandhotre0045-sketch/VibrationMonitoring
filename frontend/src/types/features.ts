@@ -1,6 +1,20 @@
 import type { VibrationFeatureCategory, VibrationFeatureKey } from "@/lib/vibration-features";
 
-export type FeatureMonitorStatus = "normal" | "warning" | "critical" | "no_baseline";
+/**
+ * "not_assessed" is measured but deliberately not graded, and is distinct
+ * from "no_baseline". No baseline means a judgement was wanted and could not
+ * be made yet; not assessed means none was ever intended. Most of the 26
+ * features added in VIK-018 to VIK-020 have no published limit, and a few --
+ * dominant frequency, DC offset, skewness -- have no direction at all, so
+ * "higher is worse" is simply false for them. Showing those as "No Baseline"
+ * would imply that collecting more data fixes it. It does not.
+ */
+export type FeatureMonitorStatus =
+  | "normal"
+  | "warning"
+  | "critical"
+  | "no_baseline"
+  | "not_assessed";
 
 export interface FeatureStatusItem {
   feature: string;
@@ -19,6 +33,7 @@ export interface FeatureSummaryCounts {
   warning: number;
   critical: number;
   no_baseline: number;
+  not_assessed: number;
 }
 
 export interface ChannelHealthOverviewData {

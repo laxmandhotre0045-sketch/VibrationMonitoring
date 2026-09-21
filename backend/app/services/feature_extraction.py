@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from app.ai.shaft_speed import ShaftSpeed, resolve_shaft_speed
 from app.ai.frequency_features import (
     FREQUENCY_FEATURE_CODES,
     extract_frequency_features,
@@ -100,7 +101,17 @@ def _excess_kurtosis(data: np.ndarray) -> float:
 def extract_channel_features(
     samples: list[float],
     sampling_rate_hz: float,
+    machine: "ShaftSpeed | None" = None,
 ) -> dict[str, dict[str, Any]]:
+    """Every feature for one channel.
+
+    `machine` carries the shaft speed and how it was established. Passing it
+    is what makes every "order" in the result mean anything: without it the
+    speed falls back to the tallest line between 5 and 120 Hz, which on the
+    test pump reads 2x or 4x the true speed on all eight channels. The
+    fallback is kept so a caller with no machine record still gets numbers,
+    but it is marked unusable and the features say so.
+    """
     data = _to_array(samples)
     n = len(data)
     if n < 4:
@@ -115,7 +126,9 @@ def extract_channel_features(
     band_mask = freqs <= FFT_BAND_MAX_HZ
     band_energy = float(np.sum(spectrum[band_mask] ** 2))
 
-    shaft_hz = _estimate_shaft_hz(freqs, spectrum)
+    if machine is None:
+        machine = resolve_shaft_speed(freqs, spectrum)
+    shaft_hz = machine.hz if machine.hz else _estimate_shaft_hz(freqs, spectrum)
     amp_1x = _magnitude_at_freq(freqs, spectrum, shaft_hz)
     amp_2x = _magnitude_at_freq(freqs, spectrum, 2.0 * shaft_hz)
     amp_3x = _magnitude_at_freq(freqs, spectrum, 3.0 * shaft_hz)
@@ -129,8 +142,15 @@ def extract_channel_features(
     mean_mag = float(np.mean(spectrum))
     noise_db = float(20.0 * np.log10(max(mean_mag, 1e-30)))
 
+    # Where the shaft speed came from travels with every order-based number.
+    # An order is a frequency divided by this, so a wrong one is wrong by the
+    # same factor everywhere -- and the only way to trace that back is to
+    # record which record answered.
     shaft_meta = {
         "estimated_shaft_hz": shaft_hz,
+        "shaft_hz_source": machine.source,
+        "shaft_hz_confidence": machine.confidence,
+        "shaft_hz_usable": machine.usable,
         "sampling_rate_hz": sampling_rate_hz,
         "sample_count": n,
     }
@@ -155,18 +175,23 @@ def extract_channel_features(
     # VIK-018. The shaft estimate is already computed above, so the modulation
     # index gets a real shaft rate rather than falling back to envelope
     # variability -- which is a different quantity under the same name.
-    result.update(extract_time_features(data, sampling_rate_hz, shaft_hz=shaft_hz))
+    # None rather than a number when the speed is not trustworthy: these
+    # features already report 'shaft speed unknown' in that case, which is
+    # true, where an order against a 4x-wrong speed is plausible and false.
+    for_orders = shaft_hz if machine.usable else None
+    result.update(extract_time_features(data, sampling_rate_hz, shaft_hz=for_orders))
 
     # VIK-019. Handed the spectrum computed above rather than the samples, so
     # this cannot start a second FFT -- the ticket's "one spectrum per segment
     # and fan out", enforced by the signature.
-    result.update(extract_frequency_features(freqs, spectrum, shaft_hz=shaft_hz))
+    result.update(extract_frequency_features(freqs, spectrum, shaft_hz=for_orders))
     return result
 
 
 def extract_segment_trends(
     samples: list[float],
     sampling_rate_hz: float,
+    machine: "ShaftSpeed | None" = None,
     *,
     num_segments: int = SEGMENT_COUNT,
 ) -> dict[str, dict[str, Any]]:
@@ -202,10 +227,10 @@ def extract_segment_trends(
     # thirty-second of it. Measured: 330 calls per channel, 2,640 for an
     # 8-channel capture. Now 33 and 264.
     per_segment = [
-        extract_channel_features(segment.tolist(), sampling_rate_hz)
+        extract_channel_features(segment.tolist(), sampling_rate_hz, machine)
         for segment in segments
     ]
-    whole_record = extract_channel_features(samples, sampling_rate_hz)
+    whole_record = extract_channel_features(samples, sampling_rate_hz, machine)
 
     result: dict[str, dict[str, Any]] = {}
     for code in FEATURE_CODES:
@@ -224,6 +249,7 @@ def extract_all_channels(
     parsed_data: dict[str, Any],
     channel_count: int,
     sampling_rate_hz: float,
+    machine: "ShaftSpeed | None" = None,
 ) -> dict[int, dict[str, dict[str, Any]]]:
     channels = parsed_data.get("channels", {})
     effective = parsed_data.get("channel_count", channel_count)
@@ -234,7 +260,7 @@ def extract_all_channels(
         samples = channels.get(key, [])
         if not samples or len(samples) < 4:
             continue
-        result[ch] = extract_channel_features(samples, sampling_rate_hz)
+        result[ch] = extract_channel_features(samples, sampling_rate_hz, machine)
 
     return result
 
@@ -243,6 +269,7 @@ def extract_all_channel_trends(
     parsed_data: dict[str, Any],
     channel_count: int,
     sampling_rate_hz: float,
+    machine: "ShaftSpeed | None" = None,
 ) -> dict[int, dict[str, dict[str, Any]]]:
     channels = parsed_data.get("channels", {})
     effective = parsed_data.get("channel_count", channel_count)
@@ -253,6 +280,6 @@ def extract_all_channel_trends(
         samples = channels.get(key, [])
         if not samples or len(samples) < 4:
             continue
-        result[ch] = extract_segment_trends(samples, sampling_rate_hz)
+        result[ch] = extract_segment_trends(samples, sampling_rate_hz, machine=machine)
 
     return result

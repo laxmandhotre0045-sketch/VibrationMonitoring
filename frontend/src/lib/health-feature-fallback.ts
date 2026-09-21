@@ -34,6 +34,7 @@ export function summarizeFeatureItems(items: FeatureStatusItem[]): FeatureSummar
     warning: 0,
     critical: 0,
     no_baseline: 0,
+    not_assessed: 0,
   };
   for (const item of items) {
     summary[item.status] += 1;

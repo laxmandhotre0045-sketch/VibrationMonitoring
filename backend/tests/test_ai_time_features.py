@@ -273,8 +273,9 @@ def test_the_shock_index_is_relative_to_the_burst_threshold():
     quiet[100] = 6.0 * quiet.std()          # one sample past 4 sigma
 
     result = extract_time_features(quiet.tolist(), fs)
-    sigma = float(np.sqrt(np.mean((quiet - quiet.mean()) ** 2)))
-    expected = float(np.max(np.abs(quiet))) / (BURST_SIGMA * sigma)
+    centred = quiet - quiet.mean()
+    sigma = float(np.sqrt(np.mean(centred ** 2)))
+    expected = float(np.max(np.abs(centred))) / (BURST_SIGMA * sigma)
     assert result["shock_index"]["value"] == pytest.approx(expected, rel=1e-9)
     assert result["shock_index"]["value"] > 1.0
     assert result["burst_count"]["value"] >= 1
@@ -289,7 +290,14 @@ def test_the_two_rms_windows_never_overlap():
     import app.ai.time_features as tf
 
     fs, n = 25600.0, 4096
-    rising = np.concatenate([np.full(n // 2, 0.01), np.full(n // 2, 0.10)])
+    # An oscillation whose amplitude grows tenfold, not a DC step. The first
+    # version of this test used two constant levels, which is a change of
+    # bias rather than of vibration -- and bias is exactly what these
+    # features now remove before measuring anything.
+    t = np.arange(n) / fs
+    wave = np.sin(2 * np.pi * 500.0 * t)
+    envelope = np.concatenate([np.full(n // 2, 0.01), np.full(n // 2, 0.10)])
+    rising = wave * envelope
 
     honest = extract_time_features(rising.tolist(), fs)["rms_change_short"]["value"]
     assert honest == pytest.approx(9.0, rel=0.05), (
@@ -306,3 +314,57 @@ def test_the_two_rms_windows_never_overlap():
     assert clamped == pytest.approx(honest, rel=0.05), (
         "the windows overlapped and the rise was averaged away"
     )
+
+
+def test_a_sensor_bias_is_not_counted_as_impacting():
+    """The bug real data exposed, and the harness never could.
+
+    Every synthetic signature is generated about zero, so raw and centred
+    agree exactly and nothing here noticed that bursts were being counted on
+    the uncentred signal. A real transducer has a standing bias: ch7 on the
+    gateway sits at -0.145 g, which is three times four-sigma of its own
+    vibration. Measured raw, all 13,888 samples exceeded the burst threshold
+    -- five of the eight channels declared every sample a four-sigma impact.
+    """
+    fs, n = 25600.0, 13888
+    rng = np.random.default_rng(7)
+    vibration = rng.normal(scale=0.012, size=n)
+
+    clean = extract_time_features(vibration.tolist(), fs)
+    biased = extract_time_features((vibration - 0.145).tolist(), fs)
+
+    assert biased["burst_count"]["value"] < 20, (
+        f"{biased['burst_count']['value']:.0f} bursts out of {n} -- the bias "
+        f"is being counted as impacting"
+    )
+    assert biased["burst_count"]["value"] == clean["burst_count"]["value"]
+    assert biased["dc_offset"]["value"] == pytest.approx(-0.145, abs=0.001)
+
+
+@pytest.mark.parametrize("code", [
+    "impulse_factor", "shape_factor", "clearance_factor", "burst_count",
+    "shock_index", "modulation_index", "rms_change_short", "rms_change_long",
+    "std_dev", "skewness", "peak_to_peak", "zero_crossing_rate",
+])
+def test_every_feature_but_the_offset_itself_ignores_a_standing_bias(code):
+    """These measure how far a machine moves about its resting position. A
+    transducer's resting position is not part of that."""
+    fs, n = 25600.0, 8192
+    t = np.arange(n) / fs
+    signal = 0.02 * np.sin(2 * np.pi * 120.0 * t) + 0.002 * np.sin(2 * np.pi * 1700.0 * t)
+
+    clean = extract_time_features(signal.tolist(), fs, shaft_hz=25.0)[code]["value"]
+    biased = extract_time_features((signal - 0.145).tolist(), fs, shaft_hz=25.0)[code]["value"]
+
+    assert biased == pytest.approx(clean, rel=1e-6, abs=1e-9), (
+        f"{code} moved from {clean:.6g} to {biased:.6g} when a constant "
+        f"-0.145 g was added"
+    )
+
+
+def test_the_offset_itself_still_reports_the_bias():
+    """The one feature that must move with it."""
+    fs, n = 25600.0, 8192
+    signal = 0.02 * np.sin(np.linspace(0, 400, n))
+    assert extract_time_features((signal - 0.145).tolist(), fs)["dc_offset"]["value"] \
+        == pytest.approx(-0.145, abs=0.001)

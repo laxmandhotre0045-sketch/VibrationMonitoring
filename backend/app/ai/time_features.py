@@ -106,9 +106,29 @@ def extract_time_features(
     # Population sigma (ddof=0), matching raw_analysis.py. Mixing conventions
     # across modules is how the same channel reports two different kurtoses.
     sigma = float(np.sqrt(np.mean(centred ** 2)))
-    rms = float(np.sqrt(np.mean(data ** 2)))
-    peak = float(np.max(np.abs(data)))
-    absolute = np.abs(data)
+
+    # EVERYTHING BELOW IS MEASURED ON THE CENTRED SIGNAL, and that is the
+    # whole of a bug this had until real data exposed it.
+    #
+    # These are all vibration quantities: how far the machine moves about its
+    # resting position. A sensor's standing bias is not movement. Measured on
+    # the raw signal instead, with |x| including the offset, the eight
+    # channels of the test pump reported burst counts of
+    #
+    #     13888, 13887, 387, 10, 0, 13888, 13888, 13888   out of 13888
+    #
+    # -- five channels declaring every single sample a four-sigma impact,
+    # because the bias alone (-0.145 g on ch7) is larger than four times the
+    # vibration's own spread (0.048 g). The correct counts are 8, 1, 298, 0,
+    # 0, 45, 2, 303.
+    #
+    # The harness could not catch this: every synthetic signature is
+    # generated about zero, so raw and centred agree exactly. Only a real
+    # transducer has a bias. `dc_offset` reports the bias itself and
+    # `peak_to_peak` is a difference, so those two are unaffected.
+    rms = float(np.sqrt(np.mean(centred ** 2)))
+    peak = float(np.max(np.abs(centred)))
+    absolute = np.abs(centred)
     mean_absolute = float(np.mean(absolute))
 
     peak_to_peak = float(np.max(data) - np.min(data))
@@ -189,8 +209,8 @@ def extract_time_features(
     # fraction is well clear of that; the clamp is here so that tuning the
     # constant cannot silently empty the feature of meaning.
     window = max(4, min(n // 2, int(n * SHORT_WINDOW_FRACTION)))
-    recent = data[-window:]
-    earlier = data[:window]
+    recent = centred[-window:]
+    earlier = centred[:window]
     rms_recent = float(np.sqrt(np.mean(recent ** 2)))
     rms_earlier = float(np.sqrt(np.mean(earlier ** 2)))
     rms_change_short = _safe_divide(rms_recent - rms_earlier, rms_earlier)

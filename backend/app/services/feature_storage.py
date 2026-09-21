@@ -7,8 +7,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app import crud
+from app.ai.shaft_speed import ShaftSpeed, resolve_shaft_speed
 from app.crud import baseline as baseline_crud
 from app.crud import feature as feature_crud
 from app.models.measurement import (
@@ -19,6 +22,8 @@ from app.models.measurement import (
     SensorDataUpload,
 )
 from app.services.feature_extraction import (
+    _compute_fft_magnitudes,
+    _to_array,
     FEATURE_CODES,
     extract_all_channel_trends,
     extract_all_channels,
@@ -78,6 +83,49 @@ def _baseline_ref_map(db: Session, sensor_id: UUID) -> dict[tuple[int, str], flo
     return {(r.channel, r.feature_code): float(r.value) for r in rows}
 
 
+def machine_shaft_speed(db: Session, upload: SensorDataUpload,
+                        parsed_data: dict[str, Any],
+                        sampling_rate_hz: float) -> ShaftSpeed:
+    """The shaft speed for this capture, from the machine record.
+
+    This is the only layer that knows which machine a sensor is bolted to, so
+    it is where the nameplate enters the calculation. Without it every order
+    in the platform is computed against the tallest line in the spectrum,
+    which on the test pump is 2x or 4x the true speed on all eight channels.
+
+    The spectrum of channel 0 is used as the cross-check on the nameplate --
+    one channel, not eight, because the answer is a property of the shaft
+    rather than of any transducer, and computing eight transforms to agree
+    with each other would cost eight times as much for the same number.
+    """
+    measured = getattr(upload, "rotation_speed_rpm", None)
+
+    nameplate = operating_min = operating_max = None
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    if sensor is not None and getattr(sensor, "equipment_id", None):
+        equipment = db.execute(text("""
+            SELECT rated_rpm, operating_speed_min, operating_speed_max
+              FROM equipment_masters WHERE id = :eid
+        """), {"eid": str(sensor.equipment_id)}).fetchone()
+        if equipment is not None:
+            nameplate = equipment.rated_rpm
+            operating_min = equipment.operating_speed_min
+            operating_max = equipment.operating_speed_max
+
+    freqs = spectrum = None
+    samples = (parsed_data.get("channels") or {}).get("ch0")
+    if samples and len(samples) >= 4:
+        freqs, spectrum = _compute_fft_magnitudes(_to_array(samples), sampling_rate_hz)
+
+    return resolve_shaft_speed(
+        freqs, spectrum,
+        measured_rpm=float(measured) if measured else None,
+        nameplate_rpm=float(nameplate) if nameplate else None,
+        operating_rpm_min=float(operating_min) if operating_min else None,
+        operating_rpm_max=float(operating_max) if operating_max else None,
+    )
+
+
 def persist_upload_features_and_trends(
     db: Session,
     upload: SensorDataUpload,
@@ -90,8 +138,18 @@ def persist_upload_features_and_trends(
     rules_map = feature_crud.get_resolved_rule_map(db)
     baseline_refs = _baseline_ref_map(db, upload.sensor_id)
 
-    scalars = extract_all_channels(parsed_data, upload.channel_count, sampling_rate_hz)
-    trends = extract_all_channel_trends(parsed_data, upload.channel_count, sampling_rate_hz)
+    machine = machine_shaft_speed(db, upload, parsed_data, sampling_rate_hz)
+    logger.info(
+        "Shaft speed for upload %s: %s (%s, confidence %.2f)",
+        upload.id,
+        f"{machine.hz:.3f} Hz" if machine.hz else "unknown",
+        machine.source, machine.confidence,
+    )
+
+    scalars = extract_all_channels(parsed_data, upload.channel_count,
+                                   sampling_rate_hz, machine)
+    trends = extract_all_channel_trends(parsed_data, upload.channel_count,
+                                        sampling_rate_hz, machine)
 
     feature_crud.delete_measurement_features(db, upload.id)
     feature_crud.delete_measurement_feature_trends(db, upload.id)
@@ -261,9 +319,13 @@ def copy_upload_features_to_baseline(
 
 
 def features_summary_from_rows(rows: list[MeasurementChannelFeature]) -> dict[str, int]:
-    summary = {"normal": 0, "warning": 0, "critical": 0, "no_baseline": 0}
+    summary = {"normal": 0, "warning": 0, "critical": 0,
+               "no_baseline": 0, "not_assessed": 0}
     for r in rows:
-        key = r.status if r.status in summary else "normal"
-        summary[key] = summary.get(key, 0) + 1
+        # An unrecognised status counts as not assessed, not as normal.
+        # Counting it normal is how twenty-six ungraded features come to
+        # read as twenty-six healthy ones on the summary cards.
+        key = r.status if r.status in summary else "not_assessed"
+        summary[key] += 1
     summary["total"] = len(rows)
     return summary

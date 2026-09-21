@@ -26,7 +26,10 @@ function normalizeStatus(value: unknown): FeatureMonitorStatus {
   if (raw === "warning" || raw === "caution") return "warning";
   if (raw === "critical" || raw === "danger" || raw === "alarm") return "critical";
   if (raw === "no_baseline" || raw === "no baseline" || raw === "none") return "no_baseline";
-  return "no_baseline";
+  if (raw === "not_assessed" || raw === "not assessed") return "not_assessed";
+  // An unknown status is not a baseline problem. Saying "No Baseline" invites
+  // someone to collect more data to clear it, which will never work.
+  return "not_assessed";
 }
 
 function normalizeSummary(data: Record<string, unknown>, itemCount: number): FeatureSummaryCounts {
@@ -37,6 +40,8 @@ function normalizeSummary(data: Record<string, unknown>, itemCount: number): Fea
     warning: readNumber(summary.warning) ?? 0,
     critical: readNumber(summary.critical) ?? 0,
     no_baseline: readNumber(summary.no_baseline) ?? readNumber(summary.noBaseline) ?? 0,
+    not_assessed:
+      readNumber(summary.not_assessed) ?? readNumber(summary.notAssessed) ?? 0,
   };
 }
 
