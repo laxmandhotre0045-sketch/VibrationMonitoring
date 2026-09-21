@@ -131,8 +131,17 @@ def persist_upload_features_and_trends(
     upload: SensorDataUpload,
     parsed_data: dict[str, Any],
     sampling_rate_hz: float,
+    with_trends: bool = True,
 ) -> tuple[int, int]:
-    """Extract scalars + segment trends for all channels. Returns (feature_rows, trend_rows)."""
+    """Extract scalars + segment trends for all channels. Returns (feature_rows, trend_rows).
+
+    `with_trends` exists for backfilling captures that older code never
+    analysed. The trend rows are 32 segments x 8 channels x 36 features --
+    9,216 per capture, about 3 MB -- and for a historical capture nobody has
+    looked at, the features are what baselines and grading read. They can be
+    produced later from the same stored samples. The live path leaves this
+    on, so nothing about normal ingestion changes.
+    """
     # Keyed by (channel, code): a channel with its own override uses it, every
     # other channel falls back to the global rule. See crud.feature.resolve_rule.
     rules_map = feature_crud.get_resolved_rule_map(db)
@@ -148,8 +157,9 @@ def persist_upload_features_and_trends(
 
     scalars = extract_all_channels(parsed_data, upload.channel_count,
                                    sampling_rate_hz, machine)
-    trends = extract_all_channel_trends(parsed_data, upload.channel_count,
-                                        sampling_rate_hz, machine)
+    trends = (extract_all_channel_trends(parsed_data, upload.channel_count,
+                                         sampling_rate_hz, machine)
+              if with_trends else {})
 
     feature_crud.delete_measurement_features(db, upload.id)
     feature_crud.delete_measurement_feature_trends(db, upload.id)

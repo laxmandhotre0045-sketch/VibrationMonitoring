@@ -117,8 +117,31 @@ def extract_channel_features(
     if n < 4:
         raise ValueError("Need at least 4 samples per channel")
 
-    rms = float(np.sqrt(np.mean(data ** 2)))
-    peak = float(np.max(np.abs(data)))
+    # RMS, peak and crest are measured about the channel's own resting
+    # position, not about zero.
+    #
+    # This was the largest single source of false alarms in the platform.
+    # A transducer's standing bias is not vibration, and including it made
+    # five of the pump's eight channels read critical against the 0.02 limit
+    # while their actual movement was 0.0025 to 0.005 -- comfortably normal.
+    # On the worst channel the stored RMS was 0.145 against a true 0.012,
+    # because the bias alone is -0.144. Across everything stored, 1,163 of
+    # 1,479 critical rows came from these three features, and they were
+    # measuring the sensor rather than the machine.
+    #
+    # The platform already knew the difference: raw_vibration_channels has
+    # carried `rms` and `ac_rms` in separate columns since migration 021.
+    # Only this path did not use it.
+    #
+    # Crest factor was doubly affected, with the bias in both the numerator
+    # and the denominator, so a badly biased channel drifted towards 1.0 --
+    # the value that means a pure sine -- no matter what it was doing.
+    #
+    # Thresholds are unchanged. They were written for vibration amplitude,
+    # which is what they now actually receive.
+    centred = data - float(np.mean(data))
+    rms = float(np.sqrt(np.mean(centred ** 2)))
+    peak = float(np.max(np.abs(centred)))
     crest = float(peak / rms) if rms > 1e-30 else 0.0
     kurt = _excess_kurtosis(data)
 

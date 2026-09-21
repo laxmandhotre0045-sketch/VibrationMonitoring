@@ -204,3 +204,48 @@ def test_the_worst_graded_status_decides_the_channel(statuses, expected):
     from app.routers.measurements import _channel_health_overview
 
     assert _channel_health_overview([Row(s) for s in statuses], {}).health_state == expected
+
+
+# ---------------------------------------- level features measure the machine --
+
+def test_rms_peak_and_crest_ignore_a_standing_bias():
+    """The largest single source of false alarms the platform had.
+
+    A transducer's resting position is not vibration. Including it made five
+    of the pump's eight channels read critical against the 0.02 limit while
+    their actual movement was 0.0025 to 0.005 -- and 1,163 of 1,479 critical
+    rows in the whole database came from these three features measuring the
+    sensor instead of the machine.
+    """
+    import numpy as np
+    from app.services.feature_extraction import extract_channel_features
+
+    fs, n = 25600.0, 8192
+    t = np.arange(n) / fs
+    vibration = 0.006 * np.sin(2 * np.pi * 120.0 * t)
+
+    clean = extract_channel_features(vibration.tolist(), fs)
+    biased = extract_channel_features((vibration - 0.144).tolist(), fs)
+
+    for code in ("rms", "peak", "crest_factor"):
+        assert biased[code]["value"] == pytest.approx(clean[code]["value"], rel=1e-6), (
+            f"{code} moved when a constant -0.144 g was added"
+        )
+
+    # and the value is the vibration, not the bias
+    assert biased["rms"]["value"] == pytest.approx(0.006 / np.sqrt(2), rel=0.01)
+    assert biased["rms"]["value"] < 0.01, "this channel must not grade as critical"
+
+
+def test_crest_factor_of_a_biased_sine_is_still_the_crest_of_a_sine():
+    """With the bias in both the numerator and the denominator, a badly
+    biased channel drifts towards 1.0 -- the value that means a pure sine --
+    whatever it is actually doing."""
+    import numpy as np
+    from app.services.feature_extraction import extract_channel_features
+
+    fs, n = 25600.0, 8192
+    sine = 0.01 * np.sin(2 * np.pi * 100.0 * np.arange(n) / fs)
+    biased = extract_channel_features((sine - 0.2).tolist(), fs)
+
+    assert biased["crest_factor"]["value"] == pytest.approx(np.sqrt(2), rel=0.02)
