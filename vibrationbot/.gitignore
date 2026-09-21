@@ -8,7 +8,12 @@ venv/
 
 # Generated data: indexes, extracted assets, chunk artifacts, checkpoints.
 # All of it is reproducible from the source documents via scripts/reindex_all.py.
-data/
+# Anchored with a leading slash. Written bare as 'data/' this matched a
+# folder called data at ANY depth, so it silently excluded
+# app/domain/data/ -- the bearing geometry, ISO tables and fault rules.
+# Those three files then existed on whichever laptop created them and
+# nowhere else, and every lookup raised on a fresh clone.
+/data/
 logs/
 
 # Source corpus — large binaries, distributed separately.
