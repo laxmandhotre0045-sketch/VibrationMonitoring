@@ -1,0 +1,27 @@
+# Binary files, declared rather than guessed.
+#
+# core.autocrlf is true on the machines this repo is worked on, so git offers
+# to rewrite line endings in everything it believes is text. It currently
+# skips these only because its heuristic spots NUL bytes early in the file --
+# which is a guess, not a rule. Committing a PDF already produced the
+# "LF will be replaced by CRLF" warning, and a file that happened to have no
+# NUL byte near the start would be silently rewritten and ruined on checkout.
+# The bearing catalogue is 5.5 MB of spreadsheet and is not reproducible from
+# anything in this repository.
+
+*.pdf      binary
+*.xlsx     binary
+*.xls      binary
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.webp     binary
+*.zip      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.otf      binary
+*.sqlite   binary
+*.db       binary
