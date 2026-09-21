@@ -29,6 +29,7 @@ from app.services.feature_extraction import (
     extract_all_channels,
 )
 from app.services.plot_generator import load_parsed_data
+from app.services.quality_storage import persist_quality
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
 from app.services.webhook_service import build_alert_payload, dispatch_alert
 
@@ -183,6 +184,37 @@ def persist_upload_features_and_trends(
 
     machine = machine_shaft_speed(db, upload, parsed_data, sampling_rate_hz)
     bearing_orders = machine_bearing_orders(db, upload)
+
+    # VIK-022, before the features rather than after. The requirement makes
+    # "confidence reduced due to poor signal quality" a hard rule, and a rule
+    # that runs after the numbers have been produced is an afterthought --
+    # every engine downstream reads the level, so the level has to exist by
+    # the time the numbers do.
+    #
+    # It never raises: a capture whose quality could not be judged is still
+    # worth keeping, and losing it to the thing that grades it would be the
+    # worst outcome available.
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    quality = persist_quality(
+        db,
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        channels=(parsed_data.get("channels") or {}),
+        sampling_rate_hz=sampling_rate_hz,
+        expected_samples=parsed_data.get("sample_count"),
+        sensitivity_mv_per_g=(float(sensor.sensitivity)
+                              if sensor is not None and sensor.sensitivity
+                              else None),
+        shaft_hz=machine.hz if machine.usable else None,
+    )
+    if quality["level"] != "high":
+        logger.info(
+            "Data quality for upload %s: %s (x%.2f) -- failing %s%s",
+            upload.id, quality["level"], quality["confidence_factor"],
+            ", ".join(quality["failed_checks"]) or "nothing",
+            (", not assessed: " + ", ".join(quality.get("not_assessed", [])))
+            if quality.get("not_assessed") else "",
+        )
     logger.info(
         "Shaft speed for upload %s: %s (%s, confidence %.2f)",
         upload.id,
