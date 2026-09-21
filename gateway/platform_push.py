@@ -9,7 +9,8 @@ This platform speaks a different one:
 
     POST /api/v1/ingest/raw
     header: X-API-Key
-    form: device_id, file, sample_rate_hz, expected_channels, measured_at
+    form: device_id, file, sample_rate_hz, expected_channels, measured_at,
+          sample_unit, sensitivity_mv_per_g
 
 Same CSV, different envelope. Rather than teach one script two protocols --
 which is how a push ends up going to the wrong place after a hurried edit --
@@ -40,7 +41,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from uploader_settings import SENSOR_ID, _get
+from uploader_settings import SAMPLE_UNIT, SENSITIVITY_MV_PER_G, SENSOR_ID, _get
 
 log = logging.getLogger("platform_push")
 
@@ -120,12 +121,37 @@ def push(path: Path, cfg: dict, device_id: str, key: str) -> bool:
         log.warning("%s is empty; skipped", path.name)
         return False
 
+    channels = int(cfg.get("totalChannelCount") or 8)
     fields = {
         "device_id": device_id,
         "sample_rate_hz": str(cfg.get("sampleRateHz") or ""),
-        "expected_channels": str(cfg.get("totalChannelCount") or 8),
+        "expected_channels": str(channels),
         "measured_at": _measured_at(path),
     }
+
+    # What the numbers in this CSV physically are, and what each channel's
+    # transducer is. The PLC applies counts x (5 V / 32768) / sensitivity
+    # before publishing, so the file is already acceleration in g.
+    #
+    # This leg used to send neither, while my_script.py sent both to Senvia.
+    # The platform therefore recorded every capture as 'unconfirmed' and its
+    # own safety rule withheld every severity -- correctly, on information it
+    # was never given. Only what is actually configured is sent: an absent
+    # setting stays absent rather than becoming a default, because a guessed
+    # unit produces a plausible wrong severity rather than an obvious one.
+    if SAMPLE_UNIT:
+        fields["sample_unit"] = str(SAMPLE_UNIT)
+    if SENSITIVITY_MV_PER_G and len(SENSITIVITY_MV_PER_G) == channels:
+        fields["sensitivity_mv_per_g"] = ",".join(
+            f"{v:g}" for v in SENSITIVITY_MV_PER_G
+        )
+    elif SENSITIVITY_MV_PER_G:
+        log.warning(
+            "%d sensitivities configured for %d channels; sending none rather "
+            "than padding, since a figure on the wrong channel is wrong by the "
+            "ratio between the two and looks ordinary.",
+            len(SENSITIVITY_MV_PER_G), channels,
+        )
     body, content_type = _multipart(fields, path.name, payload)
     req = urllib.request.Request(
         f"{PLATFORM_URL}{INGEST_PATH}",
