@@ -182,7 +182,13 @@ def extract_time_features(
 
     # Short against long RMS, inside the one record. A rising fault shows a
     # short-term RMS above the whole-record figure; a steady one does not.
-    window = max(4, int(n * SHORT_WINDOW_FRACTION))
+    # Clamped to half the record so the two windows cannot overlap. Without
+    # this, any fraction above 0.5 makes "the last window against the first"
+    # compare the record with itself -- at 0.9 the two share 89% of their
+    # samples, so a fault that is growing reports no change. The current
+    # fraction is well clear of that; the clamp is here so that tuning the
+    # constant cannot silently empty the feature of meaning.
+    window = max(4, min(n // 2, int(n * SHORT_WINDOW_FRACTION)))
     recent = data[-window:]
     earlier = data[:window]
     rms_recent = float(np.sqrt(np.mean(recent ** 2)))

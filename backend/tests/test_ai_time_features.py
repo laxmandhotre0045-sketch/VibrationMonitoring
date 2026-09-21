@@ -208,3 +208,101 @@ def test_peak_to_peak_matches_the_existing_implementation():
     mine = extract_time_features(samples, FS_HZ)["peak_to_peak"]["value"]
     theirs = compute_raw_statistics(samples, FS_HZ)["peak_to_peak"]
     assert mine == pytest.approx(theirs, rel=1e-9)
+
+
+# ============================================================ #
+#  Gaps found by mutation testing
+#
+#  Each of the four below is a mutation the suite above did not
+#  notice: the modulation index measured at the wrong frequency,
+#  crossings counted about the wrong level, the shock index off by
+#  a factor of four, and the RMS windows overlapping. None changes
+#  an assertion that existed; all four change what the number means.
+# ============================================================ #
+
+def test_the_modulation_index_is_measured_at_1x_and_not_some_other_order():
+    """Measuring at 2X instead of 1X kept inner above outer on the harness, so
+    the ordering test could not see it. The physics is specifically 1X: a
+    defect passes through the load zone once per revolution. Built here as a
+    signal that is modulated at shaft rate and nothing else.
+    """
+    fs, shaft, n = 25600.0, 25.0, 8192
+    t = np.arange(n) / fs
+    carrier = np.sin(2 * np.pi * 2000.0 * t)
+    modulated = (1.0 + 0.5 * np.cos(2 * np.pi * shaft * t)) * carrier
+
+    at_shaft = extract_time_features(modulated.tolist(), fs, shaft_hz=shaft)
+    at_double = extract_time_features(modulated.tolist(), fs, shaft_hz=2 * shaft)
+    at_half = extract_time_features(modulated.tolist(), fs, shaft_hz=shaft / 2)
+
+    assert at_shaft["modulation_index"]["value"] > 0.3
+    assert at_double["modulation_index"]["value"] < 0.05, (
+        "a signal modulated only at 1X must read near zero at 2X"
+    )
+    assert at_half["modulation_index"]["value"] < 0.05
+
+
+def test_crossings_are_counted_about_the_mean_so_a_biased_channel_still_reads():
+    """ch7 on the real gateway sits about -0.145 g off zero. Counted about
+    zero, a signal smaller than its own bias never crosses and the rate reads
+    zero -- which would look like a dead channel on the one channel that has
+    the most bias.
+    """
+    fs, n = 25600.0, 8192
+    t = np.arange(n) / fs
+    swing = 0.01 * np.sin(2 * np.pi * 200.0 * t)
+
+    centred = extract_time_features(swing.tolist(), fs)
+    biased = extract_time_features((swing - 0.145).tolist(), fs)
+
+    assert centred["zero_crossing_rate"]["value"] == pytest.approx(400.0, rel=0.02)
+    assert biased["zero_crossing_rate"]["value"] == pytest.approx(
+        centred["zero_crossing_rate"]["value"], rel=0.02), (
+        "the bias changed the crossing rate, so it is being counted about zero"
+    )
+
+
+def test_the_shock_index_is_relative_to_the_burst_threshold():
+    """The scale is the point of the number: above 1.0 means at least one
+    sample crossed the burst threshold. Divided by sigma instead, every
+    ordinary channel reads 3 to 5 and the threshold meaning is lost.
+    """
+    fs = 25600.0
+    rng = np.random.default_rng(0)
+    quiet = (rng.normal(size=8192) * 0.01)
+    quiet[100] = 6.0 * quiet.std()          # one sample past 4 sigma
+
+    result = extract_time_features(quiet.tolist(), fs)
+    sigma = float(np.sqrt(np.mean((quiet - quiet.mean()) ** 2)))
+    expected = float(np.max(np.abs(quiet))) / (BURST_SIGMA * sigma)
+    assert result["shock_index"]["value"] == pytest.approx(expected, rel=1e-9)
+    assert result["shock_index"]["value"] > 1.0
+    assert result["burst_count"]["value"] >= 1
+
+
+def test_the_two_rms_windows_never_overlap():
+    """rms_change_short compares the end of the record against its start. If
+    the window grows past half the record the two share samples, and at a
+    0.9 fraction they share 89% -- so a record that doubles in amplitude
+    halfway through reports almost no change.
+    """
+    import app.ai.time_features as tf
+
+    fs, n = 25600.0, 4096
+    rising = np.concatenate([np.full(n // 2, 0.01), np.full(n // 2, 0.10)])
+
+    honest = extract_time_features(rising.tolist(), fs)["rms_change_short"]["value"]
+    assert honest == pytest.approx(9.0, rel=0.05), (
+        "a tenfold rise across the record should read as a ninefold change"
+    )
+
+    original = tf.SHORT_WINDOW_FRACTION
+    try:
+        tf.SHORT_WINDOW_FRACTION = 0.9
+        clamped = extract_time_features(rising.tolist(), fs)["rms_change_short"]["value"]
+    finally:
+        tf.SHORT_WINDOW_FRACTION = original
+
+    assert clamped == pytest.approx(honest, rel=0.05), (
+        "the windows overlapped and the rise was averaged away"
+    )

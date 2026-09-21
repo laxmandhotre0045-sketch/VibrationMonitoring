@@ -132,15 +132,56 @@ def test_catalogue_orders_are_physically_consistent(db):
 
 
 def test_manufacturer_disagreement_lowers_confidence_and_is_stated(db):
-    """12 manufacturers list 6312 and their BSF differs by about 1%. The
-    spread is reported rather than averaged: an average produces a number no
-    manufacturer publishes."""
+    """12 manufacturers list 6312 and their BSF differs by 1.2%. The spread is
+    reported rather than averaged: an average produces a number no
+    manufacturer publishes.
+
+    This assertion used to sit behind `if m.candidates > 1 and m.notes:`,
+    which meant that switching the disagreement check off emptied `notes` and
+    the test passed by skipping itself. Mutation testing found it. The
+    catalogue is a fixed spreadsheet, so the counts are pinned outright.
+    """
     from app.ai.bearings import match_from_catalogue
 
     m = match_from_catalogue(db, "6312")
-    if m.candidates > 1 and m.notes:
-        assert m.confidence < 1.0
-        assert any("differs by" in n for n in m.notes)
+    assert m.candidates == 12, (
+        f"{m.candidates} rows for 6312; the import may have run twice"
+    )
+    assert m.confidence == pytest.approx(0.85)
+    assert len(m.notes) == 1, m.notes
+    assert "BSF differs by 1.2%" in m.notes[0]
+    assert "FAF is used" in m.notes[0]
+
+
+def test_a_large_disagreement_is_reported_on_every_order_that_shows_it(db):
+    """6205 is the case that matters. Its manufacturers differ by 13.7% on
+    BPFO -- enough to move a bearing peak by a whole spectrum line at this
+    machine's speed -- and all four orders disagree. One note per order, so
+    the reader sees which ones.
+    """
+    from app.ai.bearings import match_from_catalogue
+
+    m = match_from_catalogue(db, "6205")
+    assert len(m.notes) == 4, m.notes
+    assert m.confidence < 1.0
+    joined = " ".join(m.notes)
+    for order in ("FTF", "BSF", "BPFO", "BPFI"):
+        assert f"{order} differs by" in joined
+    assert "BPFO differs by 13.7%" in joined
+
+
+def test_the_orders_returned_are_one_manufacturers_and_not_an_average(db):
+    """The whole point of reporting the spread instead of smoothing it. The
+    numbers handed downstream must be a row someone actually publishes."""
+    from app.ai.bearings import match_from_catalogue
+    from sqlalchemy import text
+
+    m = match_from_catalogue(db, "6205")
+    rows = db.execute(text(
+        "select manufacturer, ftf, bsf, bpfo, bpfi from bearing_fault_frequencies "
+        "where designation = '6205'")).fetchall()
+    published = {(r[0], float(r[1]), float(r[2]), float(r[3]), float(r[4])) for r in rows}
+    assert (m.manufacturer, m.ftf, m.bsf, m.bpfo, m.bpfi) in published
 
 
 def test_a_preferred_manufacturer_is_honoured(db):
@@ -162,3 +203,53 @@ def test_an_unknown_designation_falls_back_rather_than_raising(db):
     assert m.source in {"none", "estimated"}
     assert m.confidence < 1.0
     assert m.notes, "an unresolved bearing must say why"
+
+
+# ---------------------------------------- more gaps mutation testing found --
+
+def test_an_empty_designation_never_reaches_the_database():
+    """A blank bearing field on an equipment record is common. Looking it up
+    is a full-table scan that can only return the wrong bearing."""
+    from app.ai.bearings import match_from_catalogue
+
+    class Exploding:
+        def execute(self, *a, **k):
+            raise AssertionError("the database was queried for an empty designation")
+
+    for blank in ("", "   ", None, "-", "/"):
+        m = match_from_catalogue(Exploding(), blank)
+        assert m.source == "none"
+        assert m.catalog_id is None
+
+
+def test_disagreement_is_measured_against_the_larger_value():
+    """A percentage needs a stated base. Against the smaller value every
+    spread reads higher than it is, and the 1% tolerance then trips on
+    rounding differences that mean nothing."""
+    from app.ai.bearings import _spread
+
+    assert _spread([3.0, 3.1]) == pytest.approx(0.1 / 3.1, rel=1e-9)
+    assert _spread([3.0, 3.1]) < 0.1 / 3.0
+    assert _spread([2.0]) == 0.0
+    assert _spread([]) == 0.0
+    assert _spread([0.0, 0.0]) == 0.0
+
+
+def test_the_suffix_list_is_closed_and_does_not_strip_unknown_letters():
+    """A general "drop trailing letters" rule would collapse different
+    bearings onto one catalogue row, each then carrying the wrong fault
+    orders with nothing on screen to say so. Only listed suffixes go."""
+    from app.ai.bearings import normalise_designation
+
+    # listed suffixes are removed
+    assert normalise_designation("6312-C3") == "6312"
+    assert normalise_designation("6205-2RS1") == "6205"
+    assert normalise_designation("22220 W33") == "22220"
+
+    # an unlisted trailing letter is not
+    assert normalise_designation("6312XY") == "6312XY"
+
+    # and prefixes are never touched, which is where the collapse would happen
+    assert normalise_designation("NU2220") == "NU2220"
+    assert normalise_designation("N2220") == "N2220"
+    assert normalise_designation("NU2220") != normalise_designation("N2220")

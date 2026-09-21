@@ -46,6 +46,33 @@ VELOCITY_MM_S = "mm/s"
 
 KNOWN_UNITS = (ACCELERATION_G, VOLTS, VELOCITY_MM_S)
 
+#: Spellings a device or an operator plausibly writes, mapped to the one this
+#: module uses. The gateway's unit is a free-text environment variable
+#: (SAMPLE_UNIT=g), so "G" or a stray space is a typo waiting to happen, and
+#: an unrecognised spelling falls through to unconfirmed -- the safe outcome,
+#: but one that silently stops every capture being graded for a reason nobody
+#: would look for. Only unambiguous spellings are listed: anything that could
+#: mean two things stays unrecognised.
+_UNIT_SPELLINGS = {
+    "g": ACCELERATION_G, "gs": ACCELERATION_G, "g-force": ACCELERATION_G,
+    "accel_g": ACCELERATION_G, "acceleration_g": ACCELERATION_G,
+    "v": VOLTS, "volt": VOLTS, "volts": VOLTS,
+    "mm/s": VELOCITY_MM_S, "mms": VELOCITY_MM_S, "mm_s": VELOCITY_MM_S,
+}
+
+
+def normalise_unit(raw: Optional[str]) -> Optional[str]:
+    """One of KNOWN_UNITS, or None when the spelling is not recognised.
+
+    None rather than a guess: a unit this module does not recognise is not a
+    unit it may act on, and "counts" or "raw" must not become g by being
+    close to nothing else.
+    """
+    if not raw:
+        return None
+    key = str(raw).strip().lower().replace(" ", "")
+    return _UNIT_SPELLINGS.get(key)
+
 
 @dataclass
 class ChannelUnit:
@@ -124,15 +151,17 @@ def resolve_channel_unit(
     result.sensitivity_mv_per_g = sensitivity
     result.sensitivity_source = source
 
-    if device_declared_unit and device_declared_unit in KNOWN_UNITS:
+    declared = normalise_unit(device_declared_unit)
+    if declared:
         # First-hand and already applied. Converting again would divide by the
         # sensitivity twice.
-        result.unit = device_declared_unit
+        result.unit = declared
         result.confirmed = True
         return result
 
-    if sensor_unit_confirmed and sensor_signal_unit in KNOWN_UNITS:
-        result.unit = sensor_signal_unit
+    from_sensor = normalise_unit(sensor_signal_unit)
+    if sensor_unit_confirmed and from_sensor:
+        result.unit = from_sensor
         result.confirmed = True
         return result
 

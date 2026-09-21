@@ -160,3 +160,106 @@ def test_the_summary_reports_all_confirmed_once_the_device_declares():
     assert summary["usable"] == 8
     assert summary["all_confirmed"] is True
     assert summary["units"] == ["g"]
+
+
+# ============================================================ #
+#  Gaps found by mutation testing
+#
+#  Six mutations of this module passed the suite above. It is the
+#  gate on whether a machine may be graded at all, so each is
+#  pinned here: the gate itself, the refusal to convert velocity,
+#  a zero sensitivity, the summary's confirmation flag, and the
+#  spelling of the declared unit.
+# ============================================================ #
+
+def test_the_gate_needs_both_a_known_unit_and_a_confirmation():
+    """`usable` is the single property every downstream engine reads before
+    computing a severity. Dropping either half of it opens grading to
+    channels nobody has established."""
+    assert ChannelUnit(0, unit=ACCELERATION_G, confirmed=True).usable
+
+    assert not ChannelUnit(0, unit=ACCELERATION_G, confirmed=False).usable, (
+        "a known unit nobody confirmed is not usable"
+    )
+    assert not ChannelUnit(0, unit=UNCONFIRMED, confirmed=True).usable, (
+        "confirmed as 'unconfirmed' is not a unit"
+    )
+    assert not ChannelUnit(0, unit="counts", confirmed=True).usable, (
+        "a unit this module does not know is not usable"
+    )
+
+
+def test_velocity_is_not_quietly_handed_back_as_acceleration():
+    """mm/s and g are different physical quantities and the conversion needs a
+    frequency. Returning the samples unchanged would grade a 34 mm/s reading
+    as 34 g -- roughly a thousand times the level at which a machine is
+    destroying itself."""
+    unit = ChannelUnit(0, unit="mm/s", confirmed=True, sensitivity_mv_per_g=100.0)
+    assert unit.usable, "mm/s is a real unit; the refusal is about converting it"
+    assert to_acceleration_g([34.0, 35.0], unit) is None
+
+
+def test_a_sensitivity_of_zero_is_not_a_declared_sensitivity():
+    """A zero in the channel map means nobody filled it in. Taken at face
+    value it reaches the volts conversion and divides by zero."""
+    zeroed = [{"channel_index": 1, "sensitivity_mv_per_g": 0.0}]
+    value, source = sensitivity_for_channel(0, zeroed, sensor_sensitivity=100.0)
+    assert value == 100.0
+    assert source == "sensor", "a zero should fall through to the sensor figure"
+
+    nothing, source = sensitivity_for_channel(0, zeroed, sensor_sensitivity=None)
+    assert nothing is None and source == "none"
+
+
+def test_the_summary_does_not_call_a_partly_confirmed_sensor_confirmed():
+    """all_confirmed is what an operator reads to decide the sensor is ready.
+    One usable channel out of eight is not ready."""
+    units = [ChannelUnit(0, unit=ACCELERATION_G, confirmed=True)]
+    units += [ChannelUnit(i, unit=UNCONFIRMED) for i in range(1, 8)]
+    summary = describe(units)
+    assert summary["usable"] == 1
+    assert summary["channels"] == 8
+    assert summary["all_confirmed"] is False
+
+
+def test_the_summary_of_an_empty_sensor_is_not_confirmed():
+    assert describe([])["all_confirmed"] is False
+
+
+# ------------------------------------------- how the unit is spelled --
+
+def test_a_capital_g_is_the_same_unit_as_a_small_one():
+    """SAMPLE_UNIT on the gateway is free text. 'G' is unambiguous, and
+    treating it as unrecognised would stop every capture being graded for a
+    reason nobody would think to look for."""
+    for spelling in ("g", "G", " g ", "gs", "accel_g"):
+        unit = resolve_channel_unit(0, channel_map=MIXED,
+                                    device_declared_unit=spelling)
+        assert unit.unit == ACCELERATION_G, spelling
+        assert unit.confirmed, spelling
+
+
+def test_a_unit_nobody_recognises_is_refused_not_guessed():
+    """The other half of the same rule. 'counts' is what the PLC actually
+    deals in, and it must never become g by being nearest."""
+    for spelling in ("counts", "raw", "adc", "unknown", "mm", "m/s2"):
+        unit = resolve_channel_unit(0, channel_map=MIXED,
+                                    device_declared_unit=spelling)
+        assert unit.unit == UNCONFIRMED, spelling
+        assert not unit.confirmed, spelling
+        assert unit.reason, "an unrecognised unit must say why it was refused"
+
+
+def test_the_sensor_record_is_spelled_the_same_way():
+    unit = resolve_channel_unit(0, channel_map=MIXED,
+                                sensor_signal_unit="Volts",
+                                sensor_unit_confirmed=True)
+    assert unit.unit == VOLTS and unit.confirmed
+
+
+def test_the_gateways_own_setting_is_the_spelling_that_works():
+    """gateway/.env carries SAMPLE_UNIT=g. If that stops resolving, the whole
+    pipeline silently goes back to refusing every capture."""
+    unit = resolve_channel_unit(0, channel_map=MIXED, device_declared_unit="g")
+    assert unit.usable
+    assert to_acceleration_g([1.0, 2.0], unit) == [1.0, 2.0]
