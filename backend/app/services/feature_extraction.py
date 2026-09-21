@@ -166,16 +166,29 @@ def extract_segment_trends(
         segments = [data]
         trend_x = [float((n // 2) / sampling_rate_hz)]
 
+    # One extraction per segment, then fan out across the codes (VIK-014).
+    #
+    # This loop used to run the other way round -- codes outside, segments
+    # inside -- so extract_channel_features was called once per code per
+    # segment even though a single call already returns every code. With 10
+    # codes and 32 segments that is 320 extractions where 32 suffice.
+    #
+    # The full-length extraction was inside the code loop too, so it ran ten
+    # times as well, and each of those is over the whole record rather than a
+    # thirty-second of it. Measured: 330 calls per channel, 2,640 for an
+    # 8-channel capture. Now 33 and 264.
+    per_segment = [
+        extract_channel_features(segment.tolist(), sampling_rate_hz)
+        for segment in segments
+    ]
+    whole_record = extract_channel_features(samples, sampling_rate_hz)
+
     result: dict[str, dict[str, Any]] = {}
     for code in FEATURE_CODES:
-        trend_y: list[float] = []
-        for segment in segments:
-            feats = extract_channel_features(segment.tolist(), sampling_rate_hz)
-            trend_y.append(float(feats[code]["value"]))
-        scalar = extract_channel_features(samples, sampling_rate_hz)[code]
+        scalar = whole_record[code]
         result[code] = {
             "trend_x": trend_x,
-            "trend_y": trend_y,
+            "trend_y": [float(feats[code]["value"]) for feats in per_segment],
             "value": scalar["value"],
             "unit": scalar["unit"],
             "metadata": scalar.get("metadata") or {},
