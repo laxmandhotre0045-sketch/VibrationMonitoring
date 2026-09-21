@@ -41,6 +41,18 @@ class ChannelMapEntry(BaseModel):
     machine_axis: str = Field(default="VERTICAL")
     signal_type: str = Field(default="VIBRATION")
     label: Optional[str] = Field(default=None, max_length=80)
+    #: Transducer sensitivity for THIS channel, in mV/g.
+    #:
+    #: Per channel rather than per sensor because it is not uniform in
+    #: practice: on the gateway measured here, ch1 and ch2 are 500 mV/g while
+    #: ch3-ch8 are 100, and the cloud configuration reports a single 100 for
+    #: all eight. Dividing every channel by one figure makes two of them wrong
+    #: by five times, and nothing on screen would say so.
+    #:
+    #: None means "not declared for this channel" and falls back to the
+    #: sensor-level value. It does not mean zero, and it must not be treated
+    #: as a licence to guess.
+    sensitivity_mv_per_g: Optional[float] = Field(default=None, gt=0, le=100000)
 
     @field_validator("machine_axis")
     @classmethod

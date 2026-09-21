@@ -18,6 +18,17 @@ class SensorConfiguration(Base):
     mounting_method = Column(String(50), nullable=True)
     sensitivity = Column(Numeric(10, 4), nullable=True)
     sensitivity_unit = Column(String(20), nullable=True)
+
+    #: What the stored samples physically are -- "g", "V", "mm/s", or
+    #: "unconfirmed". Nothing recorded this before, and volts and g differ by a
+    #: factor of ten, so a severity computed without it can be out by that much
+    #: while looking entirely ordinary (migration 022).
+    signal_unit = Column(String(16), nullable=True)
+    #: Whether anyone has actually established the unit above. False means the
+    #: value is a default, not a measurement, and downstream engines are
+    #: expected to refuse rather than guess.
+    unit_confirmed = Column(Boolean, nullable=False, default=False,
+                            server_default="false")
     sampling_rate = Column(String(20), nullable=True)
     sampling_rate_custom = Column(Integer, nullable=True)
     frequency_range = Column(String(20), nullable=True)
