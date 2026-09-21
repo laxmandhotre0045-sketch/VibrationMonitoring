@@ -1,7 +1,12 @@
 """Store per-channel summary statistics on each raw capture channel.
 
-Revision ID: 019
-Revises: 018
+Revision ID: 021
+Revises: 020
+
+Renumbered from 019 after a collision: Laxman's bearing-catalogue migration
+took 019 and 020 on the same base while this one was already applied locally.
+Alembic reported "Revision 019 is present more than once" and refused to
+resolve a single head. This now sits after his chain.
 
 The 7/30-day summary cards need a per-channel RMS for every capture in the
 window. Computing it on demand means unnesting the stored float8[] -- about
@@ -27,21 +32,22 @@ summarised" rather than as zero.
 from alembic import op
 import sqlalchemy as sa
 
-revision = "019"
-down_revision = "018"
+revision = "021"
+down_revision = "020"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("raw_vibration_channels",
-                  sa.Column("rms", sa.Float(precision=53), nullable=True))
-    op.add_column("raw_vibration_channels",
-                  sa.Column("dc_mean", sa.Float(precision=53), nullable=True))
-    op.add_column("raw_vibration_channels",
-                  sa.Column("ac_rms", sa.Float(precision=53), nullable=True))
-    op.add_column("raw_vibration_channels",
-                  sa.Column("peak", sa.Float(precision=53), nullable=True))
+    # IF NOT EXISTS because this migration was applied under its old number
+    # before the renumbering, so the columns are already present on any
+    # database that ran it as 019. A plain add_column would fail there and
+    # block the whole upgrade.
+    for column in ("rms", "dc_mean", "ac_rms", "peak"):
+        op.execute(
+            f"ALTER TABLE raw_vibration_channels "
+            f"ADD COLUMN IF NOT EXISTS {column} double precision"
+        )
 
     # Backfill in SQL so existing captures gain their statistics without the
     # samples ever crossing the wire. One pass over what is there now; new rows
@@ -77,7 +83,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column("raw_vibration_channels", "peak")
-    op.drop_column("raw_vibration_channels", "ac_rms")
-    op.drop_column("raw_vibration_channels", "dc_mean")
-    op.drop_column("raw_vibration_channels", "rms")
+    for column in ("peak", "ac_rms", "dc_mean", "rms"):
+        op.execute(
+            f"ALTER TABLE raw_vibration_channels DROP COLUMN IF EXISTS {column}"
+        )
