@@ -43,3 +43,5 @@ gateway/archive_under_load/
 
 # Server logs, not source.
 backend/uvicorn.log
+# Any server log, not just the one name it happened to be given first.
+backend/*.log
