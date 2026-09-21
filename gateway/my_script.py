@@ -166,20 +166,44 @@ _TS_KEYS = ("system timestamp", "systemtimestamp", "timestamp_ms",
 _EPOCH_1601_MS = 11644473600000  # ms between 1601-01-01 and 1970-01-01
 
 
+#: The window a capture from this machine could plausibly fall in, as epoch
+#: milliseconds: 2000-01-01 to 2100-01-01.
+#:
+#: Anything outside it is a misread field rather than an odd clock. Without
+#: the check, a value of 1e20 took the FILETIME branch and came out as the
+#: year 318,857 -- a number that then sets the capture's whole time axis and
+#: looks like a timestamp all the way down.
+_PLAUSIBLE_MIN_MS = 946_684_800_000
+_PLAUSIBLE_MAX_MS = 4_102_444_800_000
+
+
+def _plausible(ms):
+    """The value, or None if no machine could have been running then."""
+    if ms is None:
+        return None
+    return int(ms) if _PLAUSIBLE_MIN_MS <= ms <= _PLAUSIBLE_MAX_MS else None
+
+
 def to_epoch_ms(value):
-    """Best-effort conversion of a timestamp value to epoch milliseconds."""
+    """Best-effort conversion of a timestamp value to epoch milliseconds.
+
+    Returns None whenever it cannot produce a time it believes, and never
+    raises. The caller treats None as "use the arrival time", which keeps the
+    samples; an exception here loses the whole message, which is what used to
+    happen on a clock set before 1970.
+    """
     if value is None:
         return None
     if isinstance(value, (int, float)):
         v = float(value)
         if v > 1e16:                      # Windows FILETIME (100 ns since 1601)
-            return int(v / 10000 - _EPOCH_1601_MS)
+            return _plausible(v / 10000 - _EPOCH_1601_MS)
         if v > 1e14:                      # microseconds
-            return int(v / 1000)
+            return _plausible(v / 1000)
         if v > 1e11:                      # already milliseconds
-            return int(v)
+            return _plausible(v)
         if v > 1e8:                       # seconds
-            return int(v * 1000)
+            return _plausible(v * 1000)
         return None                       # too small to be an epoch time
     if isinstance(value, str):
         s = value.strip()
@@ -195,8 +219,23 @@ def to_epoch_ms(value):
             dt = datetime.fromisoformat(s2)
             if dt.tzinfo is None:
                 dt = dt.astimezone()      # assume local time
-            return int(dt.timestamp() * 1000)
-        except ValueError:
+            return _plausible(dt.timestamp() * 1000)
+        except (ValueError, OSError, OverflowError):
+            # OSError matters as much as ValueError here, and only on Windows.
+            # astimezone() and timestamp() both go through the platform's
+            # localtime, which rejects anything before 1970 or past 2038-ish
+            # with "[Errno 22] Invalid argument" rather than a ValueError.
+            #
+            # A PLC that has not yet set its clock publishes exactly that: the
+            # gateway logged five "Failed to handle MQTT message: [Errno 22]"
+            # at 15:59:05 and threw away five complete windows of samples,
+            # because the exception escaped this function, escaped
+            # parse_message, and reached on_message, which drops the message.
+            #
+            # Returning None instead hands the caller an unknown timestamp,
+            # which it already knows how to deal with -- it falls back to the
+            # arrival time. A window with a slightly late timestamp is worth
+            # far more than no window at all.
             return None
     return None
 
