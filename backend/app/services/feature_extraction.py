@@ -7,6 +7,10 @@ from typing import Any
 
 import numpy as np
 
+from app.ai.frequency_features import (
+    FREQUENCY_FEATURE_CODES,
+    extract_frequency_features,
+)
 from app.ai.time_features import (
     TIME_FEATURE_CODES,
     extract_time_features,
@@ -41,7 +45,7 @@ FEATURE_CODES = [
     "amplitude_3x",
     "envelope_rms",
     "noise_floor",
-] + TIME_FEATURE_CODES
+] + TIME_FEATURE_CODES + FREQUENCY_FEATURE_CODES
 
 
 def _to_array(samples: list[float]) -> np.ndarray:
@@ -152,6 +156,11 @@ def extract_channel_features(
     # index gets a real shaft rate rather than falling back to envelope
     # variability -- which is a different quantity under the same name.
     result.update(extract_time_features(data, sampling_rate_hz, shaft_hz=shaft_hz))
+
+    # VIK-019. Handed the spectrum computed above rather than the samples, so
+    # this cannot start a second FFT -- the ticket's "one spectrum per segment
+    # and fan out", enforced by the signature.
+    result.update(extract_frequency_features(freqs, spectrum, shaft_hz=shaft_hz))
     return result
 
 
