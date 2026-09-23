@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from app.domain.units import G_TO_MM_S2, build_record, convert_amplitude
+from vibcore.units import G_TO_MM_S2, build_record, convert_amplitude
 
 
 def test_1g_rms_at_100hz_is_15_61_mm_s():

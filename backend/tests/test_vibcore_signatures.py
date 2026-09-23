@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.domain.bearing import fault_frequencies, resolve_bearing
-from app.domain.signatures import (
+from vibcore.bearing import fault_frequencies, resolve_bearing
+from vibcore.signatures import (
     MachineContext,
     SpectralPeak,
     build_record,

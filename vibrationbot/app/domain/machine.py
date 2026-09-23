@@ -27,8 +27,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.domain import bearing as bearing_mod
-from app.domain.iso10816 import infer_machine_group
+from vibcore import bearing as bearing_mod
+from vibcore.iso10816 import infer_machine_group
 from app.config import MACHINES_DIR
 
 MACHINE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")

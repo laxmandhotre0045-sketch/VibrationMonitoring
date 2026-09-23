@@ -21,7 +21,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from app.domain import bearing
+from vibcore import bearing
 from report_agent.ledger import Ledger
 
 logger = logging.getLogger(__name__)
@@ -354,7 +354,7 @@ def convert_to_velocity(
             "acquisition chain is confirmed."
         )}
 
-    from app.domain import units as unit_lib
+    from vibcore import units as unit_lib
 
     sensitivity_mv_per_g = 100.0
     frequency_hz = float(shaft["hz"])
@@ -617,7 +617,7 @@ def iso_reference(
     limits as context rather than as a verdict. This is the single most
     dangerous place in a vibration report to be approximately right.
     """
-    from app.domain import iso10816
+    from vibcore import iso10816
     import json
 
     group = iso10816.infer_machine_group(

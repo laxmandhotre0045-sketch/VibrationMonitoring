@@ -20,7 +20,7 @@ from typing import Any
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from app.domain.records import ComputationRecord
+from vibcore.records import ComputationRecord
 from sql_agent import SensorDataAgent
 from sql_agent.config import PLATFORM_MAX_UPLOADS
 

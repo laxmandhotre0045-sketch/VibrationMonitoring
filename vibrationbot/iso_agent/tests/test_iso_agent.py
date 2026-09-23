@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from app.domain import iso10816
+from vibcore import iso10816
 from iso_agent.agent import ASKS_LIMIT_RE, answer, parse_question
 
 #: These tests spawn a fresh interpreter, which does not inherit pytest's

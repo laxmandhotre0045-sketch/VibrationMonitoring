@@ -12,7 +12,7 @@ import random
 
 import pytest
 
-from app.domain.bearing import (
+from vibcore.bearing import (
     BearingGeometry,
     build_record,
     estimate_geometry,

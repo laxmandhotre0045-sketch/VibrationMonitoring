@@ -22,8 +22,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.domain import bearing as bearing_mod  # noqa: E402
-from app.domain import iso10816, units  # noqa: E402
+from vibcore import bearing as bearing_mod  # noqa: E402
+from vibcore import iso10816, units  # noqa: E402
 from app.domain.machine import (  # noqa: E402
     MachineProfile,
     bearing_orders_for,
@@ -31,7 +31,7 @@ from app.domain.machine import (  # noqa: E402
     machine_store,
     summarize_frequencies,
 )
-from app.domain.signatures import (  # noqa: E402
+from vibcore.signatures import (  # noqa: E402
     MachineContext,
     SpectralPeak,
     cross_check_bearing_peaks,

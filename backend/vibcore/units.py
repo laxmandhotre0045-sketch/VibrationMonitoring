@@ -16,19 +16,6 @@ Measure conversion (RMS / peak / peak-to-peak) assumes a sinusoid too:
 ``peak = sqrt(2) * rms`` and ``pk-pk = 2 * peak``. For a real signal with a
 crest factor other than 1.414 these are approximations, which is why the crest
 factor is worth computing separately.
-
-
-PORTED FROM vibrationbot/app/domain/units.py (VIK-004), unchanged apart
-from the import above. The conversions are NOT rewritten here: they are
-tested against published values and a second implementation would drift
-from the first, which is exactly the failure the roadmap warns about when
-it says the two services must not reach different answers.
-
-This copy is deliberate duplication and it is temporary. VIK-035 extracts
-a shared vibcore package that both services import, and this file goes
-away then. Until it does, tests/test_ai_units_matches_vibrationbot.py
-asserts the two copies still agree, so drift is caught the day it starts
-rather than the day someone notices two different answers.
 """
 
 from __future__ import annotations
@@ -37,7 +24,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from app.ai.records import ComputationRecord, FormulaSource
+from vibcore.records import ComputationRecord, FormulaSource
 
 Unit = Literal["g", "m/s2", "mm/s", "in/s", "um", "mil", "mm"]
 Measure = Literal["rms", "peak", "pk-pk"]

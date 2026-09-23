@@ -25,7 +25,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from pydantic import BaseModel, Field
 
 from app.domain.machine import machine_store
-from app.domain.signatures import SpectralPeak
+from vibcore.signatures import SpectralPeak
 from app.chat.graph import prompts
 from app.chat.graph.state import GraphState, bump
 from app.chat.graph.tools_domain import DomainContext, build_domain_tools

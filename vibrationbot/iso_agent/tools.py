@@ -20,7 +20,7 @@ carries all four groups.
 
 So the numbers come from there. The document is still cited -- for what a zone
 *means* and what action it implies, which is prose the standard states and the
-tool does not. That split is what ``app/domain/data/iso10816_3.json`` asks for
+tool does not. That split is what ``vibcore/data/iso10816_3.json`` asks for
 in its own header: "The ingested standard PDF supplies the prose ... the
 numbers come from here."
 
@@ -38,7 +38,7 @@ from typing import Any
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from app.domain import iso10816
+from vibcore import iso10816
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,7 @@ def iso_zone_limits(
     results = [_describe(g, s) for g in candidates for s in supports]
     payload: dict[str, Any] = {
         "standard": "ISO 10816-3 (velocity zone limits; ISO 20816-3 is identical)",
-        "source": "app/domain/data/iso10816_3.json - hardcoded, unit-tested, not retrieved",
+        "source": "vibcore/data/iso10816_3.json - hardcoded, unit-tested, not retrieved",
         "boundary_convention": iso10816.BOUNDARY_CONVENTION,
         "results": results,
     }

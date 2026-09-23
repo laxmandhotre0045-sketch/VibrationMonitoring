@@ -23,7 +23,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from app.domain.records import ComputationRecord, FormulaSource
+from vibcore.records import ComputationRecord, FormulaSource
 
 DATA_PATH = Path(__file__).parent / "data" / "fault_signatures.json"
 

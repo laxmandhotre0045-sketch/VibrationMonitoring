@@ -20,10 +20,10 @@ from typing import Any
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from app.domain import bearing as bearing_mod
-from app.domain import iso10816, signatures, units
+from vibcore import bearing as bearing_mod
+from vibcore import iso10816, signatures, units
 from app.domain.machine import MachineProfile, bearing_orders_for
-from app.domain.records import ComputationRecord
+from vibcore.records import ComputationRecord
 
 logger = logging.getLogger(__name__)
 

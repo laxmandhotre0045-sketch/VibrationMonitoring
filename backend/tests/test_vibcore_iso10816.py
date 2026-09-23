@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.domain.iso10816 import (
+from vibcore.iso10816 import (
     build_record,
     displacement_zone,
     infer_machine_group,

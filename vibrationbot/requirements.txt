@@ -55,3 +55,9 @@ pytest==9.1.0
 # Optional: only needed for LLM_PROVIDER=anthropic.
 # Pin to 1.4.0 — 1.5.x requires langchain-core>=1.5.1.
 # langchain-anthropic==1.4.0
+
+# The vibration maths both this service and the platform use (VIK-035).
+# Editable and pointed at the repo, because the two live in one checkout and
+# the whole purpose is that there is exactly one copy on disk. It carries no
+# dependencies of its own -- it is arithmetic and JSON tables.
+-e ../backend/vibcore

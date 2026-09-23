@@ -1,0 +1,35 @@
+# Packaging metadata so the chatbot can install this from the repo:
+#
+#     pip install -e backend/vibcore
+#
+# The backend does not need it. Its Docker build copies `backend/` to /app,
+# so `vibcore/` lands next to `app/` and imports directly.
+#
+# `package-dir` maps the package name onto this directory itself, rather
+# than the usual extra nesting level. That keeps `backend/vibcore/units.py`
+# importable as `vibcore.units` from the backend's working directory, which
+# is the arrangement the deployed image relies on.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibcore"
+version = "0.1.0"
+description = "Shared vibration maths: bearing frequencies, ISO zones, unit conversion, fault rules."
+requires-python = ">=3.11"
+# Deliberately none. This package is arithmetic and JSON tables; a
+# dependency here would be inherited by both services and is worth
+# resisting.
+dependencies = []
+
+[tool.setuptools]
+packages = ["vibcore", "vibcore.data"]
+
+[tool.setuptools.package-dir]
+vibcore = "."
+"vibcore.data" = "data"
+
+[tool.setuptools.package-data]
+vibcore = ["data/*.json"]

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.domain.signatures import SpectralPeak
+from vibcore.signatures import SpectralPeak
 from app.chat.graph import nodes as graph_nodes
 from app.chat.graph.build import RECURSION_LIMIT, get_graph
 from app.chat.graph.state import new_state
