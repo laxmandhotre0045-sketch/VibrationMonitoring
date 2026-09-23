@@ -45,3 +45,7 @@ gateway/archive_under_load/
 backend/uvicorn.log
 # Any server log, not just the one name it happened to be given first.
 backend/*.log
+
+# Database extracts taken before a destructive change. Local safety nets,
+# not source: 9 MB of sample values that the repo can regenerate.
+backups/
