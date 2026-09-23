@@ -117,6 +117,40 @@ def _resolve_sensor(
     return sensor
 
 
+def _merge_channel_map(existing, incoming) -> list[dict]:
+    """Update the channels the caller sent; leave the rest of each entry alone.
+
+    A wholesale replace loses every field the caller did not know about, and
+    that is not hypothetical. This endpoint's schema had no sensitivity
+    field, so a settings screen reading the config and saving it back
+    stripped the per-channel sensitivities the ingest path writes from the
+    gateway's own declaration -- silently, while changing nothing the user
+    had touched. The stored map still had all eight channels; the mV/g
+    figures were simply gone, and unit resolution fell back to the
+    sensor-level default.
+
+    A caller that omits a field keeps the stored value. A caller that sends
+    one replaces it. `label` is legitimately nullable, so an explicit null
+    still clears it.
+    """
+    stored: dict[int, dict] = {}
+    current = getattr(existing, "channel_map", None) if existing else None
+    for entry in (current if isinstance(current, list) else []):
+        if isinstance(entry, dict) and entry.get("channel_index") is not None:
+            stored[int(entry["channel_index"])] = dict(entry)
+
+    for entry in incoming:
+        sent = entry.model_dump()
+        index = int(sent["channel_index"])
+        merged = stored.get(index, {})
+        merged.update({k: v for k, v in sent.items() if v is not None})
+        if "label" in sent:
+            merged["label"] = sent["label"]
+        stored[index] = merged
+
+    return [stored[i] for i in sorted(stored)]
+
+
 def _config_response(db: Session, sensor: SensorConfiguration) -> AcquisitionConfigOut:
     plot_config = measurement_crud.get_plot_config_by_sensor(db, sensor.id)
     payload = build_acquisition_config(sensor, plot_config)
@@ -232,7 +266,7 @@ def update_acquisition_config(data: AcquisitionConfigUpdate, db: Session = Depen
     if data.collection_interval_minutes is not None:
         fields["collection_interval_minutes"] = data.collection_interval_minutes
     if data.channel_map is not None:
-        fields["channel_map"] = [entry.model_dump() for entry in data.channel_map]
+        fields["channel_map"] = _merge_channel_map(existing, data.channel_map)
 
     if existing is None:
         # First save for this sensor. active_channel stays 0 and enabled_plots
