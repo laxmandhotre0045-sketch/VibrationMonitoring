@@ -509,3 +509,140 @@ def test_persisting_never_raises_on_a_broken_assessment(monkeypatch):
         "an engine that could not be assessed must not have its confidence "
         "silently cut -- that would be a judgement nobody made"
     )
+
+
+# ------------------------------------------------- the measured step --
+#
+# The resolution checks are built on the converter's quantisation step, and
+# the step comes from the sensitivity the device applied. Taking that from
+# configuration was wrong here: `gateway/.env` declares 500 mV/g on the
+# first two channels, and the stored samples are quantised in 0.0015 g steps
+# on all eight -- which is 100 mV/g. Measuring the step from the samples
+# makes the checks independent of a figure nobody verified.
+
+from app.services.quality_storage import (              # noqa: E402
+    ADC_COUNTS,
+    ADC_VOLTS,
+    SENSITIVITY_TOLERANCE,
+    measure_quantisation_step,
+    sensitivity_from_step,
+)
+
+
+def quantised(sensitivity_mv_per_g: float, amplitude_g: float = 0.2,
+              seed: int = 0) -> np.ndarray:
+    """A signal digitised the way this converter digitises one."""
+    step = ADC_VOLTS / ADC_COUNTS / (sensitivity_mv_per_g / 1000.0)
+    rng = np.random.default_rng(seed)
+    t = np.arange(N) / FS
+    raw = amplitude_g * np.sin(2 * np.pi * 120 * t) + 0.01 * rng.normal(size=N)
+    return np.round(raw / step) * step
+
+
+@pytest.mark.parametrize("sensitivity", [100.0, 500.0, 10.0])
+def test_the_step_is_recovered_from_the_samples(sensitivity):
+    """A digitised signal can only take values a whole number of counts
+    apart, so the commonest gap between its adjacent distinct values IS one
+    count. That makes the step measurable without trusting any config."""
+    expected = ADC_VOLTS / ADC_COUNTS / (sensitivity / 1000.0)
+    measured = measure_quantisation_step(quantised(sensitivity))
+    assert measured == pytest.approx(expected, rel=1e-6)
+    assert sensitivity_from_step(measured) == pytest.approx(sensitivity, rel=1e-6)
+
+
+def test_a_signal_that_is_not_quantised_returns_no_step():
+    """The honest answer for a continuous signal is "I cannot tell", not a
+    step invented from whatever gap happened to repeat. A wrong step makes
+    the resolution check report a fault that is not there."""
+    rng = np.random.default_rng(1)
+    assert measure_quantisation_step(rng.normal(size=N)) is None
+
+
+def test_a_dead_channel_returns_no_step():
+    """A channel stuck at one value has no gaps to measure. It is a fault
+    the other checks catch; this one must not guess at it."""
+    assert measure_quantisation_step(np.full(N, 0.137)) is None
+    assert measure_quantisation_step(np.array([0.1, 0.2, 0.3])) is None
+
+
+def test_no_step_means_no_sensitivity_rather_than_zero():
+    assert sensitivity_from_step(None) is None
+    assert sensitivity_from_step(0.0) is None
+
+
+class _RecordingSession:
+    """Accepts the writes so persist_quality can run end to end."""
+
+    def __init__(self):
+        self.statements = []
+
+    def execute(self, statement, params=None):
+        self.statements.append((str(statement), params))
+        return None
+
+
+def _persist(declared, sensitivity_applied):
+    from uuid import uuid4
+    import app.services.quality_storage as qs
+    return qs.persist_quality(
+        _RecordingSession(), upload_id=uuid4(), sensor_id=uuid4(),
+        channels={f"ch{i}": quantised(sensitivity_applied, seed=i).tolist()
+                  for i in range(3)},
+        sampling_rate_hz=FS, sensitivity_mv_per_g=declared, shaft_hz=SHAFT_HZ)
+
+
+def test_the_measured_step_beats_the_declared_one():
+    """This is the state this gateway is actually in: the record says 500
+    mV/g, the device applied 100. Believing the record would make the
+    resolution check wrong by five times -- it would judge the capture
+    against a step five times finer than the converter can produce, and find
+    every channel coarsely quantised."""
+    summary = _persist(declared=500.0, sensitivity_applied=100.0)
+
+    expected = ADC_VOLTS / ADC_COUNTS / 0.100
+    assert summary["quantisation_step_g"] == pytest.approx(expected, rel=1e-6)
+    assert summary["declared_step_g"] == pytest.approx(
+        ADC_VOLTS / ADC_COUNTS / 0.500, rel=1e-6), (
+        "the declared step must still be reported -- someone has to be able "
+        "to see which of the two figures the engine rejected"
+    )
+    assert summary["warnings"], (
+        "a device that applied a different sensitivity from the one on "
+        "record puts every value in g out by the ratio between them; that "
+        "cannot be corrected silently"
+    )
+    assert "100 mV/g" in summary["warnings"][0]
+    assert "500 mV/g" in summary["warnings"][0]
+
+
+def test_an_agreeing_declaration_raises_no_warning():
+    """The warning has to mean something. If it fires when the config is
+    right, nobody reads it when the config is wrong."""
+    assert _persist(declared=100.0, sensitivity_applied=100.0)["warnings"] == []
+
+
+def test_the_tolerance_admits_rounding_but_not_a_wrong_sensitivity():
+    """The stored CSV rounds to four decimals, which moves the implied
+    figure by a couple of percent. A five-fold error is not rounding."""
+    step = ADC_VOLTS / ADC_COUNTS / 0.100
+    just_inside = sensitivity_from_step(step) * (1 + SENSITIVITY_TOLERANCE / 2)
+    assert _persist(declared=just_inside, sensitivity_applied=100.0)["warnings"] == []
+
+    way_out = sensitivity_from_step(step) * 5
+    assert _persist(declared=way_out, sensitivity_applied=100.0)["warnings"]
+
+
+def test_an_undeclared_sensitivity_is_recovered_rather_than_left_unknown():
+    """Without a declaration the clipping check had nothing to work with and
+    stood down. The samples carry the full-scale range too, so it can run."""
+    summary = _persist(declared=None, sensitivity_applied=100.0)
+    assert summary["quantisation_step_g"] == pytest.approx(
+        ADC_VOLTS / ADC_COUNTS / 0.100, rel=1e-6)
+    assert summary["declared_step_g"] is None
+    assert summary["warnings"] == [], (
+        "nothing was declared, so there is nothing to disagree with"
+    )
+    assert "clipping" not in summary["not_assessed"], (
+        "the full-scale range was recoverable from the samples, so the "
+        "clipping check had no reason to stand down"
+    )

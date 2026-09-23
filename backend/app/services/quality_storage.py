@@ -12,8 +12,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from collections import Counter
+from typing import Any, Optional, Sequence
 from uuid import UUID
+
+import numpy as np
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -34,6 +37,58 @@ ENGINE_VERSION = "1"
 #: are rated at.
 ADC_VOLTS = 5.0
 ADC_COUNTS = 32768
+
+
+#: How much of the gaps between adjacent distinct values must agree before
+#: the modal gap is taken as the converter's step rather than a coincidence.
+#: Measured on this gateway, the true step accounts for 55% to 75% of the
+#: gaps on every channel; unrelated data has no such mode.
+QUANTISATION_MODE_SHARE = 0.35
+
+#: How far the declared sensitivity may sit from the one the samples imply
+#: before the two are reported as disagreeing. Generous, because the stored
+#: CSV rounds to four decimals and that alone moves the implied figure by a
+#: couple of percent.
+SENSITIVITY_TOLERANCE = 0.10
+
+
+def measure_quantisation_step(samples: Sequence[float]) -> Optional[float]:
+    """The converter's step, read out of the samples themselves.
+
+    A digitised signal can only take values a whole number of counts apart,
+    so the gaps between its adjacent distinct values are multiples of one
+    count -- and the commonest gap IS one count. That makes the step
+    measurable without trusting any configuration.
+
+    Worth measuring because the configuration here is wrong. `gateway/.env`
+    declares 500 mV/g on the first two channels, but the step in the stored
+    samples is 0.0015 g on all eight, which is 100 mV/g. Whatever the
+    transducers are rated at, the PLC divided every channel by 100 -- and
+    the quality engine's resolution check is built on the step, so taking
+    the declared figure would have made it wrong by five times on two
+    channels.
+
+    Returns None when there is no clear mode, which is the honest answer for
+    a signal that is not obviously quantised.
+    """
+    values = np.unique(np.asarray(samples, dtype=float))
+    if values.size < 8:
+        return None
+    gaps = np.round(np.diff(values), 9)
+    gaps = gaps[gaps > 0]
+    if gaps.size < 4:
+        return None
+    modal, count = Counter(gaps.tolist()).most_common(1)[0]
+    if count / gaps.size < QUANTISATION_MODE_SHARE or modal <= 0:
+        return None
+    return float(modal)
+
+
+def sensitivity_from_step(step_g: Optional[float]) -> Optional[float]:
+    """The mV/g the device must have applied to produce this step."""
+    if not step_g or step_g <= 0:
+        return None
+    return ADC_VOLTS / ADC_COUNTS / step_g * 1000.0
 
 
 def converter_scale(sensitivity_mv_per_g: Optional[float]) -> tuple[float, Optional[float]]:
@@ -68,6 +123,36 @@ def persist_quality(
     grades it would be the worst outcome available.
     """
     full_scale_g, step_g = converter_scale(sensitivity_mv_per_g)
+
+    # Prefer the step the samples actually show over the one the
+    # configuration claims. The resolution check is built on the step, and a
+    # declared sensitivity that is wrong by five times makes it wrong by five
+    # times -- which is the state this gateway is in.
+    declared_step = step_g
+    measured = [measure_quantisation_step(v) for v in channels.values()]
+    measured = [m for m in measured if m]
+    warnings: list[str] = []
+    if measured:
+        step_g = float(np.median(measured))
+        implied = sensitivity_from_step(step_g)
+        if (sensitivity_mv_per_g and implied
+                and abs(implied - sensitivity_mv_per_g) / sensitivity_mv_per_g
+                > SENSITIVITY_TOLERANCE):
+            warnings.append(
+                f"The samples are quantised in steps of {step_g:.5f} g, which "
+                f"is {implied:.0f} mV/g, but the sensor record declares "
+                f"{sensitivity_mv_per_g:g} mV/g. The device applied a "
+                f"different sensitivity from the one recorded, so either the "
+                f"record or the device is wrong -- and every value in g is "
+                f"out by the ratio between them. The measured figure is used "
+                f"for the resolution check."
+            )
+            logger.warning("Sensitivity mismatch on upload %s: samples imply "
+                           "%.0f mV/g, record says %s",
+                           upload_id, implied, sensitivity_mv_per_g)
+        if full_scale_g <= 0 and implied:
+            full_scale_g = ADC_VOLTS / (implied / 1000.0)
+
     try:
         summary = assess_capture(
             channels, sampling_rate_hz,
@@ -79,7 +164,8 @@ def persist_quality(
     except Exception:
         logger.exception("Quality assessment failed for upload %s", upload_id)
         return {"level": "unknown", "confidence_factor": 1.0,
-                "channels": {}, "failed_checks": [], "not_assessed": []}
+                "channels": {}, "failed_checks": [], "not_assessed": [],
+                "warnings": []}
 
     rows: list[dict[str, Any]] = [{
         "upload_id": str(upload_id), "sensor_id": str(sensor_id),
@@ -120,6 +206,9 @@ def persist_quality(
         logger.exception("Could not store quality assessment for upload %s",
                          upload_id)
 
+    summary["warnings"] = warnings
+    summary["quantisation_step_g"] = step_g
+    summary["declared_step_g"] = declared_step
     return summary
 
 
