@@ -16,6 +16,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.equipment import router as equipment_router
 from app.routers.exports import router as exports_router
 from app.routers.ingest import router as ingest_router
+from app.routers.learned_baselines import router as learned_baselines_router
 from app.routers.integrations import router as integrations_router
 from app.routers.lookups import router as lookups_router
 from app.routers.measurements import router as measurements_router
@@ -100,6 +101,7 @@ app.include_router(bearings_router)
 app.include_router(dashboard_router)
 app.include_router(equipment_router)
 app.include_router(exports_router)
+app.include_router(learned_baselines_router)
 app.include_router(ingest_router)
 app.include_router(integrations_router)
 app.include_router(lookups_router)

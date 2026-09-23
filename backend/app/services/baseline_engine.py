@@ -33,6 +33,7 @@ from app.ai.baseline import (
     Observation,
     build_baseline,
 )
+from app.services import baseline_lifecycle as lifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -92,14 +93,6 @@ def load_history(
     return history
 
 
-def next_version(db: Session, sensor_id: UUID) -> int:
-    current = db.execute(text(f"""
-        SELECT COALESCE(MAX(baseline_version), 0) FROM {TABLE}
-         WHERE sensor_id = :s
-    """), {"s": str(sensor_id)}).scalar()
-    return int(current or 0) + 1
-
-
 def store(db: Session, stats: BaselineStats, version: int) -> bool:
     """Write one baseline. Refusals are not written.
 
@@ -115,12 +108,15 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
         INSERT INTO {TABLE}
             (sensor_id, channel, feature_code, mode_id, median, mad,
              robust_sigma, p05, p50, p95, ewma, sample_count,
-             window_start, window_end, baseline_version, is_active,
-             acquisition_sample_rate_hz, acquisition_sample_count)
+             window_start, window_end, baseline_version,
+             acquisition_sample_rate_hz, acquisition_sample_count,
+             confidence, excluded_count, distinct_count, mixed_population,
+             other_shape_count)
         VALUES (:sensor_id, :channel, :feature_code, NULL, :median, :mad,
                 :robust_sigma, :p05, :p50, :p95, :ewma, :sample_count,
-                :window_start, :window_end, :version, true,
-                :rate_hz, :samples)
+                :window_start, :window_end, :version,
+                :rate_hz, :samples,
+                :confidence, :excluded, :distinct, :mixed, :other_shape)
         ON CONFLICT (sensor_id, channel, feature_code, mode_id, baseline_version)
         DO UPDATE SET
             median = EXCLUDED.median, mad = EXCLUDED.mad,
@@ -131,6 +127,11 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
             window_end = EXCLUDED.window_end,
             acquisition_sample_rate_hz = EXCLUDED.acquisition_sample_rate_hz,
             acquisition_sample_count = EXCLUDED.acquisition_sample_count,
+            confidence = EXCLUDED.confidence,
+            excluded_count = EXCLUDED.excluded_count,
+            distinct_count = EXCLUDED.distinct_count,
+            mixed_population = EXCLUDED.mixed_population,
+            other_shape_count = EXCLUDED.other_shape_count,
             computed_at = now()
     """), {
         "sensor_id": stats.sensor_id, "channel": stats.channel,
@@ -142,35 +143,49 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
         "version": version,
         "rate_hz": stats.shape.sample_rate_hz,
         "samples": stats.shape.sample_count,
+        # Computed by the engine and, until VIK-027, thrown away here.
+        # Recomputing confidence to answer a read would mean rebuilding every
+        # baseline from history; mixed_population is the one a reader must
+        # not be without, because it marks a row whose percentiles belong to
+        # a different population from its median.
+        "confidence": stats.confidence,
+        "excluded": stats.excluded_count,
+        "distinct": stats.distinct_count,
+        "mixed": stats.mixed_population,
+        "other_shape": stats.other_shape_count,
     })
     return True
 
 
-def rebuild_for_sensor(
+def compute_into_version(
     db: Session,
     sensor_id: UUID,
+    version: int,
     *,
     days: Optional[int] = None,
     min_samples: int = MIN_SAMPLES,
-    new_version: bool = False,
 ) -> dict[str, Any]:
-    """Build every baseline this sensor has enough history for.
+    """Learn every baseline this sensor has enough history for, into `version`.
 
-    `new_version` starts a fresh version and retires the old one rather than
-    editing it. Anything already recorded against the previous version keeps
-    meaning what it meant.
+    The version's existing rows are cleared first. Updating in place would
+    leave behind a row for a feature that used to qualify and no longer
+    does -- the window moved on, the samples at the current acquisition
+    shape fell below the floor -- and a stale row is worse than a missing
+    one, because a reader cannot tell it is stale.
+
+    Says nothing about which version is in force. `roll_baseline` and
+    `reset_baseline` are where that is decided.
     """
     history = load_history(db, sensor_id, days=days)
     if not history:
-        return {"sensor_id": str(sensor_id), "stored": 0, "refused": 0,
-                "version": 0, "reason": "no feature history for this sensor"}
+        return {"sensor_id": str(sensor_id), "version": version,
+                "stored": 0, "refused": 0, "captures_in_window": 0,
+                "refused_features": [],
+                "reason": "no feature history for this sensor"}
 
-    version = next_version(db, sensor_id) if new_version else max(
-        1, next_version(db, sensor_id) - 1)
-
-    if new_version:
-        db.execute(text(f"UPDATE {TABLE} SET is_active = false "
-                        f"WHERE sensor_id = :s"), {"s": str(sensor_id)})
+    db.execute(text(f"DELETE FROM {TABLE} "
+                    f"WHERE sensor_id = :s AND baseline_version = :v"),
+               {"s": str(sensor_id), "v": version})
 
     stored = refused = 0
     refusals: dict[str, int] = {}
@@ -193,15 +208,90 @@ def rebuild_for_sensor(
     }
 
 
+def roll_baseline(db: Session, sensor_id: UUID, *,
+                  days: Optional[int] = None,
+                  min_samples: int = MIN_SAMPLES) -> dict[str, Any]:
+    """Recompute the baseline in force from the current window.
+
+    The routine update. Refuses on a frozen baseline, and the refusal is the
+    feature rather than the failure: a normal that keeps learning from a
+    machine that is slowly degrading follows it down, and the degradation
+    never becomes anomalous.
+    """
+    record = lifecycle.require_rollable(db, sensor_id)
+    result = compute_into_version(db, sensor_id, record["version"],
+                                  days=days, min_samples=min_samples)
+    result["state"] = record["state"]
+    return result
+
+
+def reset_baseline(db: Session, sensor_id: UUID, *,
+                   reason: Optional[str] = None,
+                   created_by: Optional[str] = None,
+                   days: Optional[int] = None,
+                   min_samples: int = MIN_SAMPLES,
+                   activate: bool = True) -> dict[str, Any]:
+    """Start a new version, learn it, and put it in force.
+
+    Never edits the version it replaces. That is the whole point of VIK-026:
+    a finding recorded three months ago was judged against a particular
+    normal, and the only way it stays explainable is for that normal to
+    still exist, unchanged, with the finding pointing at it.
+
+    `activate=False` builds it and leaves it in `building`, for a caller
+    that wants to look at what was learned before anything is judged
+    against it.
+    """
+    started = lifecycle.start(db, sensor_id, reason=reason,
+                              created_by=created_by)
+    version = started["version"]
+    result = compute_into_version(db, sensor_id, version,
+                                  days=days, min_samples=min_samples)
+
+    if activate and result["stored"]:
+        record = lifecycle.activate(db, sensor_id, version)
+    else:
+        record = started
+        if activate:
+            # Activating a version with nothing in it would retire a working
+            # baseline in favour of an empty one, and leave the sensor with
+            # no learned normal at all. Refusing to promote it is the safe
+            # half; the version stays as a record that the attempt was made.
+            result["reason"] = (
+                "No baseline could be learned from this sensor's history, so "
+                "v%d was left unactivated and the previous baseline stays in "
+                "force." % version)
+            logger.warning("Baseline v%d for sensor %s stored nothing; "
+                           "not activating", version, sensor_id)
+
+    result["state"] = record["state"]
+    result["previous_version"] = (started["version"] - 1
+                                  if started["version"] > 1 else None)
+    return result
+
+
 def load_baseline_map(db: Session, sensor_id: UUID,
                       version: Optional[int] = None) -> dict[tuple[int, str], dict]:
-    """The active baselines, keyed the way a feature row is."""
-    clause = "AND baseline_version = :v" if version else "AND is_active"
+    """The baselines in force, keyed the way a feature row is.
+
+    An explicit `version` reads that one whatever its state, which is how a
+    finding recorded against a retired baseline is explained later. With no
+    version it reads the one in force -- and returns nothing at all when
+    there is none, rather than falling back to the newest rows lying about.
+    """
+    if version is None:
+        record = lifecycle.in_force(db, sensor_id)
+        if record is None:
+            return {}
+        version = record["version"]
+
     rows = db.execute(text(f"""
         SELECT channel, feature_code, median, mad, robust_sigma,
                p05, p50, p95, ewma, sample_count, baseline_version,
-               acquisition_sample_rate_hz, acquisition_sample_count
-          FROM {TABLE} WHERE sensor_id = :s {clause}
-    """), {"s": str(sensor_id), **({"v": version} if version else {})}
-    ).mappings().fetchall()
+               acquisition_sample_rate_hz, acquisition_sample_count,
+               confidence, excluded_count, distinct_count, mixed_population,
+               other_shape_count
+          FROM {TABLE}
+         WHERE sensor_id = :s AND baseline_version = :v
+    """), {"s": str(sensor_id), "v": version}).mappings().fetchall()
     return {(row["channel"], row["feature_code"]): dict(row) for row in rows}
