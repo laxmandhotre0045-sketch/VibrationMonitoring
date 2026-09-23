@@ -102,6 +102,38 @@ MIN_DISTINCT_VALUES = 3
 CONTAMINATION_SIGMAS = 6.0
 
 
+@dataclass(frozen=True)
+class AcquisitionShape:
+    """How a capture was taken: the sample rate and the record length.
+
+    Half the features depend on this rather than on the machine. Measured on
+    one identical signal at the two shapes this gateway has actually used,
+    the zero-crossing rate and the spectral centroid both nearly halve --
+    the bandwidth halved, so everything measured across the spectrum halved
+    with it. Against a baseline learned from the other shape that reads
+    seven sigma out, for a change in a setting.
+    """
+    sample_rate_hz: Optional[float] = None
+    sample_count: Optional[int] = None
+
+    @property
+    def known(self) -> bool:
+        return bool(self.sample_rate_hz and self.sample_count)
+
+    @property
+    def duration_s(self) -> Optional[float]:
+        if not self.known:
+            return None
+        return self.sample_count / self.sample_rate_hz
+
+    def describe(self) -> str:
+        if not self.known:
+            return "an unrecorded acquisition shape"
+        return (f"{self.duration_s:.3g} s at "
+                f"{self.sample_rate_hz / 1000:.3g} kSPS "
+                f"({self.sample_count} samples)")
+
+
 @dataclass
 class BaselineStats:
     """What one feature on one channel normally does."""
@@ -120,12 +152,30 @@ class BaselineStats:
     window_end: Optional[datetime] = None
     excluded_count: int = 0
     distinct_count: int = 0
+    #: The acquisition shape every capture in this baseline shared.
+    shape: AcquisitionShape = field(default_factory=AcquisitionShape)
+    #: Captures dropped because they were taken at a different shape.
+    other_shape_count: int = 0
     #: True when the top of the window does not belong with its middle. The
     #: median and spread are still usable; the percentiles are not.
     mixed_population: bool = False
     available: bool = False
     confidence: float = 0.0
     reason: Optional[str] = None
+    confidence_note: Optional[str] = None
+
+    def comparable_with(self, shape: "AcquisitionShape") -> bool:
+        """Whether a capture of this shape may be judged against this baseline.
+
+        False when either shape is unknown. Not because an unknown shape is
+        probably different, but because it cannot be shown to be the same --
+        and a comparison that might be measuring a settings change is not a
+        comparison anyone should act on.
+        """
+        if not self.shape.known or not shape.known:
+            return False
+        return (self.shape.sample_rate_hz == shape.sample_rate_hz
+                and self.shape.sample_count == shape.sample_count)
 
     def z_score(self, value: float) -> Optional[float]:
         """How unusual a reading is, in robust sigmas.
@@ -148,6 +198,9 @@ class BaselineStats:
             "ewma": self.ewma, "sample_count": self.sample_count,
             "excluded_count": self.excluded_count,
             "distinct_count": self.distinct_count,
+            "acquisition_sample_rate_hz": self.shape.sample_rate_hz,
+            "acquisition_sample_count": self.shape.sample_count,
+            "other_shape_count": self.other_shape_count,
             "mixed_population": self.mixed_population,
             "available": self.available, "confidence": self.confidence,
             "reason": self.reason,
@@ -161,6 +214,7 @@ class Observation:
     value: float
     observed_at: datetime
     quality_level: str = "high"
+    shape: AcquisitionShape = field(default_factory=AcquisitionShape)
 
     @property
     def usable(self) -> bool:
@@ -228,6 +282,31 @@ def build_baseline(
         return stats
 
     ordered = sorted(window.used, key=lambda o: o.observed_at)
+
+    # A baseline covers ONE acquisition shape. Where the window straddles a
+    # settings change, the most recent shape wins and the rest are dropped:
+    # mixing them would learn a normal that is half one configuration and
+    # half another, and then find every capture anomalous.
+    newest = ordered[-1].shape
+    if newest.known:
+        matching = [o for o in ordered
+                    if o.shape.sample_rate_hz == newest.sample_rate_hz
+                    and o.shape.sample_count == newest.sample_count]
+        stats.other_shape_count = len(ordered) - len(matching)
+        ordered = matching
+        stats.shape = newest
+        if len(ordered) < min_samples:
+            stats.reason = (
+                f"{len(ordered)} captures at {newest.describe()}, and "
+                f"{min_samples} are needed. {stats.other_shape_count} more "
+                f"were taken at a different acquisition shape and cannot be "
+                f"mixed in: half the features here move by a quarter or more "
+                f"when the sample rate or record length changes, so a "
+                f"baseline spanning both would find every capture anomalous."
+            )
+            stats.sample_count = 0
+            return stats
+
     values = np.asarray([o.value for o in ordered], dtype=float)
 
     # How many of those captures are actually different from each other.
@@ -247,6 +326,10 @@ def build_baseline(
     stats.sample_count = int(values.size)
     stats.window_start = ordered[0].observed_at
     stats.window_end = ordered[-1].observed_at
+    if stats.other_shape_count:
+        stats.confidence_note = (
+            f"{stats.other_shape_count} capture(s) in the window were taken "
+            f"at a different acquisition shape and were left out.")
 
     stats.median = float(np.median(values))
     # The median of the absolute deviations from the median -- not the mean

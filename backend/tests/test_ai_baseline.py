@@ -549,3 +549,98 @@ def test_a_feature_with_no_spread_is_not_also_called_contaminated():
     result = build(values)
     assert result.robust_sigma == 0.0
     assert result.mixed_population is False
+
+
+# --------------------------- a baseline belongs to one acquisition shape --
+
+from app.ai.baseline import AcquisitionShape  # noqa: E402
+
+OLD_SHAPE = AcquisitionShape(50_000.0, 13_888)      # 0.278 s, what was stored
+NEW_SHAPE = AcquisitionShape(25_000.0, 20_000)      # 0.800 s, what the gateway sends now
+
+
+def shaped(values, shape, start_hour=0):
+    return [Observation(float(v), START + timedelta(hours=start_hour + i),
+                        "high", shape)
+            for i, v in enumerate(values)]
+
+
+def test_a_window_spanning_a_settings_change_keeps_only_the_newer_shape():
+    """Half the features move by a quarter or more when the sample rate or
+    record length changes -- the zero-crossing rate and spectral centroid
+    both nearly halve. A baseline learned across both would be half one
+    configuration and half another, and would then find every capture
+    anomalous."""
+    history = (shaped(clean(20, seed=1), OLD_SHAPE)
+               + shaped(clean(20, seed=2), NEW_SHAPE, start_hour=100))
+
+    result = build_baseline("sensor", 0, "zero_crossing_rate", history)
+
+    assert result.available is True
+    assert result.sample_count == 20
+    assert result.other_shape_count == 20
+    assert result.shape == NEW_SHAPE
+    assert result.confidence_note and "different acquisition shape" in result.confidence_note
+
+
+def test_too_few_captures_at_the_new_shape_refuses_rather_than_reaching_back():
+    """After a settings change there is a gap with no usable baseline. That
+    is the honest state, and borrowing the old shape's numbers to fill it is
+    exactly the mistake."""
+    history = (shaped(clean(40, seed=1), OLD_SHAPE)
+               + shaped(clean(3, seed=2), NEW_SHAPE, start_hour=100))
+
+    result = build_baseline("sensor", 0, "spectral_centroid", history)
+
+    assert result.available is False
+    assert result.other_shape_count == 40
+    assert "different acquisition shape" in result.reason
+    assert "every capture anomalous" in result.reason
+
+
+def test_a_capture_of_a_different_shape_is_not_compared():
+    """The guard that stops the false alarm reaching a screen."""
+    result = build_baseline("sensor", 0, "zero_crossing_rate",
+                            shaped(clean(20), NEW_SHAPE))
+
+    assert result.comparable_with(NEW_SHAPE) is True
+    assert result.comparable_with(OLD_SHAPE) is False
+    assert result.comparable_with(AcquisitionShape(25_000.0, 13_888)) is False
+    assert result.comparable_with(AcquisitionShape(50_000.0, 20_000)) is False
+
+
+def test_an_unknown_shape_compares_against_nothing():
+    """Not because it is probably different, but because it cannot be shown
+    to be the same -- and a comparison that might be measuring a settings
+    change is not one to act on. The rows written before this existed have
+    no shape recorded."""
+    unknown = build_baseline("sensor", 0, "rms", observations(clean(20)))
+
+    assert unknown.shape.known is False
+    assert unknown.comparable_with(NEW_SHAPE) is False
+    assert unknown.comparable_with(AcquisitionShape()) is False
+
+
+def test_a_single_shape_window_is_untouched():
+    """The scoping must not cost anything when nothing changed."""
+    plain = build_baseline("sensor", 0, "rms", observations(clean(20)))
+    shaped_only = build_baseline("sensor", 0, "rms", shaped(clean(20), NEW_SHAPE))
+
+    assert shaped_only.other_shape_count == 0
+    assert shaped_only.confidence_note is None
+    assert shaped_only.median == pytest.approx(plain.median, rel=1e-9)
+    assert shaped_only.confidence == pytest.approx(plain.confidence)
+
+
+def test_the_shape_describes_itself_in_words_a_person_can_check():
+    assert "0.8 s at 25 kSPS" in NEW_SHAPE.describe()
+    assert "20000 samples" in NEW_SHAPE.describe()
+    assert NEW_SHAPE.duration_s == pytest.approx(0.8)
+    assert OLD_SHAPE.duration_s == pytest.approx(0.27776, rel=1e-3)
+    assert "unrecorded" in AcquisitionShape().describe()
+
+
+def test_the_shape_is_carried_into_the_serialised_form():
+    payload = build_baseline("sensor", 0, "rms", shaped(clean(20), NEW_SHAPE)).as_dict()
+    assert payload["acquisition_sample_rate_hz"] == 25_000.0
+    assert payload["acquisition_sample_count"] == 20_000

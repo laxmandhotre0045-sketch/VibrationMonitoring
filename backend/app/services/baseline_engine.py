@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.baseline import (
     MIN_SAMPLES,
+    AcquisitionShape,
     BaselineStats,
     Observation,
     build_baseline,
@@ -56,6 +57,11 @@ def load_history(
     window = "AND u.created_at >= now() - make_interval(days => :days)" if days else ""
     rows = db.execute(text(f"""
         SELECT f.channel, f.feature_code, f.value, u.created_at,
+               -- The acquisition shape travels with every value. Half the
+               -- features move by a quarter or more when it changes, so a
+               -- baseline that mixed two shapes would find every capture
+               -- anomalous for a settings change.
+               c.sample_rate_hz, c.sample_count,
                -- 'unknown', never 'high'. A capture nobody assessed is not
                -- a capture that passed, and defaulting it to the best grade
                -- is how the nine synthetic uploads on this platform -- which
@@ -64,6 +70,7 @@ def load_history(
                COALESCE(q.level, 'unknown') AS quality_level
           FROM measurement_channel_features f
           JOIN sensor_data_uploads u ON u.id = f.upload_id
+          LEFT JOIN raw_vibration_captures c ON c.upload_id = f.upload_id
           LEFT JOIN data_quality_assessments q
                  ON q.upload_id = f.upload_id AND q.channel = f.channel
          WHERE f.sensor_id = :sensor {window}
@@ -73,8 +80,11 @@ def load_history(
     history: dict[tuple[int, str], list[Observation]] = {}
     for row in rows:
         key = (int(row.channel), row.feature_code)
-        history.setdefault(key, []).append(
-            Observation(float(row.value), row.created_at, row.quality_level))
+        history.setdefault(key, []).append(Observation(
+            float(row.value), row.created_at, row.quality_level,
+            AcquisitionShape(
+                float(row.sample_rate_hz) if row.sample_rate_hz else None,
+                int(row.sample_count) if row.sample_count else None)))
 
     if limit_captures:
         for key, observations in history.items():
@@ -105,10 +115,12 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
         INSERT INTO {TABLE}
             (sensor_id, channel, feature_code, mode_id, median, mad,
              robust_sigma, p05, p50, p95, ewma, sample_count,
-             window_start, window_end, baseline_version, is_active)
+             window_start, window_end, baseline_version, is_active,
+             acquisition_sample_rate_hz, acquisition_sample_count)
         VALUES (:sensor_id, :channel, :feature_code, NULL, :median, :mad,
                 :robust_sigma, :p05, :p50, :p95, :ewma, :sample_count,
-                :window_start, :window_end, :version, true)
+                :window_start, :window_end, :version, true,
+                :rate_hz, :samples)
         ON CONFLICT (sensor_id, channel, feature_code, mode_id, baseline_version)
         DO UPDATE SET
             median = EXCLUDED.median, mad = EXCLUDED.mad,
@@ -117,6 +129,8 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
             ewma = EXCLUDED.ewma, sample_count = EXCLUDED.sample_count,
             window_start = EXCLUDED.window_start,
             window_end = EXCLUDED.window_end,
+            acquisition_sample_rate_hz = EXCLUDED.acquisition_sample_rate_hz,
+            acquisition_sample_count = EXCLUDED.acquisition_sample_count,
             computed_at = now()
     """), {
         "sensor_id": stats.sensor_id, "channel": stats.channel,
@@ -126,6 +140,8 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
         "ewma": stats.ewma, "sample_count": stats.sample_count,
         "window_start": stats.window_start, "window_end": stats.window_end,
         "version": version,
+        "rate_hz": stats.shape.sample_rate_hz,
+        "samples": stats.shape.sample_count,
     })
     return True
 
@@ -183,7 +199,8 @@ def load_baseline_map(db: Session, sensor_id: UUID,
     clause = "AND baseline_version = :v" if version else "AND is_active"
     rows = db.execute(text(f"""
         SELECT channel, feature_code, median, mad, robust_sigma,
-               p05, p50, p95, ewma, sample_count, baseline_version
+               p05, p50, p95, ewma, sample_count, baseline_version,
+               acquisition_sample_rate_hz, acquisition_sample_count
           FROM {TABLE} WHERE sensor_id = :s {clause}
     """), {"s": str(sensor_id), **({"v": version} if version else {})}
     ).mappings().fetchall()
