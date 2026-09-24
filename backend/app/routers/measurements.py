@@ -1254,14 +1254,23 @@ def _channel_health_overview(rows, definitions: dict) -> ChannelHealthOverviewOu
     if not rows:
         return ChannelHealthOverviewOut(health_state="Unknown", feature_count=0)
     statuses = [r.status for r in rows]
+    # Worst graded status wins. Features that were never graded --
+    # informational ones, and anything with no baseline yet -- do not make a
+    # channel look worse, and they do not make it look better either.
+    #
+    # The previous fallback took status_to_health_level(statuses[0]), so with
+    # a mix of ungraded states the answer depended on which row the query
+    # happened to return first. It is now decided by what is actually there.
     if "critical" in statuses:
         state = "Critical"
     elif "warning" in statuses:
         state = "Warning"
-    elif all(s == "normal" for s in statuses):
+    elif "normal" in statuses:
         state = "Normal"
+    elif "no_baseline" in statuses:
+        state = "No baseline"
     else:
-        state = status_to_health_level(statuses[0])
+        state = "Not assessed"
     return ChannelHealthOverviewOut(
         health_state=state,
         feature_count=len(rows),

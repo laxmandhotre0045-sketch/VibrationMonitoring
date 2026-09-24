@@ -113,6 +113,14 @@ class RawSpectrumOut(BaseModel):
     amplitudes: List[float]
     dominant_frequency_hz: float
     dominant_amplitude: float
+    #: Dominant amplitude divided by the median line, ignoring DC. A pure-noise
+    #: spectrum still has a largest bin, so the frequency alone says nothing
+    #: about whether a tone exists; this says how far it stands out. Roughly:
+    #: under ~12 there is no tone worth naming.
+    dominant_prominence: float = 0.0
+    #: Median line amplitude — the broadband floor the prominence is measured
+    #: against, in the channel's engineering unit.
+    noise_floor_amplitude: float = 0.0
     line_count: int = Field(description="Spectral lines before thinning for transport")
     returned_points: int
     block_size: int

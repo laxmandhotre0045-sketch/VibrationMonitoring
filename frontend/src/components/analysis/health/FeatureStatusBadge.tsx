@@ -22,6 +22,10 @@ const STATUS_STYLES: Record<
     label: "No Baseline",
     className: "bg-muted/50 text-muted-foreground border-border",
   },
+  not_assessed: {
+    label: "Not Assessed",
+    className: "bg-muted/30 text-muted-foreground border-dashed border-border",
+  },
 };
 
 interface FeatureStatusBadgeProps {
@@ -30,7 +34,10 @@ interface FeatureStatusBadgeProps {
 }
 
 export function FeatureStatusBadge({ status, className }: FeatureStatusBadgeProps) {
-  const config = STATUS_STYLES[status];
+  // Falls back rather than reading undefined off the map. A status added to
+  // the backend before this file catches up should render a grey chip, not
+  // take the analysis page down with it.
+  const config = STATUS_STYLES[status] ?? STATUS_STYLES.not_assessed;
   return (
     <span
       className={cn(
@@ -45,5 +52,5 @@ export function FeatureStatusBadge({ status, className }: FeatureStatusBadgeProp
 }
 
 export function featureStatusLabel(status: FeatureMonitorStatus): string {
-  return STATUS_STYLES[status].label;
+  return (STATUS_STYLES[status] ?? STATUS_STYLES.not_assessed).label;
 }

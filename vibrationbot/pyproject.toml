@@ -1,0 +1,35 @@
+# Packaging metadata for the vibration analysis assistant.
+#
+# This exists mainly so `app` and `tests` resolve without the sys.path hacks the
+# scripts carry, and so `pytest` works from any directory (see pythonpath in
+# pytest.ini). Dependencies stay pinned in requirements.txt — read from there
+# rather than duplicated here, because those pins are load-bearing (see the
+# rationale block at the top of requirements.txt).
+#
+# Install for development with `pip install -e .` — EDITABLE ONLY.
+# A non-editable `pip install .` copies app/ into site-packages, where
+# BASE_DIR (app/config/paths.py) resolves to the site-packages parent instead
+# of the repo root, silently repointing data/, logs/ and static/.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibrationbot"
+version = "3.0.0"
+description = "LangGraph chatbot for rotating-machinery vibration analysis"
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# Load-bearing: bearing.py, iso10816.py and signatures.py read these tables via
+# Path(__file__).parent / "data". Without this stanza a built wheel ships a
+# data-less domain/ and every bearing/ISO lookup raises at first call.
+[tool.setuptools.package-data]
+"app.domain" = ["data/*.json"]

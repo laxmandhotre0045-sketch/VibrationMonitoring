@@ -524,6 +524,7 @@ def compute_envelope_spectrum(
     *,
     low_cut_hz: float = ENVELOPE_LOW_CUT_HZ,
     high_cut_hz: float = ENVELOPE_HIGH_CUT_HZ,
+    max_segment: int = ENVELOPE_SEGMENT_MAX,
 ) -> dict[str, Any]:
     """§17.1 — band-pass → Hilbert envelope → Hann block → spectrum.
 
@@ -555,9 +556,15 @@ def compute_envelope_spectrum(
     envelope = np.abs(hilbert(filtered))
 
     # §17.1 — segment sizing: effectively a single 1024-point block.
+    # `max_segment` defaults to the plotting cap and is raised only by the
+    # feature path. A plotted envelope spectrum does not need to separate two
+    # frequencies 1.6 Hz apart; a bearing diagnosis does, and at the default
+    # 4096 the lines are 12.2 Hz apart on a 50 kSPS capture -- so BPFO and
+    # three times shaft speed fall in the same line however long the capture
+    # is. The cap, not the record length, was the limit.
     target = fft_lines if fft_lines else ENVELOPE_SEGMENT_TARGET
     segment_len = min(
-        ENVELOPE_SEGMENT_MAX,
+        max(ENVELOPE_SEGMENT_MAX, int(max_segment)),
         max(ENVELOPE_SEGMENT_MIN, next_power_of_two(min(envelope.size, target))),
     )
     segment_len = min(segment_len, envelope.size)

@@ -115,6 +115,22 @@ class ChannelMapEntryIO(BaseModel):
         validation_alias=AliasChoices("signal_type", "signalType"),
     )
     label: Optional[str] = Field(default=None, max_length=80)
+    #: Transducer sensitivity for THIS channel, in mV/g.
+    #:
+    #: Absent from this schema until it cost us the data. This model is both
+    #: the request and the response shape for /acquisition/config, so a
+    #: client reading the config and writing it back -- which is what a
+    #: settings screen does -- got entries without a sensitivity, sent them
+    #: back, and the handler replaced the stored map with them. The
+    #: per-channel figures that the ingest path writes from the gateway's own
+    #: declaration were wiped by a round trip that changed nothing else.
+    #:
+    #: None means "not supplied by this caller" and leaves the stored value
+    #: alone. It does not mean zero, and it is not a licence to guess.
+    sensitivity_mv_per_g: Optional[float] = Field(
+        default=None, gt=0, le=100000,
+        validation_alias=AliasChoices("sensitivity_mv_per_g", "sensitivityMvPerG"),
+    )
 
     @field_validator("machine_axis")
     @classmethod

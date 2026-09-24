@@ -53,3 +53,61 @@ export interface DashboardSummary {
   alerts: DashboardAlert[];
   recent_activity: DashboardActivity[];
 }
+
+// --- MOM items 10 and 12: when data arrived, and 7/30-day summaries ---------
+
+export interface LastEntry {
+  capture_id: string;
+  upload_id: string;
+  at: string;
+  /** Seconds since the capture, computed server-side so a skewed client clock
+   *  cannot be reported as stale data. */
+  age_seconds: number | null;
+  machine_name: string;
+  sensor_location: string;
+  original_filename: string | null;
+  sample_count: number;
+  channel_count: number;
+  sample_rate_hz: number;
+}
+
+export interface EntryDate {
+  date: string;
+  count: number;
+  first_at: string;
+  last_at: string;
+}
+
+export interface ChannelTrend {
+  channel_index: number;
+  /** AC RMS — vibration with the sensor's standing DC bias removed. */
+  rms_mean: number;
+  rms_min: number;
+  rms_max: number;
+  /** Null whenever the data cannot support a trend; `trend_blocked_reason`
+   *  then says why. Null is the normal case early in a deployment. */
+  trend: number | null;
+  direction: "rising" | "falling" | "flat" | "unknown";
+  trend_blocked_reason: string | null;
+}
+
+export interface WindowSummary {
+  days: number;
+  captures: number;
+  active_days: number;
+  first_at: string | null;
+  last_at: string | null;
+  span_hours: number;
+  /** Fraction of the window that actually holds data. Without showing this,
+   *  20 captures over 40 minutes and over a week look identical. */
+  coverage_fraction: number;
+  channels: ChannelTrend[];
+  note: string | null;
+}
+
+export interface CaptureHistory {
+  generated_at: string;
+  last_entry: LastEntry | null;
+  entries_by_date: EntryDate[];
+  windows: WindowSummary[];
+}

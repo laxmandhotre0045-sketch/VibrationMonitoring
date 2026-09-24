@@ -7,8 +7,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app import crud
+from app.ai.shaft_speed import ShaftSpeed, resolve_shaft_speed
 from app.crud import baseline as baseline_crud
 from app.crud import feature as feature_crud
 from app.crud import job as job_crud
@@ -20,11 +23,14 @@ from app.models.measurement import (
     SensorDataUpload,
 )
 from app.services.feature_extraction import (
+    _compute_fft_magnitudes,
+    _to_array,
     FEATURE_CODES,
     extract_all_channel_trends,
     extract_all_channels,
 )
 from app.services.plot_generator import load_parsed_data
+from app.services.quality_storage import persist_quality
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
 from app.services.webhook_service import build_alert_payload, dispatch_alert
 
@@ -92,20 +98,149 @@ def _baseline_ref_map(db: Session, sensor_id: UUID) -> dict[tuple[int, str], flo
     return {(r.channel, r.feature_code): float(r.value) for r in rows}
 
 
+def machine_shaft_speed(db: Session, upload: SensorDataUpload,
+                        parsed_data: dict[str, Any],
+                        sampling_rate_hz: float) -> ShaftSpeed:
+    """The shaft speed for this capture, from the machine record.
+
+    This is the only layer that knows which machine a sensor is bolted to, so
+    it is where the nameplate enters the calculation. Without it every order
+    in the platform is computed against the tallest line in the spectrum,
+    which on the test pump is 2x or 4x the true speed on all eight channels.
+
+    The spectrum of channel 0 is used as the cross-check on the nameplate --
+    one channel, not eight, because the answer is a property of the shaft
+    rather than of any transducer, and computing eight transforms to agree
+    with each other would cost eight times as much for the same number.
+    """
+    measured = getattr(upload, "rotation_speed_rpm", None)
+
+    nameplate = operating_min = operating_max = None
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    if sensor is not None and getattr(sensor, "equipment_id", None):
+        equipment = db.execute(text("""
+            SELECT rated_rpm, operating_speed_min, operating_speed_max
+              FROM equipment_masters WHERE id = :eid
+        """), {"eid": str(sensor.equipment_id)}).fetchone()
+        if equipment is not None:
+            nameplate = equipment.rated_rpm
+            operating_min = equipment.operating_speed_min
+            operating_max = equipment.operating_speed_max
+
+    freqs = spectrum = None
+    samples = (parsed_data.get("channels") or {}).get("ch0")
+    if samples and len(samples) >= 4:
+        freqs, spectrum = _compute_fft_magnitudes(_to_array(samples), sampling_rate_hz)
+
+    return resolve_shaft_speed(
+        freqs, spectrum,
+        measured_rpm=float(measured) if measured else None,
+        nameplate_rpm=float(nameplate) if nameplate else None,
+        operating_rpm_min=float(operating_min) if operating_min else None,
+        operating_rpm_max=float(operating_max) if operating_max else None,
+    )
+
+
+def machine_bearing_orders(db: Session, upload: SensorDataUpload) -> dict | None:
+    """FTF/BSF/BPFO/BPFI for the bearing this sensor is watching.
+
+    From the catalogue via VIK-010, which resolved the plant's spelling
+    ("6312-C3") onto a real row. The drive end is used: it carries the load
+    and is where defects appear first, and a sensor on the casing sees both
+    anyway.
+
+    None when no bearing is resolved, which the envelope features report as
+    "not looked for" rather than as nothing found. Those are different
+    answers and only one of them is reassuring.
+    """
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    if sensor is None or not getattr(sensor, "equipment_id", None):
+        return None
+
+    row = db.execute(text("""
+        SELECT b.ftf, b.bsf, b.bpfo, b.bpfi, b.designation
+          FROM equipment_masters e
+          JOIN bearing_fault_frequencies b
+            ON b.source_bearing_id = e.bearing_de_catalog_id
+         WHERE e.id = :eid
+    """), {"eid": str(sensor.equipment_id)}).fetchone()
+    if row is None:
+        return None
+
+    orders = {name: (float(getattr(row, name)) if getattr(row, name) is not None else None)
+              for name in ("ftf", "bsf", "bpfo", "bpfi")}
+    if not any(orders.values()):
+        return None
+    orders["designation"] = row.designation
+    return orders
+
+
 def persist_upload_features_and_trends(
     db: Session,
     upload: SensorDataUpload,
     parsed_data: dict[str, Any],
     sampling_rate_hz: float,
+    with_trends: bool = True,
 ) -> tuple[int, int]:
-    """Extract scalars + segment trends for all channels. Returns (feature_rows, trend_rows)."""
+    """Extract scalars + segment trends for all channels. Returns (feature_rows, trend_rows).
+
+    `with_trends` exists for backfilling captures that older code never
+    analysed. The trend rows are 32 segments x 8 channels x 36 features --
+    9,216 per capture, about 3 MB -- and for a historical capture nobody has
+    looked at, the features are what baselines and grading read. They can be
+    produced later from the same stored samples. The live path leaves this
+    on, so nothing about normal ingestion changes.
+    """
     # Keyed by (channel, code): a channel with its own override uses it, every
     # other channel falls back to the global rule. See crud.feature.resolve_rule.
     rules_map = feature_crud.get_resolved_rule_map(db)
     baseline_refs = _baseline_ref_map(db, upload.sensor_id)
 
-    scalars = extract_all_channels(parsed_data, upload.channel_count, sampling_rate_hz)
-    trends = extract_all_channel_trends(parsed_data, upload.channel_count, sampling_rate_hz)
+    machine = machine_shaft_speed(db, upload, parsed_data, sampling_rate_hz)
+    bearing_orders = machine_bearing_orders(db, upload)
+
+    # VIK-022, before the features rather than after. The requirement makes
+    # "confidence reduced due to poor signal quality" a hard rule, and a rule
+    # that runs after the numbers have been produced is an afterthought --
+    # every engine downstream reads the level, so the level has to exist by
+    # the time the numbers do.
+    #
+    # It never raises: a capture whose quality could not be judged is still
+    # worth keeping, and losing it to the thing that grades it would be the
+    # worst outcome available.
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+    quality = persist_quality(
+        db,
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        channels=(parsed_data.get("channels") or {}),
+        sampling_rate_hz=sampling_rate_hz,
+        expected_samples=parsed_data.get("sample_count"),
+        sensitivity_mv_per_g=(float(sensor.sensitivity)
+                              if sensor is not None and sensor.sensitivity
+                              else None),
+        shaft_hz=machine.hz if machine.usable else None,
+    )
+    if quality["level"] != "high":
+        logger.info(
+            "Data quality for upload %s: %s (x%.2f) -- failing %s%s",
+            upload.id, quality["level"], quality["confidence_factor"],
+            ", ".join(quality["failed_checks"]) or "nothing",
+            (", not assessed: " + ", ".join(quality.get("not_assessed", [])))
+            if quality.get("not_assessed") else "",
+        )
+    logger.info(
+        "Shaft speed for upload %s: %s (%s, confidence %.2f)",
+        upload.id,
+        f"{machine.hz:.3f} Hz" if machine.hz else "unknown",
+        machine.source, machine.confidence,
+    )
+
+    scalars = extract_all_channels(parsed_data, upload.channel_count,
+                                   sampling_rate_hz, machine, bearing_orders)
+    trends = (extract_all_channel_trends(parsed_data, upload.channel_count,
+                                         sampling_rate_hz, machine, bearing_orders)
+              if with_trends else {})
 
     feature_crud.delete_measurement_features(db, upload.id)
     feature_crud.delete_measurement_feature_trends(db, upload.id)
@@ -275,9 +410,13 @@ def copy_upload_features_to_baseline(
 
 
 def features_summary_from_rows(rows: list[MeasurementChannelFeature]) -> dict[str, int]:
-    summary = {"normal": 0, "warning": 0, "critical": 0, "no_baseline": 0}
+    summary = {"normal": 0, "warning": 0, "critical": 0,
+               "no_baseline": 0, "not_assessed": 0}
     for r in rows:
-        key = r.status if r.status in summary else "normal"
-        summary[key] = summary.get(key, 0) + 1
+        # An unrecognised status counts as not assessed, not as normal.
+        # Counting it normal is how twenty-six ungraded features come to
+        # read as twenty-six healthy ones on the summary cards.
+        key = r.status if r.status in summary else "not_assessed"
+        summary[key] += 1
     summary["total"] = len(rows)
     return summary

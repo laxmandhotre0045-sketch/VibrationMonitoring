@@ -8,6 +8,7 @@ from fastapi.openapi.utils import get_openapi
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.routers.acquisition import router as acquisition_router
+from app.routers.ai import router as ai_router
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
 from app.routers.bearings import router as bearings_router
@@ -15,6 +16,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.equipment import router as equipment_router
 from app.routers.exports import router as exports_router
 from app.routers.ingest import router as ingest_router
+from app.routers.learned_baselines import router as learned_baselines_router
 from app.routers.integrations import router as integrations_router
 from app.routers.lookups import router as lookups_router
 from app.routers.measurements import router as measurements_router
@@ -92,12 +94,14 @@ app.add_middleware(
 )
 
 app.include_router(acquisition_router)
+app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(baselines_router)
 app.include_router(bearings_router)
 app.include_router(dashboard_router)
 app.include_router(equipment_router)
 app.include_router(exports_router)
+app.include_router(learned_baselines_router)
 app.include_router(ingest_router)
 app.include_router(integrations_router)
 app.include_router(lookups_router)

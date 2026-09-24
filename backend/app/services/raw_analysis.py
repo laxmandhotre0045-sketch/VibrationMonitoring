@@ -138,6 +138,11 @@ def compute_raw_statistics(samples: list[float], sampling_rate_hz: float) -> dic
     }
 
 
+#: Supply frequency. A line here in an accelerometer channel is electrical
+#: pickup, and at 50 Hz it coincides with a 3000 rpm shaft order.
+MAINS_FREQUENCY_HZ = 50.0
+
+
 def compute_raw_spectrum(
     samples: list[float],
     sampling_rate_hz: float,
@@ -170,6 +175,51 @@ def compute_raw_spectrum(
             dominant_hz = float(arr_f[mask][idx])
             dominant_amplitude = float(arr_a[mask][idx])
 
+    # How far the dominant line stands above the typical line.
+    #
+    # Without this, "dominant_frequency_hz" is unqualified and an idle machine
+    # reports one exactly as confidently as a faulty one: an FFT always has a
+    # largest bin, even in pure noise. Measured on this deployment, an idle
+    # pump reports a stable 5509 Hz "dominant frequency" that is simply the
+    # tallest blade of grass. Anything that narrates the spectrum -- a summary,
+    # a bot, a report -- needs to know whether there is a tone at all, and the
+    # ratio to the median line is the cheapest honest answer.
+    #
+    # The median, not the mean: one strong tone drags the mean up and would
+    # make the peak look less prominent the more real it is.
+    dominant_prominence = 0.0
+    noise_floor = 0.0
+    if freqs:
+        arr_a = np.asarray(amps, dtype=np.float64)
+        arr_f = np.asarray(freqs, dtype=np.float64)
+        mask = arr_f > DC_GUARD_HZ
+        if mask.any():
+            noise_floor = float(np.median(arr_a[mask]))
+            if noise_floor > 0:
+                dominant_prominence = dominant_amplitude / noise_floor
+
+    # Line ratios at the mains frequency and its harmonics, measured on the
+    # FULL spectrum before thinning.
+    #
+    # The thinned arrays are for transport -- they drop most lines to fit a
+    # chart, and a harmonic that survives is luck. Searching them found the 4th
+    # harmonic at 200 Hz but reported 100 Hz and 150 Hz as absent when they were
+    # simply not among the points that survived. Artefact detection cannot run
+    # on a decimated spectrum.
+    mains_ratios: dict[str, float] = {}
+    if freqs and noise_floor > 0:
+        arr_f = np.asarray(freqs, dtype=np.float64)
+        arr_a = np.asarray(amps, dtype=np.float64)
+        resolution = (sampling_rate_hz / metadata_block
+                      if (metadata_block := (spectrum.get("metadata", {}) or {}).get("block_size"))
+                      else 0.0)
+        tolerance = max(resolution, 2.0)
+        for harmonic in (1, 2, 3, 4):
+            target = MAINS_FREQUENCY_HZ * harmonic
+            idx = int(np.argmin(np.abs(arr_f - target)))
+            if abs(float(arr_f[idx]) - target) <= tolerance:
+                mains_ratios[f"h{harmonic}"] = float(arr_a[idx]) / noise_floor
+
     thin_f, thin_a = _thin(freqs, amps, MAX_SPECTRUM_POINTS)
 
     metadata = spectrum.get("metadata", {})
@@ -178,6 +228,12 @@ def compute_raw_spectrum(
         "amplitudes": thin_a,
         "dominant_frequency_hz": dominant_hz,
         "dominant_amplitude": dominant_amplitude,
+        "dominant_prominence": dominant_prominence,
+        "noise_floor_amplitude": noise_floor,
+        #: {"h1": ratio at 50 Hz, "h2": at 100 Hz, ...} against the noise floor,
+        #: measured before thinning. Consumers use this rather than searching
+        #: the returned arrays, which are decimated.
+        "mains_line_ratios": mains_ratios,
         "line_count": len(freqs),
         "returned_points": len(thin_f),
         "block_size": int(metadata.get("block_size") or 0),

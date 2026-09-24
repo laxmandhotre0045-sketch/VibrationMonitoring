@@ -16,3 +16,15 @@ email-validator==2.2.0
 numpy>=2.0.0
 scipy>=1.14.0
 pdfplumber==0.11.4
+
+# Test tooling. Neither was declared, so a fresh checkout could not run the
+# suite: pytest was simply absent, and httpx is what fastapi.testclient imports
+# to build its TestClient -- without it, collection of anything touching the
+# API fails with "pip install httpx" and takes the whole run down with it.
+pytest==9.1.1
+httpx==0.27.2
+
+# Used by the bearing catalogue import (VIK-009) to read the 88,734-row
+# spreadsheet, and by the status reports. Both were installed by hand.
+openpyxl==3.1.5
+reportlab==5.0.1

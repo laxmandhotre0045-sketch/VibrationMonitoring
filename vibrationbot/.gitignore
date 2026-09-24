@@ -1,0 +1,43 @@
+# Secrets — never commit. Copy .env.example to .env and fill it in.
+.env
+.env.local
+
+# Virtualenv
+.venv/
+venv/
+
+# Generated data: indexes, extracted assets, chunk artifacts, checkpoints.
+# All of it is reproducible from the source documents via scripts/reindex_all.py.
+# Anchored with a leading slash. Written bare as 'data/' this matched a
+# folder called data at ANY depth, so it silently excluded
+# app/domain/data/ -- the bearing geometry, ISO tables and fault rules.
+# Those three files then existed on whichever laptop created them and
+# nowhere else, and every lookup raised on a fresh clone.
+/data/
+logs/
+
+# Source corpus — large binaries, distributed separately.
+*.pdf
+*.docx
+!tests/fixtures/*.pdf
+!tests/fixtures/*.docx
+
+# LangGraph checkpointer
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

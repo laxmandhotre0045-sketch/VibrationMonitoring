@@ -35,6 +35,7 @@ class FeaturesSummaryOut(BaseModel):
     warning: int = 0
     critical: int = 0
     no_baseline: int = 0
+    not_assessed: int = 0
     total: int = 0
 
 

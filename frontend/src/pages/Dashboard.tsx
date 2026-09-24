@@ -19,6 +19,8 @@ import { cardSizing } from "@/lib/card-sizing";
 import { cardPad, gridGolden, gridMetrics, pageStack } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
+import { useCaptureHistory } from "@/hooks/useCaptureHistory";
+import { DataFreshnessStrip } from "@/components/dashboard/DataFreshnessStrip";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { STATUS_META, relativeTime } from "@/lib/alert-status";
 import { STATUS_TONES, toneForHealthStatus, type StatusTone } from "@/lib/status-box";
@@ -29,6 +31,7 @@ export function Dashboard() {
   const { data, isLoading, isError } = useDashboardSummary();
 
   const counts = data?.counts;
+  const { data: history } = useCaptureHistory();
   const hasFleet = (counts?.total ?? 0) > 0;
 
   const fleet = data?.equipment_health ?? [];
@@ -141,6 +144,11 @@ export function Dashboard() {
       {isError && (
         <IndustrialEmptyState message="Unable to load fleet data. Check your connection and try again." />
       )}
+
+      {/* Whether the feed is current qualifies every number below, so it
+          is stated once, in a line. The detail it summarises lives on
+          Sensor Data, where it is consulted rather than re-read. */}
+      <DataFreshnessStrip history={history} />
 
       <PageSection title="Fleet Overview">
         <div className={gridMetrics}>

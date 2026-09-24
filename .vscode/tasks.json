@@ -1,0 +1,81 @@
+{
+  // Supporting tasks for the launch configurations. The database stays in Docker —
+  // only the application runs locally, so there is no second Postgres to keep in
+  // step with the containerised one.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Everything the compound launch needs before either server starts.
+      "label": "platform: prepare",
+      "dependsOrder": "sequence",
+      "dependsOn": ["db: up", "db: wait for healthy", "backend: migrate"],
+      "problemMatcher": []
+    },
+    {
+      "label": "db: up",
+      "type": "shell",
+      "command": "docker compose up -d postgres pgadmin",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      // Migrations against a database that is still starting fail with a connection
+      // error, so wait for the healthcheck compose already defines.
+      "label": "db: wait for healthy",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile", "-Command",
+        "$deadline = (Get-Date).AddSeconds(60); while ((Get-Date) -lt $deadline) { $s = docker inspect -f '{{.State.Health.Status}}' vibration_platform_db 2>$null; if ($s -eq 'healthy') { Write-Output 'database ready'; exit 0 }; Start-Sleep -Milliseconds 700 }; Write-Error 'database did not become healthy in 60s'; exit 1"
+      ],
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: migrate",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "args": ["-m", "alembic", "upgrade", "head"],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      // Used by the Chrome debug config: poll until Vite answers, then let Chrome open.
+      "label": "frontend: wait for dev server",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile", "-Command",
+        "$deadline = (Get-Date).AddSeconds(45); while ((Get-Date) -lt $deadline) { try { Invoke-WebRequest -Uri http://localhost:5173 -UseBasicParsing -TimeoutSec 2 | Out-Null; Write-Output 'vite ready'; exit 0 } catch { Start-Sleep -Milliseconds 700 } }; Write-Error 'vite did not answer on 5173'; exit 1"
+      ],
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: install deps",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "args": ["-m", "pip", "install", "-r", "requirements.txt"],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": []
+    },
+    {
+      "label": "frontend: install deps",
+      "type": "shell",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": []
+    },
+    {
+      // Puts the containerised stack back the way it was before running locally.
+      "label": "platform: back to Docker",
+      "type": "shell",
+      "command": "docker compose up -d",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    }
+  ]
+}

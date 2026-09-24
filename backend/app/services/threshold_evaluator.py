@@ -10,6 +10,20 @@ STATUS_WARNING = "warning"
 STATUS_CRITICAL = "critical"
 STATUS_NO_BASELINE = "no_baseline"
 
+#: Measured, deliberately not graded. Distinct from "normal", which is a
+#: judgement, and from "no_baseline", which means a judgement was wanted and
+#: could not be made.
+#:
+#: Most of the features added in VIK-018 to VIK-020 have no published limit
+#: and no sensible absolute one: a spectral centroid of 3,976 Hz is neither
+#: good nor bad on its own. Giving them an invented numeric threshold would
+#: produce exactly the failure the requirement warns about, where one limit
+#: describes its own configuration and 72 of 72 readings come back critical.
+#: Leaving them with no rule at all is worse still, because an unrecognised
+#: rule type falls through to "normal" -- a reassuring word for a feature
+#: nobody has assessed.
+STATUS_NOT_ASSESSED = "not_assessed"
+
 
 @dataclass
 class ThresholdRule:
@@ -44,6 +58,11 @@ def evaluate_feature(
     baseline_value: float | None = None,
 ) -> str:
     rt = rule.rule_type
+
+    if rt == "informational":
+        # Recorded and plotted; never alarmed on. Returned explicitly so this
+        # cannot be confused with a feature that was checked and passed.
+        return STATUS_NOT_ASSESSED
 
     if rt == "absolute_max":
         if rule.warning_max is None:
@@ -103,10 +122,14 @@ def evaluate_feature(
             return STATUS_WARNING
         return STATUS_CRITICAL
 
-    return STATUS_NORMAL
+    # An unrecognised rule type. Not "normal": nothing was evaluated, and
+    # saying normal here is how an ungraded feature comes to look healthy.
+    return STATUS_NOT_ASSESSED
 
 
 def status_to_health_level(status: str) -> str:
+    if status == STATUS_NOT_ASSESSED:
+        return "Not assessed"
     if status == STATUS_CRITICAL:
         return "Critical"
     if status == STATUS_WARNING:

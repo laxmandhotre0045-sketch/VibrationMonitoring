@@ -9,6 +9,9 @@ import {
   type SensorListItem,
 } from "@/api/sensorExport";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { DataFreshnessCard } from "@/components/dashboard/DataFreshnessCard";
+import { WindowSummaryCard } from "@/components/dashboard/WindowSummaryCard";
+import { useCaptureHistory } from "@/hooks/useCaptureHistory";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -57,6 +60,7 @@ function sensorLabel(s: SensorListItem): string {
 
 export function SensorDataPage() {
   const { showToast } = useToast();
+  const { data: history } = useCaptureHistory();
   const [search, setSearch] = useState("");
   const [sensorId, setSensorId] = useState<string>("");
   const [downloading, setDownloading] = useState(false);
@@ -112,6 +116,16 @@ export function SensorDataPage() {
             Every measurement recorded for one sensor, ready to review or export as CSV.
           </p>
         </div>
+      </div>
+
+      {/* MOM items 10 and 12. This page is where someone comes to ask what
+          has been recorded, so the ingest history belongs here rather than
+          on the dashboard, which carries only a one-line freshness note. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DataFreshnessCard history={history} />
+        {history?.windows.map((w) => (
+          <WindowSummaryCard key={w.days} window={w} />
+        ))}
       </div>
 
       <GlassCard className="p-4">

@@ -40,6 +40,8 @@ import numpy as np
 
 G_TO_MS2 = 9.80665
 M_TO_UM = 1.0e6
+#: metres per second -> millimetres per second, the unit ISO 10816 uses.
+MS_TO_MM_S = 1.0e3
 
 PHASE_REFERENCE_TIME = "time_only"
 
@@ -123,19 +125,28 @@ def _to_finite_array(samples: Sequence[float]) -> np.ndarray:
     return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
 
 
-def acceleration_to_displacement_um(
+def _integrate_acceleration(
     accel_g: np.ndarray,
     sampling_rate_hz: float,
     *,
+    order: int,
     lower_hz: float | None,
     upper_hz: float | None,
     floor_hz: float,
 ) -> np.ndarray:
     """
-    Band-limited double integration, entirely in the frequency domain.
+    Band-limited integration of acceleration, entirely in the frequency domain.
+
+    `order` 1 gives velocity in m/s, 2 gives displacement in metres. One
+    implementation for both, because two would drift: the band mask, the
+    integration floor and the near-DC handling all have to agree, and keeping
+    them in step by hand across two functions is how they stop agreeing.
 
     `lower_hz`/`upper_hz` None means "no band mask" (the unfiltered overlay), but the
     integration floor still applies — otherwise near-DC bins dominate everything.
+    Integration divides by f, so a bin at 0.01 Hz is amplified a hundredfold
+    relative to one at 1 Hz, and at order 2 ten-thousandfold. That is what the
+    floor is for and it is why it applies whether or not a band was requested.
     """
     n = accel_g.size
     if n < 4:
@@ -149,11 +160,48 @@ def acceleration_to_displacement_um(
     if lower_hz is not None and upper_hz is not None:
         usable &= (freqs >= lower_hz) & (freqs <= upper_hz)
 
-    # x(f) = a(f) / (2*pi*f)^2 — only where f is safely above the floor.
-    transfer[usable] = 1.0 / np.square(2.0 * np.pi * freqs[usable])
+    # v(f) = a(f) / (2*pi*f);  x(f) = a(f) / (2*pi*f)^2 — above the floor only.
+    omega = 2.0 * np.pi * freqs[usable]
+    transfer[usable] = 1.0 / np.power(omega, order)
 
-    displacement_m = np.fft.irfft(spectrum * transfer, n=n)
+    return np.fft.irfft(spectrum * transfer, n=n)
+
+
+def acceleration_to_displacement_um(
+    accel_g: np.ndarray,
+    sampling_rate_hz: float,
+    *,
+    lower_hz: float | None,
+    upper_hz: float | None,
+    floor_hz: float,
+) -> np.ndarray:
+    """Band-limited double integration. Returns micrometres."""
+    displacement_m = _integrate_acceleration(
+        accel_g, sampling_rate_hz, order=2,
+        lower_hz=lower_hz, upper_hz=upper_hz, floor_hz=floor_hz,
+    )
     return displacement_m * M_TO_UM
+
+
+def acceleration_to_velocity_mm_s(
+    accel_g: np.ndarray,
+    sampling_rate_hz: float,
+    *,
+    lower_hz: float | None = None,
+    upper_hz: float | None = None,
+    floor_hz: float,
+) -> np.ndarray:
+    """Band-limited single integration. Returns mm/s (VIK-007).
+
+    Same integrator, same floor, one order lower. ISO 10816 zones are defined
+    on velocity in mm/s, so this is what stands between the platform's
+    acceleration readings and a severity grade.
+    """
+    velocity_ms = _integrate_acceleration(
+        accel_g, sampling_rate_hz, order=1,
+        lower_hz=lower_hz, upper_hz=upper_hz, floor_hz=floor_hz,
+    )
+    return velocity_ms * MS_TO_MM_S
 
 
 def displacement_um_from_acceleration_g(amplitude_g: float, frequency_hz: float) -> float:
@@ -168,6 +216,25 @@ def displacement_um_from_acceleration_g(amplitude_g: float, frequency_hz: float)
         return 0.0
     omega = 2.0 * math.pi * frequency_hz
     return (amplitude_g * G_TO_MS2) / (omega * omega) * M_TO_UM
+
+
+def velocity_mm_s_from_acceleration_g(amplitude_g: float, frequency_hz: float) -> float:
+    """
+    Scalar single integration, the velocity twin of the displacement helper:
+
+        v = a / (2*pi*f),  a in m/s^2, v in m/s
+
+    Exact only at a single frequency. Applying it to a broadband overall
+    reading treats all the energy as if it sat at one frequency, which it does
+    not -- see app/ai/units.py, which carries the same warning.
+
+    Returns 0.0 for a non-positive or non-finite frequency rather than
+    dividing by zero.
+    """
+    if not math.isfinite(amplitude_g) or not math.isfinite(frequency_hz) or frequency_hz <= 0:
+        return 0.0
+    omega = 2.0 * math.pi * frequency_hz
+    return (amplitude_g * G_TO_MS2) / omega * MS_TO_MM_S
 
 
 def _decimate(values: np.ndarray, max_points: int) -> np.ndarray:

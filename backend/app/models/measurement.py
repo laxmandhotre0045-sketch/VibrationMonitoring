@@ -437,6 +437,19 @@ class RawVibrationChannel(Base):
     channel_index = Column(Integer, nullable=False)
     samples = Column(ARRAY(Float(precision=53)), nullable=False)
 
+    #: Summary statistics, written once when the capture is stored (migration
+    #: 019). They are a property of the samples and never change, and deriving
+    #: them on demand means unnesting ~14k values per channel on every read --
+    #: measured at 0.113 s per capture, which makes a 30-day summary card a
+    #: forty-minute query. NULL means "not summarised", never zero.
+    rms = Column(Float(precision=53), nullable=True)
+    dc_mean = Column(Float(precision=53), nullable=True)
+    #: RMS about the mean: the vibration with the sensor's standing bias
+    #: removed. This is what separates a turning machine from a stationary one
+    #: and it cannot be recovered from rms alone.
+    ac_rms = Column(Float(precision=53), nullable=True)
+    peak = Column(Float(precision=53), nullable=True)
+
     capture = relationship("RawVibrationCapture", back_populates="channels")
 
     __table_args__ = (

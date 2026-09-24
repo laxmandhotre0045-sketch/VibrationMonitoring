@@ -30,7 +30,12 @@ from app.dependencies.api_key import require_api_key
 from app.models.integration import ApiKey
 from app.schemas.ingest import MeasurementIngest, MeasurementIngestAck
 from app.schemas.raw_vibration import RawTimebaseOut, RawUploadAck
+<<<<<<< HEAD
 from app.services.measurement_pipeline import resolve_config, run_pipeline
+=======
+from app.services.device_declaration import record_declaration
+from app.services.feature_storage import persist_upload_features_and_trends
+>>>>>>> 28b0aa6724005c5bf547cf3238877fa0ff1c5aa4
 from app.services.plot_generator import save_parsed_data
 from app.services.raw_storage import store_capture
 from app.services.raw_vibration import (
@@ -100,6 +105,21 @@ async def ingest_raw_csv(
     expected_channels: int = Form(8),
     measured_at: datetime | None = Form(None, description="Capture time (ISO 8601). Defaults to now."),
     rotation_speed_rpm: float | None = Form(None),
+    sample_unit: str | None = Form(
+        None,
+        description="What the CSV values physically are: g, V or mm/s. The "
+                    "Beckhoff gateway applies counts x (5 V / 32768) / "
+                    "sensitivity before publishing, so it sends 'g'. Without "
+                    "this the sensor stays unconfirmed and every severity is "
+                    "withheld (VIK-005).",
+    ),
+    sensitivity_mv_per_g: str | None = Form(
+        None,
+        description="Comma-separated transducer sensitivity per channel, in "
+                    "mV/g, in channel order. Not uniform on this hardware: "
+                    "500,500,100,100,100,100,100,100. Must have exactly one "
+                    "value per channel or it is ignored outright.",
+    ),
     db: Session = Depends(get_db),
     api_key: ApiKey = Depends(require_api_key),
 ):
@@ -140,8 +160,8 @@ async def ingest_raw_csv(
     # column, so fall back to the sensor's saved configuration rather than a
     # module constant — the collector reads that same value from
     # GET /api/v1/acquisition/config and usually does not repeat it here.
+    plot_config = measurement_crud.get_plot_config_by_sensor(db, sensor.id)
     if sample_rate_hz is None:
-        plot_config = measurement_crud.get_plot_config_by_sensor(db, sensor.id)
         sample_rate_hz = (
             float(plot_config.sampling_rate_hz) if plot_config else DEFAULT_SAMPLE_RATE_HZ
         )
@@ -182,6 +202,20 @@ async def ingest_raw_csv(
             f"Sample interval varies by up to {timebase['max_step_deviation_s']:.3e} s. "
             "Samples stored unchanged."
         )
+
+    # What the device says its own samples are. Recorded before the capture is
+    # stored, so the very first snapshot from a gateway is already gradeable
+    # rather than waiting for a second one -- VIK-005 refuses on an
+    # unconfirmed sensor, and until this existed nothing ever confirmed one.
+    declaration = record_declaration(
+        db,
+        sensor=sensor,
+        plot_config=plot_config,
+        sample_unit=sample_unit,
+        sensitivity_csv=sensitivity_mv_per_g,
+        channel_count=parsed["channel_count"],
+    )
+    warnings.extend(declaration.warnings)
 
     upload_id = uuid4()
     captured = _as_utc(measured_at) if measured_at else datetime.now(timezone.utc)
