@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.models.measurement import (
@@ -23,20 +24,51 @@ def save_upload_data(
     channel_count: int,
     sample_count: int,
 ) -> MeasurementUploadData:
-    row = MeasurementUploadData(
-        upload_id=upload_id,
-        sensor_id=sensor_id,
-        original_filename=original_filename,
-        file_format=file_format,
-        file_content=file_content,
-        parsed_data=parsed_data,
-        channel_count=channel_count,
-        sample_count=sample_count,
+    """Store the uploaded bytes and parsed channels for one upload.
+
+    An upsert, not an insert. ``upload_id`` is unique, so a plain INSERT run a
+    second time for the same upload raises IntegrityError — and an
+    IntegrityError poisons the session, taking the rest of the transaction with
+    it rather than just this row. Storing an upload twice has to be possible:
+    the pipeline's store step reruns when an upload is reprocessed, and the
+    right outcome is one row holding the newer parse, not a failure.
+
+    ``id`` and ``created_at`` are deliberately left out of the update, so a
+    re-store keeps the row's identity and its first-stored time. Anything
+    already pointing at that id stays valid.
+
+    ON CONFLICT does this in one statement, so two concurrent stores of the
+    same upload cannot both decide the row is missing and both insert.
+    """
+    values = {
+        "upload_id": upload_id,
+        "sensor_id": sensor_id,
+        "original_filename": original_filename,
+        "file_format": file_format,
+        "file_content": file_content,
+        "parsed_data": parsed_data,
+        "channel_count": channel_count,
+        "sample_count": sample_count,
+    }
+
+    insert_stmt = pg_insert(MeasurementUploadData).values(**values)
+    db.execute(
+        insert_stmt.on_conflict_do_update(
+            index_elements=["upload_id"],
+            # Everything except the conflict key itself; it is what matched.
+            set_={
+                name: insert_stmt.excluded[name]
+                for name in values
+                if name != "upload_id"
+            },
+        )
     )
-    db.add(row)
     db.commit()
-    db.refresh(row)
-    return row
+
+    stored = get_upload_data_by_upload_id(db, upload_id)
+    if stored is None:  # pragma: no cover - the upsert above just wrote it
+        raise RuntimeError(f"Upload data for {upload_id} missing after upsert")
+    return stored
 
 
 def get_upload_data_by_upload_id(db: Session, upload_id: UUID) -> Optional[MeasurementUploadData]:

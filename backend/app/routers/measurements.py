@@ -71,8 +71,11 @@ from app.services.vibration_vector import (
     compute_vector_blocks,
     resolve_block_size,
 )
+from app.crud import job as job_crud
+from app.services.data_quality import read_quality
+from app.services.job_runner import REQUEST_STEPS
+from app.services.measurement_pipeline import resolve_config, run_pipeline
 from app.services.pdf_parser import parse_sensor_file
-from app.services.plot_generator import save_parsed_data
 from app.crud import feature as feature_crud
 from app.schemas.feature import (
     ChannelFeatureOut,
@@ -89,13 +92,11 @@ from app.services.feature_storage import (
     _load_parsed_for_upload,
     ensure_upload_features_ready,
     features_summary_from_rows,
-    persist_upload_features_and_trends,
 )
 from app.services.plot_storage import (
     compute_config_fingerprint,
     get_or_load_all_plots,
     get_or_load_single_plot,
-    persist_all_plot_results,
     plot_result_to_series,
 )
 from app.services.threshold_evaluator import status_to_health_level
@@ -278,38 +279,53 @@ async def upload_sensor_data(
     )
 
     parsed_json_path = os.path.join(settings.measurement_upload_dir, f"{upload.id}.json")
+
+    # Parsing and config resolution sit ahead of the pipeline, which takes an
+    # already-parsed payload. Both were inside the old single try/except, so a
+    # failure in either still marks the upload and answers 422.
     try:
         parsed = parse_sensor_file(file_path, channel_count)
-        save_parsed_data(parsed_json_path, parsed)
-        upload = measurement_crud.mark_upload_parsed(
-            db, upload.id, parsed_json_path, parsed["sample_count"]
-        )
-        file_format = "csv" if filename.lower().endswith(".csv") else "pdf"
-        baseline_crud.save_upload_data(
-            db,
-            upload_id=upload.id,
-            sensor_id=sensor_id,
-            original_filename=filename,
-            file_format=file_format,
-            file_content=content,
-            parsed_data=parsed,
-            channel_count=channel_count,
-            sample_count=parsed["sample_count"],
-        )
         cfg = _resolve_config(db, upload, upload.channel_count)
-        try:
-            persist_all_plot_results(db, upload, parsed_json_path, cfg)
-            upload = measurement_crud.mark_upload_plots_ready(db, upload.id)
-        except Exception as plot_err:
-            upload = measurement_crud.mark_upload_plots_failed(db, upload.id, str(plot_err))
-        try:
-            persist_upload_features_and_trends(db, upload, parsed, float(cfg["sampling_rate_hz"]))
-            upload = feature_crud.mark_upload_features_ready(db, upload.id)
-        except Exception as feat_err:
-            upload = feature_crud.mark_upload_features_failed(db, upload.id, str(feat_err))
     except Exception as e:
         measurement_crud.mark_upload_failed(db, upload.id, str(e))
         raise HTTPException(status_code=422, detail=f"PDF parsing failed: {e}")
+
+    # Store only. Plots, features and the alert count are queued for the worker
+    # — they are the expensive half, and the half Phase 1 grows, so running
+    # them here is what would eventually time the request out.
+    #
+    # Storing stays in the request rather than joining them: it is what sets
+    # `parse_status` to "parsed", and the feature endpoints the UI polls answer
+    # 422 until it is. Deferring it would show the user an error instead of
+    # "still working".
+    result = run_pipeline(
+        db,
+        upload,
+        parsed,
+        cfg,
+        raw_content=content,
+        original_filename=filename,
+        file_format="csv" if filename.lower().endswith(".csv") else "pdf",
+        parsed_path=parsed_json_path,
+        only=REQUEST_STEPS,
+    )
+    upload = result.upload
+
+    # A failed store is still fatal and still answers 422. The message stays
+    # "PDF parsing failed" because the code this replaced caught parsing and
+    # storing in one block and answered that for both — callers may match on it.
+    if result.failed("store"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"PDF parsing failed: {result.error_for('store')}",
+        )
+
+    # From here the upload is durable. Queue the rest and answer: the row
+    # carries plots_status and features_status as "pending", which is the
+    # signal the UI already polls on every 3 seconds.
+    job_crud.enqueue_job(
+        db, upload.id, max_attempts=settings.worker_max_attempts
+    )
 
     db.refresh(upload)
     return _to_upload_out(upload, has_stored_data=True)
@@ -365,10 +381,14 @@ def get_upload(upload_id: UUID, db: Session = Depends(get_db)):
 # ── Plot generation ───────────────────────────────────────────────────────────
 
 def _resolve_config(db: Session, upload, channel_count: int) -> dict:
-    config = measurement_crud.get_plot_config_by_sensor(db, upload.sensor_id)
-    if config:
-        return measurement_crud.config_to_dict(config)
-    return measurement_crud.default_config_dict(channel_count)
+    """Plot configuration for an upload's sensor.
+
+    A one-line wrapper over the pipeline's `resolve_config`, which takes a
+    sensor id because the device path needs the rate before an upload row
+    exists. Keeping the wrapper leaves the ten upload-shaped call sites below
+    untouched.
+    """
+    return resolve_config(db, upload.sensor_id, channel_count)
 
 
 @router.get("/uploads/{upload_id}/plots", response_model=AllPlotsOut)
@@ -1276,6 +1296,12 @@ def get_upload_features(
     definitions = {d.code: d.name for d in feature_crud.get_feature_definitions(db)}
     rows = feature_crud.get_measurement_features(db, upload_id, channel=channel)
     channel_rows = rows if channel is not None else rows
+
+    # How far these numbers can be trusted travels with them. A caller that has
+    # the features but not the verdict has no way to ask for it later without a
+    # second round trip, and will simply render them as fact.
+    verdict = read_quality(upload)
+
     return UploadFeaturesOut(
         upload_id=upload.id,
         sensor_id=upload.sensor_id,
@@ -1286,6 +1312,8 @@ def get_upload_features(
         items=_feature_rows_to_out(channel_rows, definitions),
         summary=_summary_from_rows(channel_rows),
         channel_overview=_channel_health_overview(channel_rows, definitions),
+        trust_level=verdict.trust_level if verdict else None,
+        failed_checks=list(verdict.failed_checks) if verdict else [],
     )
 
 

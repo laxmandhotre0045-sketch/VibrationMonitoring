@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.crud import baseline as baseline_crud
 from app.crud import feature as feature_crud
+from app.crud import job as job_crud
 from app.models.measurement import (
     BaselineChannelFeature,
     MeasurementChannelFeature,
@@ -47,7 +48,17 @@ def ensure_upload_features_ready(
     upload: SensorDataUpload,
     sampling_rate_hz: float,
 ) -> SensorDataUpload:
-    """Compute features on demand for legacy uploads that are still pending."""
+    """Compute features on demand for uploads that have nobody else to do it.
+
+    Uploads made before the worker existed have no job row, and nothing will
+    ever compute their features unless a read does — that is what this is for.
+
+    A *queued or running* job is the opposite case: the worker owns this
+    upload, and computing here as well would have two processes writing the
+    same feature rows from two connections. The upload is returned untouched so
+    the endpoint answers with its recorded ``pending`` status, which is the
+    signal the UI is already polling on.
+    """
     if upload.features_status == "ready":
         existing = feature_crud.get_measurement_features(db, upload.id)
         if existing:
@@ -55,6 +66,9 @@ def ensure_upload_features_ready(
 
     if upload.parse_status != "parsed":
         raise ValueError(f"Upload not parsed: {upload.parse_status}")
+
+    if job_crud.has_active_job(db, upload.id):
+        return upload
 
     if upload.features_status == "failed":
         upload.features_status = "pending"

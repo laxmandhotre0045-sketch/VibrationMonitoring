@@ -22,8 +22,13 @@ export const CAMERA_VIEWS = {
 export type CameraViewId = keyof typeof CAMERA_VIEWS;
 
 export const VIEW_TWEEN_MS = 650;
-/** Headroom around the model, leaving room for the boundary label rows. */
-const FRAMING_MARGIN = 1.18;
+/**
+ * Headroom around the model.
+ *
+ * Kept tight: the label rows are inset from the stage edges and the model is
+ * centred between them, so extra margin here only shrinks the machine.
+ */
+const FRAMING_MARGIN = 1.04;
 
 export interface Framing {
   position: THREE.Vector3;
@@ -122,6 +127,27 @@ export class CameraRig {
       toTarget: framing.target.clone(),
       elapsed: 0,
     };
+  }
+
+  /**
+   * Re-fit after a resize, keeping the direction the user is looking from.
+   *
+   * A stage that goes from wide to narrow needs a very different standoff —
+   * without this the machine simply falls outside the frustum and the panel
+   * looks broken. Snapping to the canonical view would fix the fit but would
+   * also throw away any orbit the operator had set up, so only the distance and
+   * the target are corrected; the viewing direction is preserved.
+   */
+  refit(framing: Framing) {
+    const distance = framing.position.distanceTo(framing.target);
+    const direction = this.camera.position.clone().sub(this.controls.target);
+    if (direction.lengthSq() < 1e-8) direction.copy(framing.position).sub(framing.target);
+
+    this.controls.target.copy(framing.target);
+    this.camera.position
+      .copy(framing.target)
+      .addScaledVector(direction.normalize(), distance);
+    this.controls.update();
   }
 
   /** Place the camera with no animation — first frame, and resizes. */

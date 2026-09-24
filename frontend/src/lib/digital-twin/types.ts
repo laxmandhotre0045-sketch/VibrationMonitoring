@@ -209,7 +209,14 @@ export type TwinPick =
 // this vocabulary.
 // ---------------------------------------------------------------------------
 
-/** The model families the viewer can draw. */
+/**
+ * The model families the viewer can draw.
+ *
+ * One per GLB in `public/models/`, plus `generic` — the procedural stand-in for
+ * a machine type with no model of its own. Several Step 1 machine types share a
+ * family: a Conveyor, a Crusher, a Mixer and an Agitator are all a motor
+ * driving something through a gearbox, which is what `machine-train` is.
+ */
 export type MachineTypeId =
   | "fan"
   | "pump"
@@ -217,6 +224,16 @@ export type MachineTypeId =
   | "motor"
   | "gearbox"
   | "compressor"
+  | "turbine"
+  | "dg-set"
+  | "machine-train"
+  | "spindle"
+  | "wind-turbine"
+  | "generator"
+  | "conveyor"
+  | "crusher"
+  | "mixer"
+  | "agitator"
   | "generic";
 
 /** Optional condition colouring. Not sent by the setup flow yet. */
@@ -258,6 +275,22 @@ export interface TwinSensor {
 }
 
 /**
+ * A sensor moved off its anchor onto a point the operator picked.
+ *
+ * The anchor route stays the default and the preferred one: it survives a model
+ * revision, and it is what the saved equipment record can describe. A placement
+ * is the exception for the mounting point the model has no anchor for — stored
+ * in the model root's **local** space, with the surface normal it was dropped
+ * on, so the instrument stands perpendicular to its face rather than upright.
+ */
+export interface TwinSensorPlacement {
+  /** Contact point on the machine surface, in the model root's local space. */
+  point: Vec3;
+  /** Outward surface normal there — unit length, same space as `point`. */
+  normal: Vec3;
+}
+
+/**
  * A model the viewer can render, however it was produced.
  *
  * Both `loadGlbSource` and `buildProceduralSource` return this, which is what
@@ -272,8 +305,26 @@ export interface TwinModelSource {
   bearingAnchors: Map<string, import("three").Object3D>;
   /** Casing / housing / cover / guard meshes — the x-ray layer. */
   xrayMeshes: import("three").Mesh[];
+  /**
+   * The machine's own meshes, captured before any marker is attached.
+   *
+   * Occlusion tests raycast against these rather than the whole subtree:
+   * markers hang off the anchors, so testing the subtree meant every sensor
+   * reported itself as blocking its own sightline and every leader line drew
+   * dashed.
+   */
+  blockerMeshes: import("three").Mesh[];
   /** The group holding everything that spins, if the model has one. */
   rotor: import("three").Object3D | null;
+  /**
+   * Shafts that turn about an axis of their own rather than the model's.
+   *
+   * `rotor` spins about the model centre line, which is right for a motor shaft
+   * and for impeller blades sweeping around it. A gearbox output shaft sits on
+   * a second centre and would swing around the first instead of turning, so it
+   * gets a pivot of its own here. Empty for models that have none.
+   */
+  extraRotors?: import("three").Object3D[];
   /** "glb" | "procedural" — surfaced in the UI so a stand-in reads as one. */
   kind: "glb" | "procedural";
   /** True when this is the generic stand-in rather than a model of this type. */

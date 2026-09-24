@@ -98,7 +98,12 @@ export function resolveVibrationFeatureKey(
 ): VibrationFeatureKey | null {
   if (!raw) return null;
   const token = normalizeToken(raw);
-  if (FEATURE_KEY_ALIASES[token]) return FEATURE_KEY_ALIASES[token];
+  // Own properties only. A bare `FEATURE_KEY_ALIASES[token]` also searches
+  // Object.prototype, where "constructor" is a truthy value that is not a
+  // feature key — and callers treat anything non-null as one.
+  if (Object.prototype.hasOwnProperty.call(FEATURE_KEY_ALIASES, token)) {
+    return FEATURE_KEY_ALIASES[token];
+  }
 
   for (const def of VIBRATION_FEATURE_CATALOG) {
     if (normalizeToken(def.label) === token) return def.key;

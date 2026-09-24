@@ -240,6 +240,20 @@ class FeatureThresholdRule(Base):
     # NULL means the rule applies to every channel; a row with a channel set
     # overrides the global one for that channel only.
     channel = Column(Integer, nullable=True)
+    # Narrower scopes, most specific first: a rule for one accelerometer, or
+    # one for a single machine. NULL in both means the row is not narrowed that
+    # way, which is every row seeded before migration 023. A row carries at most
+    # one of the two — a sensor already belongs to one piece of equipment.
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_configurations.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    equipment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("equipment_masters.id", ondelete="CASCADE"),
+        nullable=True,
+    )
     normal_max = Column(Numeric(18, 8), nullable=True)
     warning_max = Column(Numeric(18, 8), nullable=True)
     normal_min = Column(Numeric(18, 8), nullable=True)

@@ -42,6 +42,20 @@ class Settings(BaseSettings):
     #: e.g. CORS_ORIGINS=http://192.168.1.51:4173
     cors_origins: str = ""
 
+    #: How often the worker asks `processing_jobs` for work.
+    #:
+    #: Under the UI's own 3s poll, so a finished job is normally visible on the
+    #: next poll rather than the one after.
+    worker_poll_interval_s: float = 2.0
+    #: Base wait before a failed job is retried, multiplied by the attempt
+    #: number. A database that is down stays down for a while.
+    worker_retry_delay_s: int = 30
+    #: A job still "running" after this belonged to a worker that died, and is
+    #: claimable again. Comfortably longer than any real job.
+    worker_stale_running_s: int = 600
+    #: Tries before a job is given up on.
+    worker_max_attempts: int = 3
+
     #: When true, GET /api/v1/acquisition/config requires an X-API-Key.
     #:
     #: Default false so an MQTT edge device can fetch its own settings with a

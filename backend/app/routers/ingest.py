@@ -24,16 +24,14 @@ from sqlalchemy.orm import Session
 from app import crud
 from app.config import settings
 from app.crud import baseline as baseline_crud
-from app.crud import feature as feature_crud
 from app.crud import measurement as measurement_crud
 from app.database import get_db
 from app.dependencies.api_key import require_api_key
 from app.models.integration import ApiKey
 from app.schemas.ingest import MeasurementIngest, MeasurementIngestAck
 from app.schemas.raw_vibration import RawTimebaseOut, RawUploadAck
-from app.services.feature_storage import persist_upload_features_and_trends
+from app.services.measurement_pipeline import resolve_config, run_pipeline
 from app.services.plot_generator import save_parsed_data
-from app.services.plot_storage import persist_all_plot_results
 from app.services.raw_storage import store_capture
 from app.services.raw_vibration import (
     DEFAULT_SAMPLE_RATE_HZ,
@@ -292,15 +290,10 @@ def ingest_measurement(
     measured_at = _as_utc(data.measured_at)
 
     # The device's own rate describes this burst; the stored plot configuration
-    # is only a fallback for devices that do not report one.
-    config = measurement_crud.get_plot_config_by_sensor(db, sensor.id)
-    cfg = (
-        measurement_crud.config_to_dict(config)
-        if config
-        else measurement_crud.default_config_dict(channel_count)
-    )
-    sampling_rate_hz = float(data.sampling_rate_hz or cfg["sampling_rate_hz"])
-    cfg = {**cfg, "sampling_rate_hz": sampling_rate_hz}
+    # is only a fallback for devices that do not report one. `resolve_config`
+    # applies exactly that precedence.
+    cfg = resolve_config(db, sensor.id, channel_count, data.sampling_rate_hz)
+    sampling_rate_hz = float(cfg["sampling_rate_hz"])
 
     parsed = _to_parsed_payload(data, sampling_rate_hz)
     raw_bytes = data.model_dump_json().encode("utf-8")
@@ -327,50 +320,31 @@ def ingest_measurement(
         api_key_id=api_key.id,
     )
 
-    try:
-        save_parsed_data(parsed_path, parsed)
-        upload = measurement_crud.mark_upload_parsed(
-            db, upload.id, parsed_path, parsed["sample_count"]
-        )
-        baseline_crud.save_upload_data(
-            db,
-            upload_id=upload.id,
-            sensor_id=sensor.id,
-            original_filename=filename,
-            file_format="json",
-            file_content=raw_bytes,
-            parsed_data=parsed,
-            channel_count=channel_count,
-            sample_count=parsed["sample_count"],
-        )
-    except Exception as exc:
-        measurement_crud.mark_upload_failed(db, upload.id, str(exc))
-        logger.exception("Ingest storage failed for device %s", data.device_id)
-        raise HTTPException(status_code=422, detail=f"Could not store measurement: {exc}")
-
-    # Plots and features are graded separately: a device that keeps delivering is
-    # more valuable than one rejected because a derived artefact failed, and both
-    # statuses are recorded on the upload for later reprocessing.
-    try:
-        persist_all_plot_results(db, upload, parsed_path, cfg)
-        upload = measurement_crud.mark_upload_plots_ready(db, upload.id)
-    except Exception as plot_err:
-        upload = measurement_crud.mark_upload_plots_failed(db, upload.id, str(plot_err))
-        logger.warning("Plot generation failed for upload %s: %s", upload.id, plot_err)
-
-    try:
-        # Alert webhooks fire from inside here once the feature rows are committed.
-        persist_upload_features_and_trends(db, upload, parsed, sampling_rate_hz)
-        upload = feature_crud.mark_upload_features_ready(db, upload.id)
-    except Exception as feat_err:
-        upload = feature_crud.mark_upload_features_failed(db, upload.id, str(feat_err))
-        logger.warning("Feature extraction failed for upload %s: %s", upload.id, feat_err)
-
-    alerts_raised = sum(
-        1
-        for row in feature_crud.get_measurement_features(db, upload.id)
-        if row.status in ("warning", "critical")
+    # Store, plots, features and the alert count all live in the pipeline, which
+    # the manual upload path runs too. Alert webhooks still fire from inside the
+    # features step once its rows are committed.
+    result = run_pipeline(
+        db,
+        upload,
+        parsed,
+        cfg,
+        raw_content=raw_bytes,
+        original_filename=filename,
+        file_format="json",
+        parsed_path=parsed_path,
     )
+    upload = result.upload
+
+    # The endpoint, not the pipeline, decides what a failure is worth. A failed
+    # store is fatal: nothing was written, so there is no parse for plots,
+    # features or a later reprocess to read. Plots and features are graded
+    # separately — a device that keeps delivering is more valuable than one
+    # rejected because a derived artefact failed, and both statuses are recorded
+    # on the upload for later reprocessing.
+    if result.failed("store"):
+        error = result.error_for("store")
+        logger.error("Ingest storage failed for device %s: %s", data.device_id, error)
+        raise HTTPException(status_code=422, detail=f"Could not store measurement: {error}")
 
     return MeasurementIngestAck(
         upload_id=upload.id,
@@ -383,5 +357,5 @@ def ingest_measurement(
         parse_status=upload.parse_status,
         plots_status=upload.plots_status,
         features_status=upload.features_status,
-        alerts_raised=alerts_raised,
+        alerts_raised=result.alerts_raised,
     )

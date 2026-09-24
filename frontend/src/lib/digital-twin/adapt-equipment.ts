@@ -37,26 +37,29 @@ export function adaptEquipmentToTwin(
   mountingRows: MountingRowInput[]
 ): TwinViewModel {
   const resolved = resolveTwin(data, mountingRows);
+  // The family decides the node vocabulary: the same bearing is COMPRESSOR_DE
+  // to the registry and COMP_DE to the model, and only the type tells them apart.
+  const typeId = resolveMachineTypeId(data.machine_type);
 
   const bearings: TwinBearing[] = [
     ...resolved.bearings.map((bearing) => ({
-      id: bearingNodeName(bearing.anchor.id),
+      id: bearingNodeName(bearing.anchor.id, typeId),
       name: bearing.anchor.label,
       note:
         bearing.bearingNumber ||
         (bearing.catalogId ? `Bearing ID ${bearing.catalogId}` : undefined),
       configured: true,
-      anchorNode: bearingNodeName(bearing.anchor.id),
+      anchorNode: bearingNodeName(bearing.anchor.id, typeId),
     })),
     // Positions the model has that the form has not filled in. Step 3 is
     // optional and stays that way: these draw as outlines, never as fitted
     // parts, and they are what make four bearing chips appear on a two-field
     // form.
     ...resolved.ghostBearingAnchors.map((anchor) => ({
-      id: bearingNodeName(anchor.id),
+      id: bearingNodeName(anchor.id, typeId),
       name: anchor.label,
       configured: false,
-      anchorNode: bearingNodeName(anchor.id),
+      anchorNode: bearingNodeName(anchor.id, typeId),
     })),
   ];
 
@@ -66,7 +69,7 @@ export function adaptEquipmentToTwin(
     id: sensor.channel,
     axis: sensor.orientation as TwinSensor["axis"],
     location: sensor.mountingLocation,
-    anchorNode: sensorNodeName(sensor.anchor.id, sensor.orientation),
+    anchorNode: sensorNodeName(sensor.anchor.id, sensor.orientation, typeId),
     detail: sensor.sensorType ?? undefined,
     persisted: sensor.source === "sensor",
     // `status` is intentionally absent: the setup flow has no condition data.

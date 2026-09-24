@@ -1,233 +1,143 @@
-# Digital Twin — 3D model specification
+# Digital twin: machine model conventions
 
-This document is for the 3D artist producing the GLB models the SensoVibe
-Digital Twin loads. Everything here is a contract the code depends on: the
-viewer finds parts **by node name**, never by hard-coded coordinates, so you can
-move, rescale or re-model anything as long as the names and the conventions
-below are kept.
+Every model in `frontend/public/models/` follows these rules. The viewer reads
+node **names** and node **transforms** — it never hardcodes coordinates per
+machine type, so a model can be re-modelled, rescaled or replaced freely as long
+as the names below are kept.
 
-If a model is missing, the viewer falls back to a built-in procedural machine of
-the same type. Nothing breaks while you work — a half-finished model simply is
-not shipped yet.
+If a model is missing or fails to parse, the viewer falls back to a procedural
+machine of the same family. Nothing breaks while a model is being worked on.
 
----
+## Axes and units
 
-## 1. Deliverables
+* Metres. Y up. **X is the shaft axis**, drive end toward +X. Z is the horizontal cross-axis.
+* Origin sits at floor level, centred on the machine.
+* Authored at real physical size, so the viewer's auto-fit works with no per-type tuning.
 
-| Machine type | File | Budget |
-|---|---|---|
-| Fan | `public/models/fan.glb` | ≤ 2 MB |
-| Pump | `public/models/pump.glb` | ≤ 2 MB |
-| Blower | `public/models/blower.glb` | ≤ 2 MB |
-| Motor | `public/models/motor.glb` | ≤ 2 MB |
-| Gearbox | `public/models/gearbox.glb` | ≤ 2 MB |
+## Node names
 
-Optionally, a still of each model for the loading placeholder:
-`public/models/previews/{type}.png`, roughly 800 × 500, transparent background.
-
-**Format:** glTF 2.0 binary (`.glb`), **Meshopt-compressed**. In Blender:
-*File → Export → glTF 2.0*, Format `glTF Binary`, and under *Compression* choose
-Meshopt (or run `gltfpack -i in.glb -o out.glb -cc` afterwards). Draco is **not**
-supported — the viewer wires up the Meshopt decoder only.
-
----
-
-## 2. Orientation, scale and origin
-
-These three are the difference between a model that drops in and one that needs
-code changes.
-
-```
-        +Y  up
-         │
-         │
-         └───── +X   along the shaft, pointing from the
-        ╱             non-drive end toward the drive end
-      +Z
-      across the shaft (horizontal, at 90° to it)
-```
-
-- **Shaft on +X.** The rotating axis runs along world X. The drive end is the
-  +X end. This is what lets the viewer turn a sensor's *Axial* orientation into
-  a direction without being told which way the machine faces.
-- **1 unit = 100 mm.** A 2 m long pump set is 20 units. The viewer will warn and
-  auto-rescale anything whose longest dimension is under 1 or over 60 units, but
-  please get this right — auto-rescaling makes the sensor markers the wrong size
-  relative to the machine.
-- **Origin at the shaft centre line, on the floor plane.** Put the model's
-  origin where the shaft axis meets the base. Y = 0 is the ground; the viewer
-  drops a shadow there.
-- **Apply all transforms before export** (in Blender: *Object → Apply → All
-  Transforms*). Unapplied scale on an anchor empty rotates the sensor marker
-  incorrectly.
-
----
-
-## 3. Node naming
-
-### 3.1 Sensor mounting points — `CH…` empties
-
-Place an **Empty** at every point an analyst would stud-mount an accelerometer:
-each bearing housing, the casing, the foundation.
-
-> **The empty's local +Y must point along the measurement axis.**
-
-That is the whole trick: the accelerometer model is built pointing up its own
-+Y, so parenting it to your empty aims it correctly with no code involved. A
-*Vertical* mounting point has +Y up; a *Horizontal* one has +Y pointing out
-sideways (along world Z); an *Axial* one has +Y pointing along the shaft
-(world X, away from the machine).
-
-Name them in **either** of these ways:
-
-**Preferred — semantic names.** Self-describing and impossible to mis-map:
-
-```
-CH_MOTOR_DE_H      CH_MOTOR_DE_V      CH_MOTOR_DE_A
-CH_MOTOR_NDE_H     CH_MOTOR_NDE_V     CH_MOTOR_NDE_A
-CH_FAN_DE_H        CH_FAN_DE_V        CH_FAN_DE_A
-CH_FAN_NDE_H       CH_FAN_NDE_V       CH_FAN_NDE_A
-CH_FAN_HOUSING_H   CH_FOUNDATION_V    …
-```
-
-Format: `CH_<LOCATION>_<AXIS>` where `<AXIS>` is one of
-`H` horizontal · `V` vertical · `A` axial · `R` radial · `T` tangential.
-
-**Also accepted — numbered names with custom properties.** Name the empties
-`CH1`, `CH2`, … and add two glTF **custom properties** to each (in Blender:
-*Object Properties → Custom Properties*):
-
-| Property | Example |
+| Pattern | Meaning |
 |---|---|
-| `location` | `Fan DE` |
-| `axis` | `Horizontal` |
+| `SNS_<LOCATION>_<H\|V\|A>` | Sensor mounting point. **Local +Y points along the measurement axis.** |
+| `BRG_<LOCATION>` | Bearing anchor, at the bearing centre. |
+| `CASING_*` | Meshes that fade in x-ray mode (housings, covers, guards, volutes). |
+| `ROTOR` | Parent node for everything that rotates. Spinning it rotates about local X. |
 
-Numbered names without those properties will still load, but the viewer can only
-match them if a sensor's anchor happens to be that literal name — so always add
-the properties if you use `CH1…CHn`.
+`<LOCATION>` uses underscores: `MOTOR_DE`, `FAN_NDE`, `GB_HSS_DE`, `MAIN_BRG`.
+Axis letters are H horizontal (+Z), V vertical (+Y), A axial (±X).
 
-### 3.2 Locations to provide
+**Do not name sensor nodes CH1…CH6.** Channel numbers are positional and shift
+when a sensor is deleted. The frontend adapter builds the node name from
+`mounting_location` + `orientation`; the CH number is only the chip's label.
 
-Use the location names below, because they are what the Equipment Master form
-records. The right-hand column is the slug to use in a semantic node name.
+Place anchors on the **node transform**, not baked into mesh vertices. A node
+whose transform is identity hands the viewer the origin, not the anchor.
 
-| Form mounting location | Slug |
+## Adapter mapping
+
+```
+mounting_location  "Bearing Housing DE"  ->  FAN_DE   (on a fan)
+orientation        "Horizontal"          ->  H
+node name          SNS_FAN_DE_H
+```
+
+The location half lives in `LOCATION_ALIAS` in
+`frontend/src/lib/digital-twin/machine-type-map.ts`, keyed by machine family.
+Adding a machine type is a data edit in that file — three tables, no new code.
+`frontend/src/lib/digital-twin/__tests__/glb-contract.test.ts` checks every
+machine type × every mounting location × every orientation against the real
+files, so a rename that breaks the mapping fails the suite rather than silently
+dropping a marker.
+
+## Every mounting location needs an anchor
+
+Step 5 offers these: Bearing Housing DE/NDE, Motor DE/NDE, Gearbox Input/Output,
+Pump Casing, Fan Housing, Compressor Housing, Foundation. **Every one must
+resolve to a node on every model**, or a sensor mounted there has nowhere to
+land and its marker silently disappears.
+
+Two of those are not bearings and are easy to forget:
+
+* `SNS_FOUNDATION_*` — on the baseplate, at the machine's centre. A static
+  mounting point: there is no rotating axis under it, so H/V/A follow the world
+  axes. Every model has one.
+* A casing point — `PUMP_CASING`, `FAN_HOUSING`, `COMP_HOUSING`, … — on the
+  housing rather than a bearing.
+
+**Vertical machines.** A top-entry mixer or agitator runs its shaft down, not
+along X. Those models orient the `ROTOR` node so its local X points up, which is
+what makes the shaft turn about itself instead of swinging around the model, and
+their H/V/A anchors are placed by hand: V runs along the shaft, H and A across
+it — the opposite of a horizontal machine.
+
+## Current library
+
+| File | Sensor anchors | Bearing anchors | Locations |
+|---|---|---|---|
+| `motor.glb` | 12 | 2 | MOTOR_DE/NDE, MOTOR_HOUSING, FOUNDATION |
+| `pump.glb` | 18 | 4 | MOTOR_*, PUMP_*, PUMP_CASING, FOUNDATION |
+| `fan.glb` | 18 | 4 | MOTOR_*, FAN_*, FAN_HOUSING, FOUNDATION |
+| `blower.glb` | 18 | 4 | MOTOR_*, BLOWER_*, BLOWER_HOUSING, FOUNDATION (belt driven) |
+| `compressor.glb` | 18 | 4 | MOTOR_*, COMP_*, COMP_HOUSING, FOUNDATION (twin screw) |
+| `gearbox.glb` | 18 | 4 | GB_HSS_*, GB_LSS_*, GB_HOUSING, FOUNDATION |
+| `spindle.glb` | 12 | 3 | SPINDLE_FRONT, SPINDLE_FRONT2, SPINDLE_REAR, SPINDLE_HOUSING, FOUNDATION |
+| `turbine.glb` | 18 | 4 | TURB_*, GEN_*, TURB_CASING, FOUNDATION |
+| `wind-turbine-drivetrain.glb` | 21 | 5 | MAIN_BRG, GB_HSS_*, GEN_*, GB_HOUSING, FOUNDATION |
+| `dg-set.glb` | 15 | 3 | ENGINE_DE, ALT_*, ENGINE_BLOCK, FOUNDATION |
+| `generator.glb` | 12 | 2 | GEN_DE/NDE, GEN_HOUSING, FOUNDATION |
+| `conveyor.glb` | 15 | 3 | PULLEY_DE/NDE, TAIL_BRG, CONV_FRAME, FOUNDATION |
+| `crusher.glb` | 18 | 4 | CRSH_DE/NDE, DRIVE_*, CRSH_HOUSING, FOUNDATION |
+| `mixer.glb` | 12 | 2 | MIX_DE/NDE, MIX_HOUSING, FOUNDATION (vertical shaft) |
+| `agitator.glb` | 12 | 2 | MIX_DE/NDE, MIX_HOUSING, FOUNDATION (vertical shaft) |
+| `machine-train.glb` | 24 | 6 | MOTOR_*, GB_IN_*, DRIVEN_*, DRIVEN_HOUSING, FOUNDATION |
+
+47–188 kB uncompressed, 1.7 MB for the set. Run them through `gltf-transform` with Meshopt before
+shipping; `MeshoptDecoder` is already wired into the `GLTFLoader`.
+
+## Which machine type gets which model
+
+Every Step 1 machine type now has a model of its own:
+
+| Machine Type | Model |
 |---|---|
-| Bearing Housing DE | depends on machine — `FAN_DE`, `PUMP_DE`, `MOTOR_DE`, `GEARBOX_INPUT` |
-| Bearing Housing NDE | `FAN_NDE`, `PUMP_NDE`, `MOTOR_NDE`, `GEARBOX_OUTPUT` |
-| Motor DE | `MOTOR_DE` |
-| Motor NDE | `MOTOR_NDE` |
-| Gearbox Input | `GEARBOX_INPUT` |
-| Gearbox Output | `GEARBOX_OUTPUT` |
-| Pump Casing | `PUMP_CASING` |
-| Fan Housing | `FAN_HOUSING` |
-| Compressor Housing | `COMPRESSOR_CASING` |
-| Foundation | `FOUNDATION` |
+| Motor | `motor.glb` |
+| Generator | `generator.glb` |
+| Pump | `pump.glb` |
+| Fan | `fan.glb` |
+| Blower | `blower.glb` |
+| Compressor | `compressor.glb` |
+| Gearbox | `gearbox.glb` |
+| Turbine | `turbine.glb` |
+| DG Set | `dg-set.glb` |
+| Spindle | `spindle.glb` |
+| Wind Turbine | `wind-turbine-drivetrain.glb` |
+| Conveyor | `conveyor.glb` |
+| Crusher | `crusher.glb` |
+| Mixer | `mixer.glb` |
+| Agitator | `agitator.glb` |
 
-Provide **H, V and A** for every bearing housing at minimum. R and T are
-optional; if absent the viewer falls back gracefully.
+`machine-train.glb` — a motor, gearbox and driven shaft on one base — is no
+longer referenced now that each of those types has a model of its own. It is
+kept because it is the right stand-in for the next driven-equipment type added.
 
-### 3.3 Bearing centres — `BRG_…` empties
+## Regenerating or replacing a model
 
-Place an Empty at the **centre of each bearing**, on the shaft axis:
+The current files are parametric stand-ins generated by
+`frontend/scripts/build_models.py` (Python + trimesh + shapely + mapbox_earcut).
+They are correct in proportion, layout and naming, but they are not any
+manufacturer's specific machine.
 
 ```
-BRG_MOTOR_DE    BRG_MOTOR_NDE    BRG_FAN_DE    BRG_FAN_NDE
-BRG_PUMP_DE     BRG_PUMP_NDE     BRG_GEARBOX_INPUT    BRG_GEARBOX_OUTPUT
+python frontend/scripts/build_models.py
 ```
 
-The viewer draws its own bearing ring at each of these — amber when the operator
-has configured that bearing, a faint outline when they have not. You do not need
-to model the bearing itself, but if you do, keep it inside the housing where the
-x-ray mode will reveal it.
+When a real scanned or CAD-derived model arrives:
 
-Include **every** bearing the machine has, not just two. A fan train has four
-(motor DE/NDE and fan DE/NDE) and all four are shown.
+1. Confirm the axes and units above.
+2. Rename its nodes to match the table.
+3. Move anchors onto node transforms with +Y along the measurement axis.
+4. Include `SNS_FOUNDATION_*` and the casing point for that type.
+5. Drop it in `frontend/public/models/<type>.glb`.
 
-### 3.4 The x-ray layer
-
-Any mesh whose name contains **`casing`**, **`housing`**, **`cover`** or
-**`guard`** (case-insensitive) fades to 14 % opacity when the operator switches
-on *X-ray casing*.
-
-Name outer shells accordingly — `motor_casing`, `fan_housing`, `terminal_cover`,
-`coupling_guard`. Keep shafts, rotors, impellers, bearings, feet and plinths out
-of that list so the machine keeps its shape when the shells go.
-
-### 3.5 The rotating assembly — `ROTOR`
-
-Put everything that spins under a single Empty or group named exactly **`ROTOR`**:
-shaft, rotor core, coupling halves, impeller hub and blades.
-
-> **`ROTOR`'s origin must sit on the shaft axis, and its local X must run along
-> that axis.**
-
-The viewer spins this group about its local X for the *Run shaft* toggle. If the
-origin is off-axis the assembly will orbit instead of rotating.
-
-A gearbox has two shafts on different centres. Put the input assembly under
-`ROTOR` and leave the output static, or nest a second empty named `ROTOR_2` —
-only `ROTOR` is currently animated.
-
----
-
-## 4. Materials
-
-- Use **PBR metal/rough** materials (Principled BSDF). The viewer lights the
-  scene with a PMREM environment plus a key, rim and fill, under ACES filmic
-  tone mapping at 0.78 exposure, and sets `envMapIntensity` to 0.6 on import.
-- **Keep material count low** — under ~10 per model. Materials are cloned per
-  mesh for x-ray, so a model with 200 unique materials costs 200 clones.
-- Bake nothing that depends on lighting. No baked shadows or AO into base
-  colour; the viewer casts real shadows.
-- Textures are optional and count against the 2 MB budget. Flat PBR colours look
-  correct under this lighting and are usually the better trade.
-
----
-
-## 5. Level of detail
-
-The viewer shows the machine at roughly 300–450 px tall. Aim for:
-
-- **20k–60k triangles** per model.
-- Chamfers and fillets where they catch the key light; no sub-millimetre detail.
-- Bolts, fins and blades as simple geometry — they read at this size, individual
-  threads do not.
-- No interior detail except what x-ray should reveal: shaft, rotor, bearings.
-
----
-
-## 6. Checklist before handing over
-
-- [ ] Exported as `.glb`, Meshopt-compressed, under 2 MB
-- [ ] Shaft runs along **+X**, drive end at +X
-- [ ] 1 unit = 100 mm
-- [ ] Origin on the shaft axis at floor level; all transforms applied
-- [ ] A `CH…` empty at every mounting point, **local +Y along the measurement axis**
-- [ ] H, V and A provided for each bearing housing
-- [ ] A `BRG_…` empty at every bearing centre, on the shaft axis
-- [ ] Outer shells named with `casing` / `housing` / `cover` / `guard`
-- [ ] Everything that spins under `ROTOR`, origin on the axis, local X along it
-- [ ] PBR materials, under ~10 of them, no baked lighting
-- [ ] 20k–60k triangles
-
----
-
-## 7. Checking your work
-
-Drop the file into `frontend/public/models/`, open Equipment Master, and pick
-that machine type in Step 1. The viewer loads the GLB in place of the procedural
-stand-in automatically — no code change and no restart beyond the dev server's
-own reload.
-
-Then confirm:
-
-1. The machine sits on the floor, right way up, at a sensible size.
-2. Sensor markers appear at your `CH…` empties, each pointing the right way —
-   vertical ones standing up, horizontal ones out the side, axial ones off the
-   end face.
-3. Bearing rings appear at your `BRG_…` empties.
-4. *X-ray casing* fades the shells and reveals the shaft and bearings.
-5. *Run shaft* spins the rotor about its own axis without wobbling.
-
-The browser console warns if the model is scaled far from the expected range.
+No viewer code changes. Run the frontend suite — `glb-contract.test.ts` will
+tell you immediately if a name is missing.

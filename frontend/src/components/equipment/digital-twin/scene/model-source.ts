@@ -27,14 +27,14 @@ export async function loadModelSource(
   const url = glbUrlFor(typeId);
   const proceduralId = proceduralModelIdFor(typeId);
 
-  if (!url) return buildProceduralSource(proceduralId);
+  if (!url) return buildProceduralSource(proceduralId, typeId);
 
   // HEAD first: with no GLBs authored yet every type would otherwise push a
   // failed GLTFLoader request through the console on each switch. The result
   // is cached per URL, so this costs one round trip per model per session.
   const available = await isModelAvailable(url);
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-  if (!available) return buildProceduralSource(proceduralId);
+  if (!available) return buildProceduralSource(proceduralId, typeId);
 
   try {
     return await loadGlbSource(url, signal);
@@ -42,7 +42,7 @@ export async function loadModelSource(
     if ((error as DOMException)?.name === "AbortError") throw error;
     // A present-but-broken GLB is worth saying out loud, unlike an absent one.
     return {
-      ...buildProceduralSource(proceduralId),
+      ...buildProceduralSource(proceduralId, typeId),
       loadError:
         error instanceof Error ? error.message : "The 3D model could not be loaded.",
     };

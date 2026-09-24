@@ -64,6 +64,7 @@ function scanNodes(root: THREE.Object3D): Omit<TwinModelSource, "kind" | "schema
   const sensorAnchors = new Map<string, THREE.Object3D>();
   const bearingAnchors = new Map<string, THREE.Object3D>();
   const xrayMeshes: THREE.Mesh[] = [];
+  const blockerMeshes: THREE.Mesh[] = [];
   let rotor: THREE.Object3D | null = null;
 
   root.traverse((node) => {
@@ -89,13 +90,16 @@ function scanNodes(root: THREE.Object3D): Omit<TwinModelSource, "kind" | "schema
     }
 
     const mesh = node as THREE.Mesh;
-    if (mesh.isMesh && (XRAY_NAME_PATTERN.test(name) || node.userData.xray === true)) {
+    if (!mesh.isMesh) return;
+
+    blockerMeshes.push(mesh);
+    if (XRAY_NAME_PATTERN.test(name) || node.userData.xray === true) {
       mesh.userData.xray = true;
       xrayMeshes.push(mesh);
     }
   });
 
-  return { root, sensorAnchors, bearingAnchors, xrayMeshes, rotor };
+  return { root, sensorAnchors, bearingAnchors, xrayMeshes, blockerMeshes, rotor };
 }
 
 /**
@@ -135,7 +139,15 @@ export function isModelAvailable(url: string): Promise<boolean> {
   if (cached) return cached;
 
   const probe = fetch(url, { method: "HEAD" })
-    .then((response) => response.ok)
+    .then((response) => {
+      if (!response.ok) return false;
+      // A dev server with SPA fallback answers 200 with index.html for a file
+      // that is not there. Without this check the loader is handed HTML and
+      // reports "Unexpected token '<'" as a broken model — when the truth is
+      // simply that the GLB has not been authored yet.
+      const type = response.headers.get("content-type") ?? "";
+      return !/text\/html/i.test(type);
+    })
     .catch(() => false);
   availability.set(url, probe);
   return probe;

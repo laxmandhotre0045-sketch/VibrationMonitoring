@@ -62,6 +62,35 @@ services:
       postgres:
         condition: service_healthy
 
+  # The same image as the backend, run as a worker instead of a server. It needs
+  # the same database, the same uploads volume (it reads the parsed JSON the
+  # request wrote) and the same settings — but no port, because nothing calls
+  # it. Scale it with `docker compose up -d --scale worker=3`: jobs are claimed
+  # with FOR UPDATE SKIP LOCKED, so workers need no coordination.
+  #
+  # It deliberately does not run `alembic upgrade head` — the backend owns
+  # migrations, and two containers racing to migrate the same database is a
+  # good way to break both. If the worker starts first its queries fail, it
+  # logs, backs off and retries until the backend has migrated.
+  worker:
+    build:
+      context: ./backend
+    container_name: vibration_platform_worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      UPLOAD_DIR: /app/uploads
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { Box, Eye, Loader2, RotateCw, Tag } from "lucide-react";
+import { Box, Eye, Loader2, Move3d, RotateCw, Tag } from "lucide-react";
 import type {
   MachineTypeId,
   TwinBearing,
   TwinSensor,
+  TwinSensorPlacement,
 } from "@/lib/digital-twin/types";
 import { previewUrlFor } from "@/lib/digital-twin/machine-type-map";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -25,6 +26,11 @@ import {
 } from "./scene/markers";
 import { XrayController } from "./scene/xray";
 import {
+  applyPlacement,
+  createPlacementPreview,
+  placementFromHit,
+} from "./scene/placement";
+import {
   LabelOverlay,
   type AnchorProjection,
   type LabelOverlayHandle,
@@ -39,6 +45,15 @@ export interface DigitalTwinViewerProps {
   highlightedId: string | null;
   onHighlight: (id: string | null) => void;
   onSelect: (id: string) => void;
+  /**
+   * Sensors the operator has dragged off their anchor, by sensor id.
+   *
+   * Optional: left out, the viewer behaves exactly as it did before free
+   * placement existed, and the Place sensors toggle stays disabled.
+   */
+  placements?: Record<string, TwinSensorPlacement>;
+  /** A sensor was dropped on the machine, or sent back to its anchor (null). */
+  onPlaceSensor?: (id: string, placement: TwinSensorPlacement | null) => void;
   className?: string;
 }
 
@@ -54,6 +69,13 @@ interface MarkerEntry {
   /** Point the leader line ends on — the top of the sensor, ring of a bearing. */
   labelAnchor: THREE.Object3D;
   setHighlighted: (on: boolean) => void;
+  /**
+   * Nodes this marker hung on the scene that `disposeObject` will not reach:
+   * the label anchor, and the holder a placed sensor stands on. Both are empty
+   * Object3Ds, so they cost no GPU memory — but they are never removed by
+   * disposing the marker group, and the markers are rebuilt on every edit.
+   */
+  detach: () => void;
 }
 
 const VIEW_BUTTONS: { id: CameraViewId; label: string }[] = [
@@ -91,6 +113,8 @@ export function DigitalTwinViewer({
   highlightedId,
   onHighlight,
   onSelect,
+  placements,
+  onPlaceSensor,
   className,
 }: DigitalTwinViewerProps) {
   const { theme } = useTheme();
@@ -110,6 +134,7 @@ export function DigitalTwinViewer({
   const clockRef = useRef(new THREE.Clock());
   const pausedRef = useRef(false);
   const occlusionRef = useRef({ last: 0, blocked: new Set<string>() });
+  const lastAspectRef = useRef(0);
 
   // Props the loop reads. Held in refs so changing them never re-creates it.
   const highlightRef = useRef(highlightedId);
@@ -122,10 +147,15 @@ export function DigitalTwinViewer({
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [message, setMessage] = useState<string | null>(null);
   const [view, setView] = useState<CameraViewId>("iso");
+  const viewRef = useRef<CameraViewId>("iso");
+  viewRef.current = view;
   const [xrayOn, setXrayOn] = useState(false);
   const [runShaft, setRunShaft] = useState(false);
   const [labelsOn, setLabelsOn] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  /** Set while a marker is actually being dragged, so a drop is not a click. */
+  const draggingRef = useRef(false);
 
   const xrayOnRef = useRef(xrayOn);
   const runShaftRef = useRef(runShaft);
@@ -149,13 +179,16 @@ export function DigitalTwinViewer({
         id: sensor.id,
         primary: sensor.id,
         secondary: sensor.axis,
+        compactText: sensor.id,
         row: "sensor" as const,
         status: sensor.status,
       })),
-      ...bearings.map((bearing) => ({
+      ...bearings.map((bearing, index) => ({
         id: bearing.id,
         primary: bearing.name,
         secondary: bearing.configured ? bearing.note ?? "Configured" : "Not configured",
+        // B1…Bn, matching the side panel, so the two still refer to each other.
+        compactText: `B${index + 1}`,
         row: "bearing" as const,
         muted: !bearing.configured,
       })),
@@ -191,7 +224,10 @@ export function DigitalTwinViewer({
         y,
         // `z >= 1` means behind the camera; a generous margin keeps a chip
         // alive just off-stage rather than popping as it crosses the edge.
-        visible: point.z < 1 && x > -80 && x < width + 80 && y > -80 && y < height + 80,
+        // A small margin keeps a chip alive as its anchor crosses the edge
+        // rather than popping. Anything well outside is dropped — off-stage
+        // anchors otherwise crowd the row and push real chips out of frame.
+        visible: point.z < 1 && x > -24 && x < width + 24 && y > -24 && y < height + 24,
         occluded: occlusionRef.current.blocked.has(id),
       });
     });
@@ -225,7 +261,9 @@ export function DigitalTwinViewer({
       raycaster.set(origin, direction.normalize());
       raycaster.far = distance - 0.12;
 
-      const hits = raycaster.intersectObject(model.root, true);
+      // Against the machine's own meshes only. Markers are children of the
+      // anchors, so testing the whole subtree made every sensor block itself.
+      const hits = raycaster.intersectObjects(model.blockerMeshes, false);
       if (hits.some((hit) => !ignore.has(hit.object as THREE.Mesh))) blocked.add(id);
     });
 
@@ -242,10 +280,17 @@ export function DigitalTwinViewer({
     let active = rig.update(delta);
     if (xrayRef.current?.update(delta)) active = true;
 
-    const rotor = modelRef.current?.rotor;
-    if (rotor && runShaftRef.current) {
-      rotor.rotation.x += delta * ((SHAFT_RPM * Math.PI * 2) / 60);
-      active = true;
+    const model = modelRef.current;
+    if (model && runShaftRef.current) {
+      const step = delta * ((SHAFT_RPM * Math.PI * 2) / 60);
+      // The main rotor plus any shaft that turns about a centre of its own —
+      // a gearbox output, for instance. All at one speed: these are schematic
+      // models, and a gear ratio the twin invented would be worse than none.
+      if (model.rotor) model.rotor.rotation.x += step;
+      model.extraRotors?.forEach((shaft) => {
+        shaft.rotation.x += step;
+      });
+      if (model.rotor || model.extraRotors?.length) active = true;
     }
 
     stage.renderer.render(stage.scene, stage.camera);
@@ -309,8 +354,26 @@ export function DigitalTwinViewer({
       const height = host.clientHeight;
       if (width === 0 || height === 0) return;
       stage.renderer.setSize(width, height, false);
-      stage.camera.aspect = width / height;
+      const aspect = width / height;
+      stage.camera.aspect = aspect;
       stage.camera.updateProjectionMatrix();
+
+      // Re-fit for the new aspect. Going from a wide desktop panel to a narrow
+      // phone one changes the required standoff enormously, and without this
+      // the machine ends up outside the frustum entirely.
+      if (!boxRef.current.isEmpty()) {
+        const framing = framingFor(viewRef.current, boxRef.current, aspect, CAMERA_FOV);
+        const previous = lastAspectRef.current;
+        // Desktop panel to phone panel is a change of shape, not a nudge:
+        // nothing about the old camera is worth keeping, and a nudged distance
+        // can still leave the machine outside the frustum. A minor resize —
+        // opening devtools, dragging a window edge — keeps the operator's orbit.
+        const reshaped = previous === 0 || Math.abs(aspect - previous) / previous > 0.25;
+        if (reshaped) rigRef.current?.snapTo(framing);
+        else rigRef.current?.refit(framing);
+      }
+      lastAspectRef.current = aspect;
+
       overlayRef.current?.invalidateSizes();
       requestFrame();
     };
@@ -441,7 +504,10 @@ export function DigitalTwinViewer({
     const model = modelRef.current;
     if (!model || status !== "ready") return;
 
-    markersRef.current.forEach((entry) => disposeObject(entry.object));
+    markersRef.current.forEach((entry) => {
+      disposeObject(entry.object);
+      entry.detach();
+    });
     markersRef.current.clear();
 
     // Two sensors on the same mounting point and axis share one anchor node.
@@ -450,11 +516,25 @@ export function DigitalTwinViewer({
     const stackCounts = new Map<string, number>();
 
     sensors.forEach((sensor) => {
-      const anchor = model.sensorAnchors.get(sensor.anchorNode.toUpperCase());
+      const placement = placements?.[sensor.id];
+
+      // A placed sensor hangs off the model root on a holder of its own, stood
+      // up on the surface it was dropped on. Everything downstream — picking,
+      // highlighting, leader lines, disposal — works on the marker group, so
+      // only the parent and the transform differ between the two routes.
+      const holder = placement ? new THREE.Object3D() : null;
+      if (holder && placement) {
+        applyPlacement(holder, placement);
+        model.root.add(holder);
+      }
+
+      const anchor = holder ?? model.sensorAnchors.get(sensor.anchorNode.toUpperCase());
       if (!anchor) return;
 
-      const stack = stackCounts.get(sensor.anchorNode) ?? 0;
-      stackCounts.set(sensor.anchorNode, stack + 1);
+      // Stacking only applies on a shared anchor; a placed sensor is already
+      // somewhere the operator chose and must not be nudged off it.
+      const stack = holder ? 0 : stackCounts.get(sensor.anchorNode) ?? 0;
+      if (!holder) stackCounts.set(sensor.anchorNode, stack + 1);
 
       const marker = createSensorMarker(markerColor(sensor.status));
       marker.group.position.x = stack * 0.3;
@@ -469,6 +549,10 @@ export function DigitalTwinViewer({
         object: marker.group,
         labelAnchor,
         setHighlighted: marker.setHighlighted,
+        detach: () => {
+          labelAnchor.removeFromParent();
+          holder?.removeFromParent();
+        },
       });
       marker.group.userData.pickId = sensor.id;
       marker.group.traverse((child) => {
@@ -492,6 +576,7 @@ export function DigitalTwinViewer({
         object: marker.group,
         labelAnchor,
         setHighlighted: marker.setHighlighted,
+        detach: () => labelAnchor.removeFromParent(),
       });
       marker.group.traverse((child) => {
         child.userData.pickId = bearing.id;
@@ -500,7 +585,7 @@ export function DigitalTwinViewer({
 
     overlayRef.current?.invalidateSizes();
     requestFrame();
-  }, [sensors, bearings, status, requestFrame]);
+  }, [sensors, bearings, placements, status, requestFrame]);
 
   // --- Highlight ---------------------------------------------------------
   useEffect(() => {
@@ -601,6 +686,9 @@ export function DigitalTwinViewer({
       const start = downAt;
       downAt = null;
       if (!start) return;
+      // A drop is not a click: without this, releasing a dragged sensor would
+      // also select it and fly the camera to it.
+      if (draggingRef.current) return;
       // An orbit drag must not also count as a click on whatever it passed over.
       if (
         Math.abs(event.clientX - start.x) > CLICK_SLOP ||
@@ -628,20 +716,190 @@ export function DigitalTwinViewer({
     };
   }, [handleSelect, status]);
 
+  // --- Free placement: drag a sensor onto the machine --------------------
+  //
+  // Only active while the Place sensors toggle is on, so the default pointer
+  // behaviour — orbit, hover, click to select — is untouched by this feature.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !placing || status !== "ready" || !onPlaceSensor) return;
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const sensorIds = new Set(sensors.map((sensor) => sensor.id));
+
+    let drag: {
+      id: string;
+      preview: ReturnType<typeof createPlacementPreview>;
+      placement: TwinSensorPlacement | null;
+    } | null = null;
+    let lastCursor = 0;
+
+    const setPointer = (event: PointerEvent): boolean => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return false;
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      return true;
+    };
+
+    /** The sensor marker under the pointer, if any. Bearings are not movable. */
+    const sensorAt = (event: PointerEvent): string | null => {
+      const stage = three.current;
+      if (!stage || !setPointer(event)) return null;
+      raycaster.setFromCamera(pointer, stage.camera);
+      raycaster.far = Infinity;
+
+      const targets = [...markersRef.current.entries()]
+        .filter(([id]) => sensorIds.has(id))
+        .map(([, entry]) => entry.object);
+      const hit = raycaster.intersectObjects(targets, true)[0];
+      return (hit?.object.userData.pickId as string | undefined) ?? null;
+    };
+
+    /** Where on the machine the pointer currently is. */
+    const surfaceAt = (event: PointerEvent): TwinSensorPlacement | null => {
+      const stage = three.current;
+      const model = modelRef.current;
+      if (!stage || !model || !setPointer(event)) return null;
+      raycaster.setFromCamera(pointer, stage.camera);
+      raycaster.far = Infinity;
+
+      // Against the machine's own meshes only. `blockerMeshes` is the geometry
+      // captured before any marker was attached, so a sensor lands on the
+      // casing, the housing or the base — but never on another sensor or on a
+      // bearing ring, which are not machine surfaces to stud an instrument to.
+      const hit = raycaster.intersectObjects(model.blockerMeshes, false)[0];
+      return hit ? placementFromHit(model.root, hit) : null;
+    };
+
+    const endDrag = (commit: boolean) => {
+      if (!drag) return;
+      const { id, preview, placement } = drag;
+      drag = null;
+      draggingRef.current = false;
+
+      preview.dispose();
+      markersRef.current.get(id)?.object.traverse((child) => {
+        child.visible = true;
+      });
+
+      const rig = rigRef.current;
+      if (rig) rig.controls.enabled = true;
+      canvas.style.cursor = "";
+
+      if (commit && placement) onPlaceSensor(id, placement);
+      requestFrame();
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const id = sensorAt(event);
+      const model = modelRef.current;
+      if (!id || !model) return;
+
+      // Take the drag away from OrbitControls, which listens on this same
+      // canvas and would otherwise orbit the camera under the pointer. This
+      // handler is registered on the capture phase so it lands before theirs:
+      // OrbitControls checks `enabled` on the way in, so disabling it here
+      // means the gesture never starts, rather than starting and then being
+      // ignored move by move.
+      event.preventDefault();
+      event.stopPropagation();
+      const rig = rigRef.current;
+      if (rig) rig.controls.enabled = false;
+      canvas.setPointerCapture(event.pointerId);
+      canvas.style.cursor = "grabbing";
+
+      const preview = createPlacementPreview(markerColor(undefined));
+      preview.setVisible(false);
+      model.root.add(preview.group);
+
+      // The instrument itself is hidden while its ghost is in flight, so the
+      // operator sees one sensor rather than two.
+      markersRef.current.get(id)?.object.traverse((child) => {
+        child.visible = false;
+      });
+
+      drag = { id, preview, placement: null };
+      draggingRef.current = true;
+      requestFrame();
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!drag) {
+        // Throttled like the hover path: this is a raycast per pointer move,
+        // and it is only deciding a cursor shape.
+        const now = performance.now();
+        if (now - lastCursor < HOVER_INTERVAL_MS) return;
+        lastCursor = now;
+        canvas.style.cursor = sensorAt(event) ? "grab" : "";
+        return;
+      }
+      const placement = surfaceAt(event);
+      drag.placement = placement;
+      if (placement) drag.preview.moveTo(placement);
+      else drag.preview.setVisible(false);
+      requestFrame();
+    };
+
+    const onPointerUp = () => endDrag(true);
+
+    // Dropping into empty space keeps the sensor where it was, and Escape is
+    // the way out of a drag that has gone wrong.
+    const onPointerCancel = () => endDrag(false);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") endDrag(false);
+    };
+
+    /** Double-click sends a placed sensor back to its anchor. */
+    const onDoubleClick = (event: MouseEvent) => {
+      const id = sensorAt(event as unknown as PointerEvent);
+      if (id && placements?.[id]) onPlaceSensor(id, null);
+    };
+
+    canvas.addEventListener("pointerdown", onPointerDown, { capture: true });
+    canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerup", onPointerUp);
+    canvas.addEventListener("pointercancel", onPointerCancel);
+    canvas.addEventListener("dblclick", onDoubleClick);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      endDrag(false);
+      canvas.removeEventListener("pointerdown", onPointerDown, { capture: true });
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerCancel);
+      canvas.removeEventListener("dblclick", onDoubleClick);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [placing, status, sensors, placements, onPlaceSensor, requestFrame]);
+
   const dark = theme === "dark";
   const stageStyle = {
     // The backdrop is CSS, not a scene background: the canvas is transparent,
     // so the radial gradient follows the app theme with no renderer changes.
     background: dark
-      ? "radial-gradient(120% 120% at 50% 22%, #2b3442 0%, #171c24 62%, #10141a 100%)"
-      : "radial-gradient(120% 120% at 50% 22%, #ffffff 0%, #f2f5fa 58%, #e6ebf3 100%)",
-    "--twin-chip-bg": dark ? "rgba(30,36,43,0.92)" : "rgba(255,255,255,0.94)",
+      ? "radial-gradient(120% 115% at 50% 18%, #2f3947 0%, #191f27 58%, #10141a 100%)"
+      : "radial-gradient(120% 115% at 50% 18%, #ffffff 0%, #eef2f8 56%, #dfe6f0 100%)",
+    "--twin-chip-bg": dark ? "rgba(26,32,39,0.94)" : "rgba(255,255,255,0.96)",
     "--twin-chip-fg": dark ? "#e8edf2" : "#1d2b3a",
     "--twin-chip-muted-fg": dark ? "#9aa7b4" : "#5c6b7a",
-    "--twin-chip-muted-border": dark ? "#39424c" : "#c9d2db",
+    "--twin-chip-muted-border": dark ? "#3a434e" : "#d3dbe5",
   } as React.CSSProperties;
 
-  const toggles = [
+  const busy = status !== "ready";
+
+  const toggles: {
+    id: string;
+    label: string;
+    on: boolean;
+    set: (value: boolean) => void;
+    icon: React.ReactNode;
+    disabled?: boolean;
+    title?: string;
+  }[] = [
     { id: "xray", label: "X-ray casing", on: xrayOn, set: setXrayOn, icon: <Eye size={12} /> },
     {
       id: "shaft",
@@ -655,68 +913,99 @@ export function DigitalTwinViewer({
         : undefined,
     },
     { id: "labels", label: "Labels", on: labelsOn, set: setLabelsOn, icon: <Tag size={12} /> },
+    {
+      id: "place",
+      label: "Place sensors",
+      on: placing,
+      set: setPlacing,
+      icon: <Move3d size={12} />,
+      disabled: !onPlaceSensor || sensors.length === 0,
+      title: !onPlaceSensor
+        ? "This view is read-only."
+        : sensors.length === 0
+          ? "Add a sensor in Step 5 before placing one."
+          : "Drag a sensor onto any point on the machine.",
+    },
   ];
 
+  const highlightedName =
+    (highlightedId &&
+      (sensors.find((sensor) => sensor.id === highlightedId)?.location ??
+        bearings.find((bearing) => bearing.id === highlightedId)?.name)) ||
+    null;
+
   return (
-    <div className={cn("flex flex-col gap-g3", className)}>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {VIEW_BUTTONS.map((button) => (
-          <button
-            key={button.id}
-            type="button"
-            onClick={() => selectView(button.id)}
-            disabled={status !== "ready"}
-            className={cn(
-              "min-h-[32px] rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/60",
-              "disabled:opacity-50",
-              view === button.id
-                ? "border-[#FF6B00] bg-[#FF6B00]/10 text-[#FF6B00]"
-                : "border-border bg-white text-muted-foreground hover:border-[#FF6B00]/40 hover:text-foreground"
-            )}
-          >
-            {button.label}
-          </button>
-        ))}
-
-        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
-
-        {toggles.map((toggle) => (
-          <button
-            key={toggle.id}
-            type="button"
-            aria-pressed={toggle.on}
-            disabled={status !== "ready" || toggle.disabled}
-            title={toggle.title}
-            onClick={() => toggle.set(!toggle.on)}
-            className={cn(
-              "inline-flex min-h-[32px] items-center gap-1.5 rounded-md border px-2.5 py-1.5",
-              "text-xs font-semibold transition-colors disabled:opacity-50",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/60",
-              toggle.on
-                ? "border-[#FF6B00] bg-[#FF6B00]/10 text-[#FF6B00]"
-                : "border-border bg-white text-muted-foreground hover:border-[#FF6B00]/40 hover:text-foreground"
-            )}
-          >
-            <span
+    <div className={cn("flex flex-col gap-g2", className)}>
+      <div className="flex flex-wrap items-center gap-g2">
+        {/* Views are mutually exclusive, so they read as one segmented control
+            rather than four separate buttons competing with the toggles. */}
+        <div
+          role="group"
+          aria-label="Camera view"
+          className="inline-flex rounded-lg border border-border bg-white p-0.5 shadow-sm"
+        >
+          {VIEW_BUTTONS.map((button) => (
+            <button
+              key={button.id}
+              type="button"
+              onClick={() => selectView(button.id)}
+              disabled={busy}
+              aria-pressed={view === button.id}
               className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                toggle.on ? "bg-[#FF6B00]" : "bg-muted-foreground/40"
+                "min-h-[30px] rounded-[7px] px-2.5 text-xs font-semibold transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/60",
+                "disabled:opacity-50",
+                view === button.id
+                  ? "bg-[#FF6B00] text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground"
               )}
-              aria-hidden
-            />
-            {toggle.icon}
-            {toggle.label}
-          </button>
-        ))}
+            >
+              {button.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {toggles.map((toggle) => (
+            <button
+              key={toggle.id}
+              type="button"
+              aria-pressed={toggle.on}
+              disabled={busy || toggle.disabled}
+              title={toggle.title}
+              onClick={() => toggle.set(!toggle.on)}
+              className={cn(
+                "inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border px-2.5",
+                "text-xs font-semibold shadow-sm transition-colors disabled:opacity-50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/60",
+                toggle.on
+                  ? "border-[#FF6B00] bg-[#FF6B00]/10 text-[#FF6B00]"
+                  : "border-border bg-white text-muted-foreground hover:border-[#FF6B00]/40 hover:text-foreground"
+              )}
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                  toggle.on ? "bg-[#FF6B00]" : "bg-muted-foreground/35"
+                )}
+                aria-hidden
+              />
+              {toggle.icon}
+              {toggle.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div
         ref={stageRef}
         style={stageStyle}
         className={cn(
-          "relative isolate w-full overflow-hidden rounded-lg border border-border",
-          "h-[280px] sm:h-[360px] xl:h-[440px]"
+          "relative isolate w-full overflow-hidden rounded-xl border border-border",
+          // An inset hairline stops the machine from looking like it is floating
+          // on the card; it gives the stage an edge of its own.
+          "shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_2px_rgba(21,54,109,0.06)]",
+          "h-[300px] sm:h-[380px] xl:h-[460px]"
         )}
       >
         {status === "ready" && labelsOn && (
@@ -726,24 +1015,25 @@ export function DigitalTwinViewer({
             highlightedId={highlightedId}
             onHighlight={onHighlight}
             onSelect={handleSelect}
+            onRelayout={requestFrame}
           />
         )}
 
         {status === "loading" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-g2">
-            {/* A pre-rendered still of this machine type, so the panel shows
-                the right machine rather than an empty box while it loads. */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-g3">
+            {/* A pre-rendered still of this machine type, so the panel shows the
+                right machine rather than an empty box while it loads. */}
             <img
               src={previewUrlFor(machineType)}
               alt=""
               aria-hidden
-              className="max-h-[55%] max-w-[70%] object-contain opacity-70"
+              className="max-h-[52%] max-w-[64%] object-contain opacity-60"
               onError={(event) => {
                 event.currentTarget.style.display = "none";
               }}
             />
-            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 size={13} className="animate-spin" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm">
+              <Loader2 size={12} className="animate-spin" />
               Loading model…
             </span>
           </div>
@@ -751,21 +1041,36 @@ export function DigitalTwinViewer({
 
         {status === "failed" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-g2 px-g4 text-center">
-            <Box size={26} className="text-muted-foreground" />
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-muted-foreground shadow-sm">
+              <Box size={20} />
+            </span>
             <p className="text-sm font-semibold text-foreground">3D view unavailable</p>
-            <p className="max-w-sm text-xs text-muted-foreground">{message}</p>
+            <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">{message}</p>
           </div>
         )}
+      </div>
 
-        {status === "ready" && (
-          <p className="pointer-events-none absolute bottom-2 left-3 text-[10px] text-muted-foreground">
-            Drag to rotate, scroll to zoom, right-drag to pan
+      {/* Out of the stage entirely: sitting inside it, this hint collided with
+          the bottom row of bearing chips. */}
+      <div className="flex min-h-[18px] flex-wrap items-center justify-between gap-x-g3 gap-y-1">
+        <p className="text-[11px] text-muted-foreground">
+          {status !== "ready"
+            ? " "
+            : placing
+              ? "Drag a sensor onto the machine · double-click it to send it back · Esc cancels"
+              : "Drag to rotate · scroll to zoom · right-drag to pan"}
+        </p>
+        {highlightedName && (
+          <p className="text-[11px] font-semibold text-[#FF6B00]">
+            {highlightedId} · {highlightedName}
           </p>
         )}
       </div>
 
       {status === "ready" && message && (
-        <p className="text-xs text-amber-700">{message}</p>
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+          {message}
+        </p>
       )}
     </div>
   );
