@@ -1,0 +1,136 @@
+"""Record which mode each capture was taken in — VIK-039 storage.
+
+The detector decides; this stores the decision next to the capture, the way
+the quality verdict is stored next to it. Same reason: a finding recorded
+three months ago was judged against one mode's normal, and the bands will be
+retuned. When they are, the old finding must still show the mode that was
+actually chosen and the evidence it was chosen from, or it becomes
+unexplainable.
+
+One row per capture, replaced rather than appended on a re-run, because
+re-running the detector is a corrected opinion and not a second one.
+
+Never raises. A capture whose mode could not be decided is still a capture
+worth keeping, and it already has an honest representation -- unknown.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Optional
+from uuid import UUID
+
+import numpy as np
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.ai.operating_mode import UNKNOWN, ModeVerdict, detect_mode
+from app.services.operating_mode_setup import load_bands
+
+logger = logging.getLogger(__name__)
+
+TABLE = "capture_operating_modes"
+ENGINE_VERSION = "1"
+
+
+def overall_level(channels: dict[str, list[float]]) -> Optional[float]:
+    """One vibration level for the capture, in g.
+
+    The median channel rather than the mean of all of them: one dead or
+    clipped channel should not decide whether the machine is running, and on
+    this gateway the channels differ by six times between quietest and
+    loudest even when every one of them is healthy.
+    """
+    levels = []
+    for samples in channels.values():
+        array = np.asarray(samples, dtype=float)
+        if array.size:
+            centred = array - float(np.mean(array))
+            levels.append(float(np.sqrt(np.mean(centred ** 2))))
+    return float(np.median(levels)) if levels else None
+
+
+def stability_from_quality(summary: Optional[dict[str, Any]]) -> Optional[str]:
+    """Whether the speed held across the record, read off the quality verdict.
+
+    None when nothing assessed it -- which is not 'steady'. The steadiness
+    check stands down on records too short to judge, and reporting that as
+    steady would let a capture taken during a speed change into a baseline
+    that assumes one speed.
+    """
+    if not summary:
+        return None
+    assessed = False
+    for assessment in (summary.get("channels") or {}).values():
+        for check in assessment.get("checks", []):
+            if check.get("check") != "unstable_speed":
+                continue
+            if not check.get("applicable", True):
+                continue
+            assessed = True
+            if not check.get("passed", True):
+                return "unstable"
+    return "steady" if assessed else None
+
+
+def persist_mode(
+    db: Session,
+    *,
+    upload_id: UUID,
+    sensor_id: UUID,
+    equipment_id: Optional[UUID],
+    channels: dict[str, list[float]],
+    shaft_hz: Optional[float] = None,
+    shaft_usable: bool = False,
+    shaft_source: Optional[str] = None,
+    quality_summary: Optional[dict[str, Any]] = None,
+) -> ModeVerdict:
+    """Decide and store the operating mode for one capture."""
+    try:
+        bands = load_bands(db, equipment_id) if equipment_id else []
+        verdict = detect_mode(
+            bands,
+            shaft_hz=shaft_hz,
+            shaft_usable=shaft_usable,
+            shaft_source=shaft_source,
+            overall_level_g=overall_level(channels),
+            stability=stability_from_quality(quality_summary),
+        )
+    except Exception:
+        logger.exception("Mode detection failed for upload %s", upload_id)
+        return ModeVerdict(reason="Mode detection failed; treated as unknown.")
+
+    try:
+        db.execute(text(f"DELETE FROM {TABLE} WHERE upload_id = :u"),
+                   {"u": str(upload_id)})
+        db.execute(text(f"""
+            INSERT INTO {TABLE}
+                (upload_id, sensor_id, mode_id, label, is_unknown, confidence,
+                 shaft_hz, shaft_source, overall_level, stability, reason,
+                 engine_version)
+            VALUES (:u, :s, :mode_id, :label, :is_unknown, :confidence,
+                    :shaft_hz, :shaft_source, :overall_level, :stability,
+                    :reason, :version)
+        """), {
+            "u": str(upload_id), "s": str(sensor_id),
+            "mode_id": verdict.mode_id, "label": verdict.label,
+            "is_unknown": verdict.is_unknown, "confidence": verdict.confidence,
+            "shaft_hz": verdict.shaft_hz, "shaft_source": verdict.shaft_source,
+            "overall_level": verdict.overall_level,
+            "stability": verdict.stability, "reason": verdict.reason,
+            "version": ENGINE_VERSION,
+        })
+    except Exception:
+        logger.exception("Could not store the mode for upload %s", upload_id)
+
+    if verdict.label == UNKNOWN:
+        logger.info("Upload %s: mode unknown -- %s", upload_id, verdict.reason)
+    return verdict
+
+
+def equipment_for_sensor(db: Session, sensor_id: UUID) -> Optional[UUID]:
+    """Which machine a sensor is bolted to, or None."""
+    return db.execute(text(
+        "SELECT equipment_id FROM sensor_configurations WHERE id = :s"),
+        {"s": str(sensor_id)}).scalar()

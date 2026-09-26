@@ -501,3 +501,136 @@ def test_captures_from_before_the_step_was_recorded_still_form_a_baseline(db, se
     assert row["sample_count"] == 20
     assert row["other_step_count"] == 0
     assert row["acquisition_step_g"] is None
+
+
+# ------------------------------------- a separate normal per mode ------
+#
+# VIK-040. A pump at low load and the same pump at high load produce
+# different vibration while both are healthy. One baseline across the two is
+# the average of neither, so every capture sits some distance from a normal
+# that describes no state the machine has ever been in -- and the distance
+# looks exactly like a fault.
+
+def add_mode(db, equipment_id, label, rpm_min, rpm_max):
+    row = db.execute(text("""
+        INSERT INTO operating_modes (equipment_id, label, rpm_min, rpm_max, source)
+        VALUES (:e, :l, :lo, :hi, 'configured') RETURNING id
+    """), {"e": str(equipment_id), "l": label, "lo": rpm_min, "hi": rpm_max})
+    db.flush()
+    return str(row.scalar())
+
+
+def set_mode(db, sensor_id, mode_id, label, *, after=None):
+    """Stamp a mode onto the stored captures, as the detector would."""
+    clause = " AND u.created_at > :after" if after else ""
+    rows = db.execute(text(f"""
+        SELECT u.id FROM sensor_data_uploads u
+         WHERE u.sensor_id = :s {clause}
+    """), {"s": str(sensor_id), **({"after": after} if after else {})}).fetchall()
+    for (upload_id,) in rows:
+        db.execute(text("DELETE FROM capture_operating_modes WHERE upload_id = :u"),
+                   {"u": str(upload_id)})
+        db.execute(text("""
+            INSERT INTO capture_operating_modes
+                (upload_id, sensor_id, mode_id, label, is_unknown, confidence)
+            VALUES (:u, :s, :m, :l, :unknown, 1.0)
+        """), {"u": str(upload_id), "s": str(sensor_id), "m": mode_id,
+               "l": label, "unknown": mode_id is None})
+    db.flush()
+    return len(rows)
+
+
+def equipment_of(db, sensor_id):
+    return db.execute(text(
+        "SELECT equipment_id FROM sensor_configurations WHERE id = :s"),
+        {"s": str(sensor_id)}).scalar()
+
+
+def test_two_modes_get_two_different_normals(db, sensor_id):
+    """The headline. The same feature has a different normal at each load,
+    and neither is the average."""
+    from datetime import datetime, timedelta, timezone
+
+    equipment = equipment_of(db, sensor_id)
+    low = add_mode(db, equipment, "low_load", 1200, 1400)
+    high = add_mode(db, equipment, "high_load", 1400, 1600)
+
+    add_captures(db, sensor_id, 20, start_days_ago=40.0, centre=0.05, seed=1)
+    set_mode(db, sensor_id, low, "low_load")
+
+    switched = datetime.now(timezone.utc) - timedelta(days=20)
+    add_captures(db, sensor_id, 20, start_days_ago=19.0, centre=0.20, seed=2)
+    set_mode(db, sensor_id, high, "high_load", after=switched)
+
+    result = reset_baseline(db, sensor_id, reason="two loads")
+    assert result["mode_scoped"] > 0
+
+    low_normal = load_baseline_map(db, sensor_id, mode_id=low)[(0, "rms")]
+    high_normal = load_baseline_map(db, sensor_id, mode_id=high)[(0, "rms")]
+    all_normal = load_baseline_map(db, sensor_id)[(0, "rms")]
+
+    assert float(low_normal["median"]) == pytest.approx(0.05, abs=0.01)
+    assert float(high_normal["median"]) == pytest.approx(0.20, abs=0.01)
+    assert low_normal["sample_count"] == 20
+    assert high_normal["sample_count"] == 20
+
+    # And the all-conditions normal is the average of neither -- which is
+    # exactly why the mode-specific ones have to exist.
+    combined = float(all_normal["median"])
+    assert combined != pytest.approx(float(low_normal["median"]), abs=0.001)
+    assert combined != pytest.approx(float(high_normal["median"]), abs=0.001)
+
+
+def test_reading_without_a_mode_gets_the_all_conditions_normal(db, sensor_id):
+    """A capture whose mode is unknown -- every capture on a machine nobody
+    has configured -- must still have a normal to be judged against."""
+    equipment = equipment_of(db, sensor_id)
+    mode = add_mode(db, equipment, "normal_running", 1400, 1600)
+    add_captures(db, sensor_id, 20, seed=1)
+    set_mode(db, sensor_id, mode, "normal_running")
+    reset_baseline(db, sensor_id, reason="one mode")
+
+    unscoped = load_baseline_map(db, sensor_id)
+    assert unscoped, "there must still be a normal without a mode"
+    assert all(row["mode_id"] is None for row in unscoped.values())
+
+
+def test_a_mode_with_too_little_history_falls_back_rather_than_vanishing(db, sensor_id):
+    """Additive, deliberately. Offering a mode-specific normal where it can
+    be built and the all-conditions one where it cannot means a feature can
+    never end up with less than it had before this ticket."""
+    equipment = equipment_of(db, sensor_id)
+    from datetime import datetime, timedelta, timezone
+
+    common = add_mode(db, equipment, "low_load", 1200, 1400)
+    rare = add_mode(db, equipment, "high_load", 1400, 1600)
+
+    add_captures(db, sensor_id, 25, start_days_ago=40.0, seed=1)
+    set_mode(db, sensor_id, common, "low_load")
+    switched = datetime.now(timezone.utc) - timedelta(days=5)
+    add_captures(db, sensor_id, 3, start_days_ago=4.0, seed=2)
+    set_mode(db, sensor_id, rare, "high_load", after=switched)
+
+    reset_baseline(db, sensor_id, reason="one busy mode, one rare")
+
+    rare_view = load_baseline_map(db, sensor_id, mode_id=rare)
+    assert rare_view, "the rare mode must still get a normal"
+    assert rare_view[(0, "rms")]["mode_id"] is None, (
+        "three captures is not a normal, so the all-conditions one is used"
+    )
+
+    common_view = load_baseline_map(db, sensor_id, mode_id=common)
+    assert str(common_view[(0, "rms")]["mode_id"]) == common
+
+
+def test_captures_with_an_unknown_mode_build_no_mode_baseline(db, sensor_id):
+    """Unknown is not a mode to learn a normal for. Those captures still
+    feed the all-conditions baseline, which is what unknown means."""
+    add_captures(db, sensor_id, 20, seed=1)
+    set_mode(db, sensor_id, None, "unknown")
+
+    result = reset_baseline(db, sensor_id, reason="nothing classified")
+    assert result["stored"] > 0, "the all-conditions normal is still built"
+    assert result["mode_scoped"] == 0, (
+        "a normal for 'we do not know what this was' is not a normal"
+    )

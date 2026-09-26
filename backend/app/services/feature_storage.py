@@ -30,6 +30,7 @@ from app.services.feature_extraction import (
     extract_all_channels,
 )
 from app.services.plot_generator import load_parsed_data
+from app.services.mode_storage import equipment_for_sensor, persist_mode
 from app.services.quality_storage import persist_quality
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
 from app.services.webhook_service import build_alert_payload, dispatch_alert
@@ -270,6 +271,24 @@ def persist_upload_features_and_trends(
         channel_map=_stored_channel_map(db, upload.sensor_id),
         shaft_hz=machine.hz if machine.usable else None,
     )
+
+    # VIK-039, after the quality verdict because the steadiness check is one
+    # of its inputs, and before the features because a baseline is scoped by
+    # mode. Never raises: a capture whose mode could not be decided is
+    # recorded as unknown, which is a real answer rather than a failure.
+    mode = persist_mode(
+        db,
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        equipment_id=equipment_for_sensor(db, upload.sensor_id),
+        channels=(parsed_data.get("channels") or {}),
+        shaft_hz=machine.hz,
+        shaft_usable=machine.usable,
+        shaft_source=machine.source,
+        quality_summary=quality,
+    )
+    logger.info("Operating mode for upload %s: %s (confidence %.2f)",
+                upload.id, mode.label, mode.confidence)
     if quality["level"] != "high":
         logger.info(
             "Data quality for upload %s: %s (x%.2f) -- failing %s%s",

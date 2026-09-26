@@ -258,6 +258,9 @@ class Observation:
     observed_at: datetime
     quality_level: str = "high"
     shape: AcquisitionShape = field(default_factory=AcquisitionShape)
+    #: The operating mode this capture was taken in, or None when it could
+    #: not be decided. A normal spanning two loads describes neither.
+    mode_id: Optional[str] = None
 
     @property
     def usable(self) -> bool:
