@@ -30,6 +30,7 @@ from app.services.feature_extraction import (
     extract_all_channels,
 )
 from app.services.plot_generator import load_parsed_data
+from app.services.anomaly_storage import persist_scores
 from app.services.mode_storage import equipment_for_sensor, persist_mode
 from app.services.quality_storage import persist_quality
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
@@ -386,6 +387,26 @@ def persist_upload_features_and_trends(
     if trend_rows:
         db.bulk_save_objects(trend_rows)
     db.commit()
+
+    # VIK-042, last: scoring compares the features that were just written
+    # against the learned normal for the mode this capture was in, so it
+    # needs both of those to exist first. Never raises -- a capture whose
+    # features could not be scored is still a capture worth keeping, and
+    # every feature it could not score says so rather than scoring zero.
+    try:
+        persist_scores(
+            db,
+            upload_id=upload.id,
+            sensor_id=upload.sensor_id,
+            features={(int(channel), code): float(payload["value"])
+                      for channel, features in scalars.items()
+                      for code, payload in features.items()
+                      if payload.get("value") is not None},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Anomaly scoring failed for upload %s", upload.id)
 
     # Fired only after the commit, so a webhook can never describe an alert that
     # was rolled back. Dispatch is backgrounded and never raises into ingestion.
