@@ -5,6 +5,7 @@ import type {
   CaptureScores,
   DetectorScore,
   OperatingMode,
+  ScoredCapture,
   Sensitivity,
   SensitivityProfile,
 } from "@/types/anomaly";
@@ -18,6 +19,17 @@ import type {
  * a reading nothing has been compared to is not a reading that looks
  * ordinary, and smoothing that over here would undo the whole engine.
  */
+
+/** The captures on a machine that have been scored, newest first. */
+export async function listScoredCaptures(
+  sensorId: string,
+  limit = 100,
+): Promise<ScoredCapture[]> {
+  const res = await api.get("/api/v1/anomaly/captures", {
+    params: { sensor_id: sensorId, limit },
+  });
+  return res.data;
+}
 
 export async function getCaptureScores(
   uploadId: string,

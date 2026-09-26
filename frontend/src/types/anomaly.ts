@@ -67,6 +67,24 @@ export interface CaptureScores {
   scores: FeatureScore[];
 }
 
+/**
+ * One capture that has actually been scored.
+ *
+ * The upload's own `features_status` cannot answer this — 157 uploads on
+ * this platform say "pending" while 120 of them carry scores, because that
+ * column is written by the ingest path and the scores were also written by
+ * backfill scripts. The score table is the only thing that knows.
+ */
+export interface ScoredCapture {
+  upload_id: string;
+  created_at: string;
+  scored: number;
+  unscored: number;
+  worst_score: number | null;
+  worst_band: AnomalyBand | null;
+  mode_label: string | null;
+}
+
 export interface DetectorDriver {
   feature: string;
   /** Share of the residual this feature accounts for, 0–1. */

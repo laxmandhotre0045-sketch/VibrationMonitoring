@@ -57,6 +57,24 @@ class CaptureScoresOut(BaseModel):
     scores: List[FeatureScoreOut] = Field(default_factory=list)
 
 
+class ScoredCaptureOut(BaseModel):
+    """One capture that has actually been scored, for a capture picker.
+
+    `features_status` on the upload cannot answer this. On this platform 157
+    uploads say "pending" while 120 of them carry scores -- the column is
+    written by the ingest path and the scores were also written by backfill
+    scripts that never touched it. Asking the score table directly is the
+    only answer that is true.
+    """
+    upload_id: UUID
+    created_at: datetime
+    scored: int
+    unscored: int
+    worst_score: Optional[float] = None
+    worst_band: Optional[str] = None
+    mode_label: Optional[str] = None
+
+
 # --------------------------------------------------- detectors ---------
 
 class DetectorDriverOut(BaseModel):

@@ -35,6 +35,7 @@ from app.schemas.anomaly import (
     AlarmSummaryOut,
     CaptureScoresOut,
     DetectorScoreOut,
+    ScoredCaptureOut,
     SensitivityIn,
     SensitivityOut,
 )
@@ -48,6 +49,20 @@ router = APIRouter(
 )
 
 
+#: Band lower bounds, mirroring app.ai.anomaly.BANDS. Imported rather than
+#: retyped would be better; it is retyped here only because the router must
+#: not depend on the engine for a presentation detail.
+_BANDS = ((91, "critical"), (76, "high"), (61, "abnormal"),
+          (41, "watch"), (21, "slight"), (0, "normal"))
+
+
+def _band_for(score: float) -> str:
+    for lower, name in _BANDS:
+        if score >= lower:
+            return name
+    return "normal"
+
+
 def _sensor_of(db: Session, upload_id: UUID) -> UUID:
     sensor_id = db.execute(text(
         "SELECT sensor_id FROM sensor_data_uploads WHERE id = :u"),
@@ -59,6 +74,52 @@ def _sensor_of(db: Session, upload_id: UUID) -> UUID:
 
 
 # ------------------------------------------------------- scores --------
+
+@router.get("/captures", response_model=list[ScoredCaptureOut])
+def scored_captures(
+    sensor_id: UUID = Query(...),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """The captures on this machine that have actually been scored.
+
+    A capture picker needs this and cannot work it out for itself. The
+    obvious source, `sensor_data_uploads.features_status`, is wrong: on this
+    platform 157 uploads say "pending" while 120 of them carry scores,
+    because the column is written by the ingest path and the scores were
+    also written by backfill scripts that never touched it. Filtering a
+    picker on that column hides 116 analysed captures and shows four.
+
+    So this asks the score table, which is the thing being picked from.
+    """
+    rows = db.execute(text("""
+        SELECT s.upload_id, u.created_at,
+               COUNT(*) FILTER (WHERE s.is_scored) AS scored,
+               COUNT(*) FILTER (WHERE NOT s.is_scored) AS unscored,
+               MAX(s.score) AS worst_score,
+               m.label AS mode_label
+          FROM feature_anomaly_scores s
+          JOIN sensor_data_uploads u ON u.id = s.upload_id
+          LEFT JOIN capture_operating_modes m ON m.upload_id = s.upload_id
+         WHERE s.sensor_id = :s
+         GROUP BY s.upload_id, u.created_at, m.label
+         ORDER BY u.created_at DESC
+         LIMIT :limit
+    """), {"s": str(sensor_id), "limit": limit}).mappings().fetchall()
+
+    captures = []
+    for row in rows:
+        payload = dict(row)
+        worst = payload.get("worst_score")
+        # The band is derived rather than stored on the row, so the picker
+        # and the detail panel can never disagree about which band a score
+        # falls in.
+        payload["worst_band"] = _band_for(worst) if worst is not None else None
+        captures.append(payload)
+    return captures
+
+
+
 
 @router.get("/scores", response_model=CaptureScoresOut)
 def capture_scores(

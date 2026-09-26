@@ -7,6 +7,7 @@ import {
   getCaptureScores,
   getDetectorScores,
   getSensitivity,
+  listScoredCaptures,
   setSensitivity,
 } from "@/api/anomaly";
 import type { SensitivityProfile } from "@/types/anomaly";
@@ -20,6 +21,22 @@ import type { SensitivityProfile } from "@/types/anomaly";
  * thing they must never do is come back looking like a clean bill of health,
  * which is what an empty array or a zero would be read as.
  */
+
+export function useScoredCaptures(sensorId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: ["anomaly-captures", sensorId],
+    queryFn: () => listScoredCaptures(sensorId as string, 200),
+    enabled: Boolean(sensorId),
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  return {
+    captures: query.data ?? [],
+    isLoading: Boolean(sensorId) && query.isLoading,
+    isError: query.isError,
+  };
+}
 
 export function useCaptureScores(uploadId: string | null | undefined) {
   const query = useQuery({

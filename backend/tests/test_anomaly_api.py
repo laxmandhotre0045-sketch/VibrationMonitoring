@@ -455,3 +455,72 @@ def test_a_capture_never_classified_is_a_404_not_unknown(
                           params={"upload_id": str(upload_with_scores)},
                           headers=admin_headers)
     assert response.status_code == 404
+
+
+# -------------------------------------------- the capture picker -------
+
+def test_the_capture_list_comes_from_the_scores_not_the_upload_status(
+    client, admin_headers, db, sensor_id, upload_with_scores
+):
+    """`features_status` cannot answer which captures were analysed.
+
+    On the live platform 157 uploads say "pending" while 120 of them carry
+    scores: the column is written by the ingest path and the scores were
+    also written by backfill scripts that never touched it. A picker
+    filtered on it showed four captures out of a hundred and twenty-four.
+
+    So this fixture is the awkward case made explicit -- an upload marked
+    pending that has been scored, beside one marked ready that has not.
+    """
+    db.execute(sa.text(
+        "UPDATE sensor_data_uploads SET features_status = 'pending' WHERE id = :u"
+    ), {"u": str(upload_with_scores)})
+
+    never_scored = uuid.uuid4()
+    db.execute(sa.text("""
+        INSERT INTO sensor_data_uploads
+            (id, sensor_id, channel_count, pdf_path, features_status)
+        VALUES (:id, :s, 8, '', 'ready')
+    """), {"id": str(never_scored), "s": str(sensor_id)})
+    db.flush()
+
+    rows = client.get("/api/v1/anomaly/captures",
+                      params={"sensor_id": str(sensor_id)},
+                      headers=admin_headers).json()
+    listed = {row["upload_id"] for row in rows}
+
+    assert str(upload_with_scores) in listed, (
+        "a scored capture must be offered however its status column reads"
+    )
+    assert str(never_scored) not in listed, (
+        "a capture with no scores must not be offered, 'ready' or not"
+    )
+
+
+def test_each_listed_capture_carries_enough_to_choose_between_them(
+    client, admin_headers, sensor_id, upload_with_scores
+):
+    """A timestamp alone makes every option look the same. The worst score
+    is what lets somebody pick the capture worth opening."""
+    row = next(
+        r for r in client.get("/api/v1/anomaly/captures",
+                              params={"sensor_id": str(sensor_id)},
+                              headers=admin_headers).json()
+        if r["upload_id"] == str(upload_with_scores)
+    )
+    assert row["scored"] == 1
+    assert row["unscored"] == 1
+    assert row["worst_score"] == 82.0
+    assert row["worst_band"] == "high"
+
+
+def test_a_machine_with_nothing_scored_returns_an_empty_list(
+    client, admin_headers, sensor_id
+):
+    """Empty is a real answer: nothing has looked at this machine yet, which
+    is not the same as it being clean."""
+    response = client.get("/api/v1/anomaly/captures",
+                          params={"sensor_id": str(sensor_id)},
+                          headers=admin_headers)
+    assert response.status_code == 200
+    assert response.json() == []
