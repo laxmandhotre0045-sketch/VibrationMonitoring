@@ -5,7 +5,6 @@ import {
   enrichFeatureCompareItems,
   enrichFeatureStatusItems,
 } from "@/lib/feature-display";
-import { deriveHealthState, summarizeFeatureItems } from "@/lib/health-feature-fallback";
 import type { Baseline } from "@/types/baseline";
 import type {
   ChannelHealthOverviewData,
@@ -80,12 +79,18 @@ export function useFeatureHealthDashboard({
     return enrichFeatureCompareItems(compareQuery.data.items);
   }, [compareQuery.data]);
 
-  const summary = useMemo((): FeatureSummaryCounts => {
-    if (featuresQuery.data?.summary && featuresQuery.data.summary.total > 0) {
-      return featuresQuery.data.summary;
-    }
-    return summarizeFeatureItems(featureItems);
-  }, [featuresQuery.data, featureItems]);
+  /**
+   * The API's counts, or none.
+   *
+   * There used to be a browser-side tally here for when the API sent no
+   * summary, which meant the same counts on screen could have been produced by
+   * either side and a finding could not be traced to one. An absent summary is
+   * now absent: the screens already distinguish "no counts" from "all zero".
+   */
+  const summary = useMemo(
+    (): FeatureSummaryCounts | null => featuresQuery.data?.summary ?? null,
+    [featuresQuery.data]
+  );
 
   const channelOverview = useMemo((): ChannelHealthOverviewData | null => {
     const baselineName = selectedBaseline?.name ?? primaryBaseline?.name ?? null;
@@ -105,14 +110,10 @@ export function useFeatureHealthDashboard({
         baseline_id: compareQuery.data.channel_overview.baseline_id ?? baselineId,
       };
     }
-    if (!featuresQuery.isSuccess) return null;
-    return {
-      health_state: deriveHealthState(summary),
-      feature_count: summary.total,
-      computed_at: null,
-      baseline_name: baselineName,
-      baseline_id: baselineId,
-    };
+    // No overview from either endpoint means the engine did not state one.
+    // Deriving it here would put a health state on screen that nothing on the
+    // server ever decided.
+    return null;
   }, [
     featuresQuery.data,
     featuresQuery.isSuccess,

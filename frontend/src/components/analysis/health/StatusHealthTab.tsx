@@ -93,7 +93,9 @@ export function StatusHealthTab({
 
       {enabled && (hasFeatureData || hasFeatureTable) && (
         <>
-          <HealthSummaryCards summary={summary} />
+          {/* Only when the engine stated the counts. A tally computed here
+              would be a second source for the same numbers. */}
+          {summary && <HealthSummaryCards summary={summary} />}
 
           {channelOverview && (
             <ChannelHealthOverviewCard

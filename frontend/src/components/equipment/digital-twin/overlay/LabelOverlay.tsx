@@ -1,4 +1,11 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import {
   DEFAULT_LABEL_GAP,
   layoutLabelRow,
@@ -16,6 +23,13 @@ export interface OverlayItem {
   primary: string;
   /** Supporting text: the axis, or the bearing's part number. */
   secondary: string;
+  /**
+   * What the chip shows below the compact breakpoint — "CH1", "B3".
+   *
+   * Four bearing chips reading "Motor NDE" need ~330px of row on their own,
+   * which does not exist on a phone. A short id always fits.
+   */
+  compactText: string;
   row: "sensor" | "bearing";
   status?: SensorStatus;
   /** Bearings the form has not filled in, drawn muted. */
@@ -54,6 +68,12 @@ interface LabelOverlayProps {
   highlightedId: string | null;
   onHighlight: (id: string | null) => void;
   onSelect: (id: string) => void;
+  /**
+   * Ask for another frame. Needed because the render loop is gated: when the
+   * chips' own text changes, nothing else is moving, so without this there is
+   * no frame in which to re-measure them.
+   */
+  onRelayout?: () => void;
 }
 
 /** Vertical inset of each chip row from the top/bottom of the stage. */
@@ -80,12 +100,18 @@ const STATUS_COLOR: Record<SensorStatus, string> = {
  * them a few pixels is exactly the kind of work that makes a viewer feel slow.
  */
 export const LabelOverlay = forwardRef<LabelOverlayHandle, LabelOverlayProps>(
-  function LabelOverlay({ items, highlightedId, onHighlight, onSelect }, ref) {
+  function LabelOverlay({ items, highlightedId, onHighlight, onSelect, onRelayout }, ref) {
     const chipRefs = useRef(new Map<string, HTMLButtonElement>());
     const pathRefs = useRef(new Map<string, SVGPathElement>());
+    const dotRefs = useRef(new Map<string, SVGCircleElement>());
     const sizes = useRef(new Map<string, { width: number; height: number }>());
     const lastMeasured = useRef(0);
-    const compact = useRef(false);
+    // State, not a ref: this decides what the chips *render*, so it has to go
+    // through React. Kept in a ref too, because `update()` runs inside the
+    // render loop and needs the current value without waiting for a commit.
+    const [compact, setCompact] = useState(false);
+    const compactRef = useRef(compact);
+    compactRef.current = compact;
 
     const setChip = useCallback((id: string, node: HTMLButtonElement | null) => {
       if (node) chipRefs.current.set(id, node);
@@ -96,6 +122,23 @@ export const LabelOverlay = forwardRef<LabelOverlayHandle, LabelOverlayProps>(
       if (node) pathRefs.current.set(id, node);
       else pathRefs.current.delete(id);
     }, []);
+
+    const setDot = useCallback((id: string, node: SVGCircleElement | null) => {
+      if (node) dotRefs.current.set(id, node);
+      else dotRefs.current.delete(id);
+    }, []);
+
+    // Re-measure once the new text is actually on screen.
+    //
+    // `update()` runs inside the render loop, so the frame right after it flips
+    // `compact` still sees the *old* text — measuring there caches the wide
+    // widths and the row then cannot be made to fit. Doing it in an effect
+    // guarantees React has committed first.
+    useEffect(() => {
+      sizes.current.clear();
+      lastMeasured.current = 0;
+      onRelayout?.();
+    }, [compact, items, onRelayout]);
 
     useImperativeHandle(
       ref,
@@ -108,11 +151,14 @@ export const LabelOverlay = forwardRef<LabelOverlayHandle, LabelOverlayProps>(
         update({ positions, stageWidth, stageHeight }): boolean {
           let unmeasured = false;
           const useCompact = shouldUseCompactLabels(stageWidth);
-          if (useCompact !== compact.current) {
-            compact.current = useCompact;
-            // Text changed, so every cached width is now wrong.
+          if (useCompact !== compactRef.current) {
+            compactRef.current = useCompact;
+            setCompact(useCompact);
+            // Text is about to change, so every cached width is now wrong.
             sizes.current.clear();
             lastMeasured.current = 0;
+            // The new text has not been committed yet; ask for another frame.
+            unmeasured = true;
           }
 
           const now = performance.now();
@@ -196,15 +242,26 @@ export const LabelOverlay = forwardRef<LabelOverlayHandle, LabelOverlayProps>(
               const occluded = positions.get(chipPlacement.id)?.occluded ?? false;
               // Dashed means "this anchor is behind something solid" — the
               // operator can see the label refers to a hidden point.
-              path.setAttribute("stroke-dasharray", occluded ? "4 4" : "");
+              path.setAttribute("stroke-dasharray", occluded ? "3 4" : "");
+
+              // A dot where the leader meets the machine: without it the line
+              // stops in mid-air and the label looks unattached.
+              const dot = dotRefs.current.get(chipPlacement.id);
+              if (dot) {
+                dot.setAttribute("cx", String(chipPlacement.anchorX));
+                dot.setAttribute("cy", String(chipPlacement.anchorY));
+                dot.style.visibility = "visible";
+              }
             });
           });
 
           hidden.forEach((id) => {
             const chip = chipRefs.current.get(id);
             const path = pathRefs.current.get(id);
+            const dot = dotRefs.current.get(id);
             if (chip) chip.style.visibility = "hidden";
             if (path) path.style.visibility = "hidden";
+            if (dot) dot.style.visibility = "hidden";
           });
 
           return unmeasured;
@@ -221,17 +278,28 @@ export const LabelOverlay = forwardRef<LabelOverlayHandle, LabelOverlayProps>(
         >
           {items.map((item) => {
             const active = highlightedId === item.id;
+            // Leaders are connective tissue, not content: they sit well back
+            // until the item is highlighted, so six of them do not compete with
+            // the machine for attention.
+            const stroke = active ? "#FF6B00" : item.muted ? "#B9C3D1" : "#96A3B4";
             return (
-              <path
-                key={item.id}
-                ref={(node) => setPath(item.id, node)}
-                fill="none"
-                stroke={active ? "#FF6B00" : item.muted ? "#B9C3D1" : "#8C9AAC"}
-                strokeWidth={active ? 1.8 : 1.1}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ visibility: "hidden" }}
-              />
+              <g key={item.id} style={{ opacity: active ? 1 : 0.55 }}>
+                <path
+                  ref={(node) => setPath(item.id, node)}
+                  fill="none"
+                  stroke={stroke}
+                  strokeWidth={active ? 1.6 : 1}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ visibility: "hidden" }}
+                />
+                <circle
+                  ref={(node) => setDot(item.id, node)}
+                  r={active ? 3.2 : 2.2}
+                  fill={stroke}
+                  style={{ visibility: "hidden" }}
+                />
+              </g>
             );
           })}
         </svg>
@@ -269,8 +337,10 @@ export const LabelOverlay = forwardRef<LabelOverlayHandle, LabelOverlayProps>(
                     inline. Below the compact breakpoint only the lead text
                     survives, which is what keeps six chips inside a phone. */}
                 <span className={cn("flex", item.row === "sensor" ? "flex-col items-center" : "items-baseline gap-1.5")}>
-                  <span style={{ color: active ? "#fff" : accent }}>{item.primary}</span>
-                  {!compact.current && item.secondary && (
+                  <span style={{ color: active ? "#fff" : accent }}>
+                    {compact ? item.compactText : item.primary}
+                  </span>
+                  {!compact && item.secondary && (
                     <span
                       className={cn("font-medium", item.row === "sensor" && "text-[10px] leading-tight")}
                       style={{ color: active ? "rgba(255,255,255,0.85)" : "var(--twin-chip-muted-fg)" }}

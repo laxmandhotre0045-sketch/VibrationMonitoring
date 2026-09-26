@@ -37,6 +37,13 @@ export interface ThresholdRule {
   machine_type: string | null;
   /** null means the rule applies to every channel without an override. */
   channel: number | null;
+  /**
+   * The scope this rule was written at, narrowest first. Both null (with
+   * machine_type null too) is the global rule everything falls back to. A rule
+   * carries at most one of the two — a sensor already belongs to one machine.
+   */
+  sensor_id: string | null;
+  equipment_id: string | null;
   normal_max: number | null;
   warning_max: number | null;
   normal_min: number | null;
@@ -49,10 +56,27 @@ export interface ThresholdRule {
   limit_labels: Partial<Record<ThresholdLimitField, string>>;
 }
 
+/**
+ * One sensor a limit could be written for.
+ *
+ * The API lists every sensor, not only those that already have a rule: a
+ * coverage view built from the rules alone can show which sensors have their
+ * own limit but never which ones fall back, and the second half is the
+ * question being asked.
+ */
+export interface ThresholdScopeSensor {
+  id: string;
+  label: string;
+  machine_name: string | null;
+  machine_type: string | null;
+  equipment_id: string | null;
+}
+
 export interface ThresholdRuleList {
   items: ThresholdRule[];
   rule_types: Record<string, ThresholdRuleTypeInfo>;
   overridden_channels: number[];
+  sensors: ThresholdScopeSensor[];
 }
 
 export interface ThresholdRuleUpdate {
@@ -68,6 +92,9 @@ export interface ThresholdRuleCreate extends ThresholdRuleUpdate {
   feature_code: string;
   channel?: number | null;
   machine_type?: string | null;
+  /** Mutually exclusive; the API rejects a payload carrying both. */
+  sensor_id?: string | null;
+  equipment_id?: string | null;
   rule_type?: ThresholdRuleType;
 }
 

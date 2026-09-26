@@ -12,12 +12,14 @@ const BASE = "/api/v1/thresholds";
 export async function listThresholdRules(params?: {
   machineType?: string;
   channel?: number;
+  sensorId?: string;
   includeInactive?: boolean;
 }): Promise<ThresholdRuleList> {
   const res = await api.get(`${BASE}/rules`, {
     params: {
       machine_type: params?.machineType,
       channel: params?.channel,
+      sensor_id: params?.sensorId,
       include_inactive: params?.includeInactive,
     },
   });
@@ -40,7 +42,7 @@ export async function bulkUpdateThresholdRules(
   return res.data;
 }
 
-/** Create a channel-specific override of a feature's global rule. */
+/** Create an override of a feature's global rule, at some narrower scope. */
 export async function createThresholdRule(
   payload: ThresholdRuleCreate
 ): Promise<ThresholdRule> {
@@ -54,7 +56,7 @@ export async function resetThresholdRule(ruleId: string): Promise<ThresholdRule>
   return res.data;
 }
 
-/** Drop a channel override so the channel follows the global rule again. */
+/** Drop an override so its scope follows the broader rule again. */
 export async function deleteThresholdRule(ruleId: string): Promise<void> {
   await api.delete(`${BASE}/rules/${ruleId}`);
 }

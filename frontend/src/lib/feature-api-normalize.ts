@@ -9,6 +9,7 @@ import type {
   FeatureMonitorStatus,
   FeatureStatusItem,
   FeatureSummaryCounts,
+  TrustLevel,
   UploadFeaturesResponse,
 } from "@/types/features";
 
@@ -18,6 +19,43 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function readNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+const TRUST_LEVELS: TrustLevel[] = ["High", "Medium", "Low", "Invalid"];
+
+/**
+ * Narrow whatever arrived to one of the four published levels, or to null.
+ *
+ * Case-insensitive because the engine's own vocabulary is lowercase and the
+ * contract's is capitalised. Anything unrecognised — including the engine's
+ * "unknown", which is what it reports when the assessment itself could not run
+ * — becomes null rather than being passed through: a level no screen can place
+ * in the ordering is worse than no level.
+ *
+ * Absent is null, and null is rendered as "not assessed". It is never treated
+ * as a pass; a capture nobody checked is unexamined, not trustworthy.
+ */
+function normalizeTrustLevel(value: unknown): TrustLevel | null {
+  if (typeof value !== "string") return null;
+  const token = value.trim().toLowerCase();
+  return TRUST_LEVELS.find((level) => level.toLowerCase() === token) ?? null;
+}
+
+/** Check names, as a list of non-empty strings with no repeats. */
+function normalizeCheckNames(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const names: string[] = [];
+  for (const entry of value) {
+    const name =
+      typeof entry === "string"
+        ? entry
+        : typeof entry === "object" && entry !== null
+          ? String((entry as Record<string, unknown>).code ?? (entry as Record<string, unknown>).check ?? (entry as Record<string, unknown>).name ?? "")
+          : "";
+    const trimmed = name.trim();
+    if (trimmed && !names.includes(trimmed)) names.push(trimmed);
+  }
+  return names;
 }
 
 function normalizeStatus(value: unknown): FeatureMonitorStatus {
@@ -136,6 +174,9 @@ export function normalizeUploadFeaturesResponse(
       fallback?.baselineId,
       fallback?.baselineName
     ),
+    trust_level: normalizeTrustLevel(root.trust_level),
+    failed_checks: normalizeCheckNames(root.failed_checks),
+    not_assessed_checks: normalizeCheckNames(root.not_assessed_checks),
   };
 }
 

@@ -9,6 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.crud import job as job_crud
 from app.crud import measurement as measurement_crud
 from app.models.measurement import PlotResult, SensorDataUpload
 from app.schemas.measurement import AllPlotsOut, PlotSeriesOut
@@ -148,7 +149,18 @@ def get_or_load_all_plots(
     enabled = normalize_plot_types(config.get("enabled_plots"))
     expected_types = {p for p in enabled if p in PLOT_COMPUTERS}
 
-    if not stored or {r.plot_type for r in stored} != expected_types:
+    needs_compute = not stored or {r.plot_type for r in stored} != expected_types
+
+    # `persist_all_plot_results` deletes this upload's rows for the fingerprint
+    # and re-inserts them. Doing that here while the worker is doing the same
+    # thing on another connection is how one upload ends up with two sets of
+    # plot rows: both delete an empty table, both insert. While a job is queued
+    # or running the worker owns these, so answer with what is stored — it is
+    # seconds away, and the UI is already polling the upload's status.
+    if needs_compute and job_crud.has_active_job(db, upload.id):
+        needs_compute = False
+
+    if needs_compute:
         persist_all_plot_results(db, upload, upload.parsed_data_path, config)
         measurement_crud.mark_upload_plots_ready(db, upload.id)
         db.refresh(upload)

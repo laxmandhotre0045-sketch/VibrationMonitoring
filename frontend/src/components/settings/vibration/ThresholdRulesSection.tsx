@@ -13,6 +13,7 @@ import type {
   ThresholdLimitField,
   ThresholdRule,
   ThresholdRuleBulkItem,
+  ThresholdScopeSensor,
 } from "@/types/thresholds";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +79,52 @@ function validateRow(rule: ThresholdRule, draft: LimitDraft | undefined): string
   return null;
 }
 
+/**
+ * The one row every other row falls back to: narrowed in no way at all.
+ *
+ * Checked on every scope column rather than on `channel` alone. A rule written
+ * for one sensor also has a null channel, so testing the channel by itself
+ * would file it as the feature's global rule and hide the real one.
+ */
+function isGlobalRule(rule: ThresholdRule): boolean {
+  return (
+    rule.channel === null &&
+    rule.sensor_id === null &&
+    rule.equipment_id === null &&
+    (rule.machine_type === null || rule.machine_type.trim() === "")
+  );
+}
+
+/** Narrowest scope first, so a feature's overrides read in precedence order. */
+function scopeRank(rule: ThresholdRule): number {
+  if (rule.sensor_id) return 0;
+  if (rule.equipment_id) return 1;
+  if (rule.machine_type && rule.machine_type.trim() !== "") return 2;
+  if (rule.channel !== null) return 3;
+  return 4;
+}
+
+/** How a rule's scope reads in the table, narrowest part first. */
+function scopeText(
+  rule: ThresholdRule,
+  sensorsById: Map<string, ThresholdScopeSensor>,
+  machineNameById: Map<string, string>
+): string {
+  const parts: string[] = [];
+  if (rule.sensor_id) {
+    parts.push(sensorsById.get(rule.sensor_id)?.label ?? "Sensor");
+  } else if (rule.equipment_id) {
+    parts.push(machineNameById.get(rule.equipment_id) ?? "Machine");
+  } else if (rule.machine_type && rule.machine_type.trim() !== "") {
+    parts.push(`Type: ${rule.machine_type}`);
+  }
+
+  parts.push(
+    rule.channel !== null ? formatApiChannelLabel(rule.channel) : "All channels"
+  );
+  return parts.join(" · ");
+}
+
 function draftToPatch(rule: ThresholdRule, draft: LimitDraft): ThresholdRuleBulkItem {
   const patch: ThresholdRuleBulkItem = { id: rule.id };
   for (const field of LIMIT_FIELDS) {
@@ -114,17 +161,33 @@ export function ThresholdRulesSection() {
     create,
     reset,
     remove,
+    sensors,
     isSaving,
   } = useThresholdRules();
 
   const [drafts, setDrafts] = useState<Record<string, LimitDraft>>({});
 
-  /** Global rule first, then its overrides in channel order. */
+  const sensorsById = useMemo(
+    () => new Map(sensors.map((sensor) => [sensor.id, sensor])),
+    [sensors]
+  );
+
+  const machineNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const sensor of sensors) {
+      if (sensor.equipment_id && sensor.machine_name) {
+        map.set(sensor.equipment_id, sensor.machine_name);
+      }
+    }
+    return map;
+  }, [sensors]);
+
+  /** Global rule first, then its overrides narrowest scope first. */
   const groups = useMemo(() => {
     const byCode = new Map<string, { global: ThresholdRule | null; overrides: ThresholdRule[] }>();
     for (const rule of rules) {
       const entry = byCode.get(rule.feature_code) ?? { global: null, overrides: [] };
-      if (rule.channel === null) {
+      if (isGlobalRule(rule)) {
         entry.global = rule;
       } else {
         entry.overrides.push(rule);
@@ -132,7 +195,9 @@ export function ThresholdRulesSection() {
       byCode.set(rule.feature_code, entry);
     }
     for (const entry of byCode.values()) {
-      entry.overrides.sort((a, b) => (a.channel ?? 0) - (b.channel ?? 0));
+      entry.overrides.sort(
+        (a, b) => scopeRank(a) - scopeRank(b) || (a.channel ?? -1) - (b.channel ?? -1)
+      );
     }
     return Array.from(byCode.entries()).map(([code, entry]) => ({ code, ...entry }));
   }, [rules]);
@@ -212,7 +277,7 @@ export function ThresholdRulesSection() {
       clearDraft(rule.id);
       try {
         await remove.mutateAsync(rule.id);
-        showToast("Override removed — the channel follows the global rule again.", "success");
+        showToast("Override removed — this scope follows the broader rule again.", "success");
       } catch {
         showToast("Could not remove the override.", "error");
       }
@@ -221,18 +286,27 @@ export function ThresholdRulesSection() {
   );
 
   const handleAddOverride = useCallback(
-    async (featureCode: string, channelNo: number) => {
+    async (featureCode: string, scope: { channelNo?: number; sensorId?: string }) => {
+      const sensorLabel = scope.sensorId
+        ? sensorsById.get(scope.sensorId)?.label ?? "this sensor"
+        : null;
       try {
         await create.mutateAsync({
           feature_code: featureCode,
-          channel: displayChannelToApi(channelNo),
+          channel: scope.channelNo === undefined ? null : displayChannelToApi(scope.channelNo),
+          sensor_id: scope.sensorId ?? null,
         });
-        showToast(`Added a CH-${channelNo} override.`, "success");
+        showToast(
+          sensorLabel
+            ? `Added a limit for ${sensorLabel}.`
+            : `Added a CH-${scope.channelNo} override.`,
+          "success"
+        );
       } catch {
         showToast("Could not add the override.", "error");
       }
     },
-    [create, showToast]
+    [create, sensorsById, showToast]
   );
 
   if (isLoading) {
@@ -292,9 +366,11 @@ export function ThresholdRulesSection() {
         </td>
         <td className="px-3 py-2.5 whitespace-nowrap">
           {isOverride ? (
-            <span className="font-bold text-brand">{formatApiChannelLabel(rule.channel ?? 0)}</span>
+            <span className="font-bold text-brand">
+              {scopeText(rule, sensorsById, machineNameById)}
+            </span>
           ) : (
-            <span className="text-muted-foreground">All channels</span>
+            <span className="text-muted-foreground">All sensors · All channels</span>
           )}
         </td>
         <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
@@ -361,8 +437,17 @@ export function ThresholdRulesSection() {
                 <AddOverrideControl
                   featureCode={featureCode}
                   takenChannels={rules
-                    .filter((r) => r.feature_code === featureCode && r.channel !== null)
+                    .filter(
+                      (r) =>
+                        r.feature_code === featureCode &&
+                        r.channel !== null &&
+                        r.sensor_id === null
+                    )
                     .map((r) => r.channel as number)}
+                  takenSensorIds={rules
+                    .filter((r) => r.feature_code === featureCode && r.sensor_id !== null)
+                    .map((r) => r.sensor_id as string)}
+                  sensors={sensors}
                   disabled={isSaving}
                   onAdd={handleAddOverride}
                 />
@@ -383,7 +468,7 @@ export function ThresholdRulesSection() {
   return (
     <SettingsSectionCard
       title="Threshold Rules"
-      description="Alarm limits applied to every analysed measurement. A channel inherits the global rule until you give it an override."
+      description="Alarm limits applied to every analysed measurement. A sensor or channel inherits the broader rule until you give it one of its own."
       icon={<Gauge size={22} strokeWidth={2} />}
       bodyClassName="p-0 sm:p-0"
     >
@@ -444,42 +529,75 @@ export function ThresholdRulesSection() {
 interface AddOverrideControlProps {
   featureCode: string;
   takenChannels: number[];
+  takenSensorIds: string[];
+  sensors: ThresholdScopeSensor[];
   disabled: boolean;
-  onAdd: (featureCode: string, channelNo: number) => void;
+  onAdd: (featureCode: string, scope: { channelNo?: number; sensorId?: string }) => void;
 }
 
-/** Offers only the channels that do not already override this feature. */
+/**
+ * Offers the scopes this feature does not already have a rule for.
+ *
+ * Channels and sensors sit in one control, grouped, because they are the same
+ * decision from the operator's side: what is this limit about? A sensor that
+ * already has its own limit for this feature is not offered again — the API
+ * would refuse it as a duplicate, and an option that cannot be chosen is worse
+ * than no option.
+ */
 function AddOverrideControl({
   featureCode,
   takenChannels,
+  takenSensorIds,
+  sensors,
   disabled,
   onAdd,
 }: AddOverrideControlProps) {
-  const available = Array.from({ length: VIBRATION_CHANNEL_COUNT }, (_, i) => i + 1).filter(
-    (channelNo) => !takenChannels.includes(displayChannelToApi(channelNo))
-  );
+  const availableChannels = Array.from(
+    { length: VIBRATION_CHANNEL_COUNT },
+    (_, i) => i + 1
+  ).filter((channelNo) => !takenChannels.includes(displayChannelToApi(channelNo)));
 
-  if (available.length === 0) return null;
+  const availableSensors = sensors.filter((sensor) => !takenSensorIds.includes(sensor.id));
+
+  if (availableChannels.length === 0 && availableSensors.length === 0) return null;
 
   return (
     <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
       <Plus size={12} />
       <select
-        className={cn(analysisSelectClass, "w-24 py-1 text-xs")}
+        className={cn(analysisSelectClass, "w-36 py-1 text-xs")}
         value=""
         disabled={disabled}
-        aria-label={`Add a channel override for ${featureCode}`}
+        aria-label={`Add a scoped limit for ${featureCode}`}
         onChange={(event) => {
-          const channelNo = Number(event.target.value);
-          if (channelNo) onAdd(featureCode, channelNo);
+          const raw = event.target.value;
+          if (!raw) return;
+          if (raw.startsWith("sensor:")) {
+            onAdd(featureCode, { sensorId: raw.slice("sensor:".length) });
+          } else {
+            onAdd(featureCode, { channelNo: Number(raw) });
+          }
         }}
       >
-        <option value="">Channel</option>
-        {available.map((channelNo) => (
-          <option key={channelNo} value={channelNo}>
-            CH-{channelNo}
-          </option>
-        ))}
+        <option value="">Add limit for…</option>
+        {availableSensors.length > 0 && (
+          <optgroup label="Sensor">
+            {availableSensors.map((sensor) => (
+              <option key={sensor.id} value={`sensor:${sensor.id}`}>
+                {sensor.label}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {availableChannels.length > 0 && (
+          <optgroup label="Channel (all sensors)">
+            {availableChannels.map((channelNo) => (
+              <option key={channelNo} value={channelNo}>
+                CH-{channelNo}
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
     </label>
   );

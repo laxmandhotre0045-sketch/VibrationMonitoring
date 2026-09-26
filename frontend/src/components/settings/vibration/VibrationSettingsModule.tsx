@@ -34,7 +34,7 @@ export function VibrationSettingsModule() {
 
   // Threshold rules save independently through the API (see ThresholdRulesSection);
   // only channel/device edits go through the draft's own Save action.
-  const { rules, resolveFor } = useThresholdRules();
+  const { rules, resolveFor, sensors } = useThresholdRules();
   const coverageThresholds = useMemo(() => {
     const codeByKey = buildFeatureCodeMap(rules);
     return rulesToThresholdConfigs(resolveFor, codeByKey);
@@ -86,7 +86,11 @@ export function VibrationSettingsModule() {
 
         <ThresholdRulesSection />
 
-        <ThresholdCoverageMatrix thresholds={coverageThresholds} />
+        <ThresholdCoverageMatrix
+          thresholds={coverageThresholds}
+          rules={rules}
+          sensors={sensors}
+        />
 
         <SettingsPageActions
           isDirty={isDirty}

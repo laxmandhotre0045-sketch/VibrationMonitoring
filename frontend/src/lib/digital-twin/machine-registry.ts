@@ -301,6 +301,26 @@ const PUMP_MODEL: MachineModelSpec = (() => {
       basePlate(-1.2, 9.2, 2.9),
       ...motor.components,
       ...coupling(-1.45, 0.42),
+      // The driven half. Without it the coupling turned against a pump that
+      // never moved: "Run shaft" spun the motor and left the wet end dead.
+      {
+        id: "pump.shaft",
+        label: "Pump Shaft",
+        shape: "cylinder",
+        position: [0.25, AXIS_Y, 0],
+        size: [0.15, 3.0, 0.15],
+        tone: "shaft",
+      },
+      {
+        id: "pump.impeller",
+        label: "Impeller",
+        shape: "cylinder",
+        position: [casingX, AXIS_Y, 0],
+        size: [0.62, 0.34, 0.62],
+        tone: "shaft",
+        // Inside the volute, so it must stay solid when the casing fades.
+        xray: false,
+      },
       {
         id: "pump.bearing.housing",
         label: "Pump Bearing Housing",
@@ -408,6 +428,23 @@ const COMPRESSOR_MODEL: MachineModelSpec = (() => {
       basePlate(-1.4, 9.6, 3.0),
       ...motor.components,
       ...coupling(-1.55, 0.42),
+      // The crankshaft, carried between the two bearings the anchors mark.
+      {
+        id: "compressor.crankshaft",
+        label: "Crankshaft",
+        shape: "cylinder",
+        position: [0.35, AXIS_Y, 0],
+        size: [0.16, 3.4, 0.16],
+        tone: "shaft",
+      },
+      {
+        id: "compressor.flywheel",
+        label: "Flywheel",
+        shape: "cylinder",
+        position: [compNdeX + 0.55, AXIS_Y, 0],
+        size: [0.82, 0.22, 0.82],
+        tone: "shaft",
+      },
       {
         id: "compressor.casing",
         label: "Compressor Casing",

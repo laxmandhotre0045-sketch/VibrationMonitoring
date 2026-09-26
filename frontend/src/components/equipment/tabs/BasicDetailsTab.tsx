@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const MACHINE_TYPES = [
   "Motor", "Pump", "Fan", "Blower", "Compressor", "Gearbox",
   "Turbine", "Generator", "DG Set", "Conveyor", "Crusher", "Mixer", "Agitator",
+  "Spindle", "Wind Turbine",
 ];
 const CRITICALITY = ["Low", "Medium", "High", "Critical"];
 

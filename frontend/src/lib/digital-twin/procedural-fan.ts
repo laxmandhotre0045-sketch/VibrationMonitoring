@@ -273,20 +273,48 @@ export const DETAILED_FAN_MODEL: MachineModelSpec = {
       tone: "casing",
     },
     {
+      // A rim on the drive-side face: a plain cylinder reads as a drum, and the
+      // seam is what makes it read as a fan casing.
+      id: "fan.housing.backplate.cover",
+      label: "Casing Back Plate",
+      shape: "cylinder",
+      position: [HOUSING_X - 0.72, AXIS_Y, 0],
+      size: [HOUSING_RADIUS + 0.06, 0.1, HOUSING_RADIUS + 0.06],
+      tone: "casing",
+    },
+    {
       id: "fan.housing.inlet.cover",
-      label: "Inlet Cone",
+      label: "Inlet Bell",
       shape: "cone",
-      position: [HOUSING_X + 0.95, AXIS_Y, 0],
-      size: [0.78, 0.6, 1.25],
+      position: [HOUSING_X + 0.78, AXIS_Y, 0],
+      size: [0.82, 0.24, 1.3],
       tone: "guard",
     },
     {
+      id: "fan.inlet.throat.cover",
+      label: "Inlet Throat",
+      shape: "cylinder",
+      position: [HOUSING_X + 0.98, AXIS_Y, 0],
+      size: [0.8, 0.3, 0.8],
+      tone: "guard",
+    },
+    {
+      // Offset back along the shaft rather than centred: a scroll discharges
+      // tangentially, and a duct sitting dead centre on top reads as a chimney.
       id: "fan.outlet.casing",
       label: "Outlet Duct",
       shape: "box",
-      position: [HOUSING_X, HOUSING_RADIUS + 0.55, 0],
-      size: [1.35, 1.1, 1.5],
+      position: [HOUSING_X - 0.35, HOUSING_RADIUS + 0.5, 0],
+      size: [1.0, 1.0, 1.45],
       tone: "casing",
+    },
+    {
+      id: "fan.outlet.flange.cover",
+      label: "Outlet Flange",
+      shape: "box",
+      position: [HOUSING_X - 0.35, HOUSING_RADIUS + 1.02, 0],
+      size: [1.2, 0.1, 1.65],
+      tone: "guard",
     },
     ...impeller(HOUSING_X),
   ],

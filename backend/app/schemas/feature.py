@@ -1,10 +1,20 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.schemas.passthrough import RowPassthrough
+
+#: How far a measurement's features can be trusted, best first.
+#:
+#: The vocabulary lives here, with the contract that publishes it, rather than
+#: with the engine that decides it — the same way PLOT_TYPES sits in
+#: schemas/measurement.py and the generator conforms to it. The data quality
+#: service imports these; nothing imports the service from here.
+TrustLevel = Literal["High", "Medium", "Low", "Invalid"]
+
+TRUST_LEVELS: tuple[str, ...] = ("High", "Medium", "Low", "Invalid")
 
 
 class ChannelFeatureOut(RowPassthrough):
@@ -47,6 +57,36 @@ class UploadFeaturesOut(BaseModel):
     items: List[ChannelFeatureOut]
     summary: FeaturesSummaryOut
     channel_overview: ChannelHealthOverviewOut
+
+    trust_level: Optional[TrustLevel] = Field(
+        default=None,
+        description=(
+            "How far these features can be trusted, from the data quality checks "
+            "run on the measurement. Null means the measurement has not been "
+            "assessed — which is not the same as passing, and should not be "
+            "shown as one."
+        ),
+    )
+    failed_checks: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Names of the quality checks this measurement failed. Only "
+            "meaningful when trust_level is set: an unassessed measurement "
+            "reports an empty list because nothing ran, not because nothing "
+            "failed."
+        ),
+    )
+    not_assessed_checks: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Names of the quality checks that could not be run on this "
+            "measurement — too short a record to judge steadiness, no shaft "
+            "speed to check against. Distinct from failed_checks: these did "
+            "not fail, they never ran, and a caller that shows them as passing "
+            "is reporting a grade nobody gave. Unrelated to summary."
+            "not_assessed, which counts features without a baseline."
+        ),
+    )
 
 
 class FactorTrendSeriesOut(BaseModel):

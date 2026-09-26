@@ -19,12 +19,14 @@ import {
 } from "@/components/analysis/analysis-layout";
 import { Button } from "@/components/ui/Button";
 import { BaselineDetailCard } from "./BaselineDetailCard";
+import { BaselineTrustBanner } from "./BaselineTrustBanner";
 import { BaselineUploadCard } from "./BaselineUploadCard";
 import {
   BaselinePlotStatusBadge,
   type BaselineListFilter,
   filterBaselines,
 } from "./baseline-utils";
+import { useBaselineHealth } from "@/hooks/useBaselineHealth";
 import { cn } from "@/lib/utils";
 
 interface BaselineManagementPanelProps {
@@ -84,6 +86,7 @@ export function BaselineManagementPanel({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<BaselineListFilter>("all");
   const [detailBaselineId, setDetailBaselineId] = useState("");
+  const baselineHealth = useBaselineHealth(sensorId);
 
   const setPrimaryMutation = useMutation({
     mutationFn: (baselineId: string) => setBaselinePrimary(baselineId, true),
@@ -114,6 +117,15 @@ export function BaselineManagementPanel({
       />
 
       <div className="mt-g3 space-y-g3">
+        {/* Above the list, not on a row. The verdict is about the version in
+            force for this sensor, and pinning it to one saved capture would
+            claim something about that capture it does not mean. */}
+        <BaselineTrustBanner
+          health={baselineHealth.health}
+          isLoading={baselineHealth.isLoading}
+          isError={baselineHealth.isError}
+        />
+
         <BaselineUploadCard
           sensorId={sensorId}
           channelCount={channelCount}

@@ -1,7 +1,7 @@
 """Store per-channel summary statistics on each raw capture channel.
 
-Revision ID: 021
-Revises: 020
+Revision ID: 021a
+Revises: 021
 
 Renumbered from 019 after a collision: Laxman's bearing-catalogue migration
 took 019 and 020 on the same base while this one was already applied locally.
@@ -32,8 +32,8 @@ summarised" rather than as zero.
 from alembic import op
 import sqlalchemy as sa
 
-revision = "021"
-down_revision = "020"
+revision = "021a"
+down_revision = "021"
 branch_labels = None
 depends_on = None
 

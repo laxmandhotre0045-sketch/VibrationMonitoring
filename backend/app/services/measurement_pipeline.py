@@ -12,12 +12,14 @@ counted raised alerts. Both now call ``run_pipeline`` instead, so a fix lands
 once.
 
 Because it takes plain objects rather than a request, the same function is
-callable from four places:
+callable from anywhere holding a session and a parsed payload:
 
-* the ingest endpoint, on a device POST
-* the manual upload endpoint
-* a reprocess endpoint, for an upload whose plots or features failed
+* the ingest endpoint, on a device POST — in use
+* the manual upload endpoint — in use
 * a backfill script or a test, with no server running at all
+* a reprocess endpoint, for an upload whose plots or features failed. The
+  ``only=`` argument exists for exactly this, but no such endpoint is wired
+  up yet; until one is, that bullet is a capability, not a caller.
 
 **How ordering works.** Nothing here calls anything else. Each step is a
 function that takes the context and returns a short detail string; ``STEPS``
@@ -114,7 +116,14 @@ class Step:
     mark_ready: Optional[Callable[[Session, UUID], Any]] = None
     mark_failed: Optional[Callable[[Session, UUID, str], Any]] = None
     #: False when running the step twice would corrupt data rather than
-    #: refresh it. See the store step for the one case.
+    #: refresh it.
+    #:
+    #: No step sets this today. The store step did, because
+    #: crud.baseline.save_upload_data was a plain INSERT on a unique
+    #: ``upload_id`` and a second run raised rather than refreshed; it upserts
+    #: now, so storing twice leaves one row holding the newer parse. The flag
+    #: stays because the alerts step will need it the moment webhook dispatch
+    #: moves into it — sending an alert twice is not a refresh.
     rerunnable: bool = True
 
 
@@ -258,10 +267,6 @@ STEPS: tuple[Step, ...] = (
         status_field="parse_status",
         ready_values=frozenset({"parsed"}),
         mark_failed=measurement_crud.mark_upload_failed,
-        # crud.baseline.save_upload_data is a plain INSERT, so a second run
-        # leaves two rows for one upload. Until it upserts, this step is
-        # excluded from any rerun.
-        rerunnable=False,
     ),
     Step(
         name="plots",
@@ -433,21 +438,25 @@ def _alerts_count(result: PipelineResult) -> int:
 
 def resolve_config(
     db: Session,
-    upload: SensorDataUpload,
+    sensor_id: UUID,
     channel_count: int,
     sampling_rate_hz: float | None = None,
 ) -> dict[str, Any]:
-    """The plot configuration for an upload.
+    """The plot configuration for a sensor.
 
     ``sampling_rate_hz`` overrides the stored value, which is what the device
     path needs: the rate the device reports describes the burst it actually
     captured, while the stored configuration is only a fallback for devices
     that do not report one.
 
-    Moved here from routers/measurements.py, where it was private and the
-    ingest router had to reimplement it.
+    Takes a sensor id rather than an upload because the device path resolves
+    the rate *before* the upload row exists — the rate is needed to build the
+    parsed payload that the row is then created from.
+
+    Both entry points call this; routers/measurements.py keeps a one-line
+    private wrapper so its ten upload-shaped call sites stay unchanged.
     """
-    config = measurement_crud.get_plot_config_by_sensor(db, upload.sensor_id)
+    config = measurement_crud.get_plot_config_by_sensor(db, sensor_id)
     cfg = (
         measurement_crud.config_to_dict(config)
         if config

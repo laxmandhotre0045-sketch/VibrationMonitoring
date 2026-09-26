@@ -6,7 +6,7 @@
  * available" panel.
  *
  * The important part is that it produces **exactly the same shape** the GLB
- * loader does: named `CH_*` and `BRG_*` empties, an x-ray mesh list and a
+ * loader does: named `SNS_*` and `BRG_*` empties, an x-ray mesh list and a
  * ROTOR group. Downstream — markers, labels, x-ray, occlusion — nothing knows
  * or cares which source it got.
  *
@@ -25,6 +25,7 @@ import { markerPosition, orientationDirection } from "@/lib/digital-twin/twin-co
 import { bearingNodeName, sensorNodeName } from "@/lib/digital-twin/machine-type-map";
 import type {
   ComponentTone,
+  MachineTypeId,
   MachineComponentSpec,
   MachineModelSpec,
   SensorOrientation,
@@ -106,16 +107,24 @@ export function findProceduralModel(modelId: string): MachineModelSpec {
   );
 }
 
-export function buildProceduralSource(modelId: string): TwinModelSource {
+export function buildProceduralSource(
+  modelId: string,
+  /** Family whose node vocabulary to emit, so a fallback names its
+   * anchors exactly as the GLB it stands in for would. */
+  typeId?: MachineTypeId
+): TwinModelSource {
   const model = findProceduralModel(modelId);
 
   const root = new THREE.Group();
   root.name = `procedural:${model.id}`;
 
   const xrayMeshes: THREE.Mesh[] = [];
+  const blockerMeshes: THREE.Mesh[] = [];
   const rotor = new THREE.Group();
   rotor.name = "ROTOR";
   root.add(rotor);
+  /** Shafts that turn about an axis of their own rather than the model's. */
+  const offAxisRotors: THREE.Group[] = [];
 
   model.components.forEach((spec) => {
     const tone = spec.tone ?? "body";
@@ -135,6 +144,7 @@ export function buildProceduralSource(modelId: string): TwinModelSource {
     }
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    blockerMeshes.push(mesh);
 
     // An explicit `xray` flag wins over the tone default: an impeller inside a
     // scroll housing is "shaft"-toned but must stay solid, and a plinth must
@@ -152,18 +162,34 @@ export function buildProceduralSource(modelId: string): TwinModelSource {
     // join ROTOR, because a gearbox output shaft on its own centre would orbit
     // rather than spin when rotated about the group's origin. Impeller blades
     // sit off-centre by design and are marked `spin` instead.
-    const spins =
-      spec.spin ??
-      (tone === "shaft" &&
-        Math.abs(spec.position[1]) < 0.05 &&
-        Math.abs(spec.position[2]) < 0.05);
-    if (spins) rotor.add(mesh);
-    else root.add(mesh);
+    const onCentreLine =
+      Math.abs(spec.position[1]) < 0.05 && Math.abs(spec.position[2]) < 0.05;
+    const spins = spec.spin ?? tone === "shaft";
+
+    if (!spins) {
+      root.add(mesh);
+    } else if (onCentreLine || spec.spin) {
+      // On the centre line, or explicitly marked: straight into ROTOR. The
+      // explicit case is what impeller blades want — they sit at a radius by
+      // design and are *supposed* to sweep a circle about the centre line.
+      rotor.add(mesh);
+    } else {
+      // A shaft on its own centre — a gearbox output, say. Spinning it in
+      // ROTOR would swing it around the model axis instead of turning it, so
+      // it gets a pivot at its own axis that turns independently.
+      const pivot = new THREE.Group();
+      pivot.name = `ROTOR:${spec.id}`;
+      pivot.position.set(0, spec.position[1], spec.position[2]);
+      mesh.position.set(spec.position[0], 0, 0);
+      pivot.add(mesh);
+      root.add(pivot);
+      offAxisRotors.push(pivot);
+    }
   });
 
   const bearingAnchors = new Map<string, THREE.Object3D>();
   model.bearingAnchors.forEach((anchor) => {
-    const name = bearingNodeName(anchor.id);
+    const name = bearingNodeName(anchor.id, typeId);
     const node = createAnchor(name, {
       x: anchor.position[0],
       y: anchor.position[1],
@@ -183,7 +209,7 @@ export function buildProceduralSource(modelId: string): TwinModelSource {
     ORIENTATIONS.forEach((orientation) => {
       const direction = orientationDirection(orientation, anchor);
       const position = markerPosition(anchor, orientation, direction, 0);
-      const name = sensorNodeName(anchor.id, orientation);
+      const name = sensorNodeName(anchor.id, orientation, typeId);
       const node = createAnchor(
         name,
         { x: position[0], y: position[1], z: position[2] },
@@ -205,7 +231,9 @@ export function buildProceduralSource(modelId: string): TwinModelSource {
     sensorAnchors,
     bearingAnchors,
     xrayMeshes,
+    blockerMeshes,
     rotor: rotor.children.length > 0 ? rotor : null,
+    extraRotors: offAxisRotors,
     kind: "procedural",
     schematic: model.schematic === true,
   };

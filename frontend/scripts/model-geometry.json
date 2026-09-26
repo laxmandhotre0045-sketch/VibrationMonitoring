@@ -1,0 +1,2728 @@
+{
+  "isoDirection": [
+    1.05,
+    0.5,
+    1.4
+  ],
+  "models": [
+    {
+      "id": "motor",
+      "label": "Electric Motor",
+      "schematic": false,
+      "bounds": {
+        "centre": [
+          0.1499999999999999,
+          -0.08499999999999985,
+          0
+        ],
+        "size": [
+          6.7,
+          3.33,
+          2.8
+        ],
+        "radius": 3.994336615759869
+      },
+      "components": [
+        {
+          "id": "base",
+          "shape": "box",
+          "position": [
+            0,
+            -1.5999999999999999,
+            0
+          ],
+          "size": [
+            6.4,
+            0.3,
+            2.8
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "motor.body",
+          "shape": "cylinder",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1.1,
+            3.4,
+            1.1
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "body"
+        },
+        {
+          "id": "motor.bell.de",
+          "shape": "cylinder",
+          "position": [
+            1.85,
+            0,
+            0
+          ],
+          "size": [
+            0.935,
+            0.3,
+            0.935
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.bell.nde",
+          "shape": "cylinder",
+          "position": [
+            -1.85,
+            0,
+            0
+          ],
+          "size": [
+            0.935,
+            0.3,
+            0.935
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.shaft",
+          "shape": "cylinder",
+          "position": [
+            2.7,
+            0,
+            0
+          ],
+          "size": [
+            0.22,
+            1.6,
+            0.22
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "motor.terminal",
+          "shape": "box",
+          "position": [
+            0,
+            1.34,
+            0
+          ],
+          "size": [
+            1.4,
+            0.48,
+            1
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fan.cowl",
+          "shape": "cylinder",
+          "position": [
+            -2.35,
+            0,
+            0
+          ],
+          "size": [
+            0.77,
+            0.5,
+            0.77
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "motor.feet",
+          "shape": "box",
+          "position": [
+            0,
+            -1.275,
+            0
+          ],
+          "size": [
+            3.128,
+            0.34999999999999987,
+            2.4200000000000004
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        }
+      ],
+      "bearingAnchors": [
+        {
+          "id": "motor.de",
+          "position": [
+            1.95,
+            0,
+            0
+          ],
+          "radius": 0.56
+        },
+        {
+          "id": "motor.nde",
+          "position": [
+            -1.95,
+            0,
+            0
+          ],
+          "radius": 0.56
+        }
+      ],
+      "sensorAnchors": [
+        {
+          "id": "motor.de",
+          "axisPoint": [
+            1.85,
+            0,
+            0
+          ],
+          "radius": 0.935,
+          "static": false
+        },
+        {
+          "id": "motor.nde",
+          "axisPoint": [
+            -1.85,
+            0,
+            0
+          ],
+          "radius": 0.935,
+          "static": false
+        },
+        {
+          "id": "foundation",
+          "axisPoint": [
+            0,
+            -1.45,
+            0
+          ],
+          "radius": 0.35,
+          "static": true
+        }
+      ]
+    },
+    {
+      "id": "pump",
+      "label": "Centrifugal Pump Set",
+      "schematic": false,
+      "bounds": {
+        "centre": [
+          -1.2000000000000002,
+          0.07500000000000007,
+          0
+        ],
+        "size": [
+          9.2,
+          3.6499999999999995,
+          2.9
+        ],
+        "radius": 5.156852237557326
+      },
+      "components": [
+        {
+          "id": "base",
+          "shape": "box",
+          "position": [
+            -1.2,
+            -1.5999999999999999,
+            0
+          ],
+          "size": [
+            9.2,
+            0.3,
+            2.9
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "motor.body",
+          "shape": "cylinder",
+          "position": [
+            -3.8,
+            0,
+            0
+          ],
+          "size": [
+            0.95,
+            2.8,
+            0.95
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "body"
+        },
+        {
+          "id": "motor.bell.de",
+          "shape": "cylinder",
+          "position": [
+            -2.25,
+            0,
+            0
+          ],
+          "size": [
+            0.7979999999999999,
+            0.3,
+            0.7979999999999999
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.bell.nde",
+          "shape": "cylinder",
+          "position": [
+            -5.349999999999999,
+            0,
+            0
+          ],
+          "size": [
+            0.7979999999999999,
+            0.3,
+            0.7979999999999999
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.terminal",
+          "shape": "box",
+          "position": [
+            -3.8,
+            1.17,
+            0
+          ],
+          "size": [
+            1.1199999999999999,
+            0.45,
+            0.9025
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.feet",
+          "shape": "box",
+          "position": [
+            -3.8,
+            -1.2,
+            0
+          ],
+          "size": [
+            2.52,
+            0.5,
+            1.9949999999999999
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "shaft.drive",
+          "shape": "cylinder",
+          "position": [
+            -1.45,
+            0,
+            0
+          ],
+          "size": [
+            0.168,
+            1.848,
+            0.168
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "coupling",
+          "shape": "cylinder",
+          "position": [
+            -1.45,
+            0,
+            0
+          ],
+          "size": [
+            0.42,
+            0.672,
+            0.42
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "pump.shaft",
+          "shape": "cylinder",
+          "position": [
+            0.25,
+            0,
+            0
+          ],
+          "size": [
+            0.15,
+            3,
+            0.15
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "pump.impeller",
+          "shape": "cylinder",
+          "position": [
+            1.7,
+            0,
+            0
+          ],
+          "size": [
+            0.62,
+            0.34,
+            0.62
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "pump.bearing.housing",
+          "shape": "cylinder",
+          "position": [
+            -0.15,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            1.9,
+            0.6
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "pump.pedestal",
+          "shape": "box",
+          "position": [
+            -0.15,
+            -1.025,
+            0
+          ],
+          "size": [
+            1.6,
+            0.85,
+            1.3
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "pump.casing",
+          "shape": "cylinder",
+          "position": [
+            1.7,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            0.9,
+            1
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "pump.suction",
+          "shape": "cylinder",
+          "position": [
+            2.5,
+            0,
+            0
+          ],
+          "size": [
+            0.42,
+            0.75,
+            0.42
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "pump.discharge",
+          "shape": "cylinder",
+          "position": [
+            1.7,
+            1.4,
+            0
+          ],
+          "size": [
+            0.34,
+            1,
+            0.34
+          ],
+          "axis": "y",
+          "rotation": null,
+          "tone": "guard"
+        }
+      ],
+      "bearingAnchors": [
+        {
+          "id": "motor.de",
+          "position": [
+            -2.15,
+            0,
+            0
+          ],
+          "radius": 0.475
+        },
+        {
+          "id": "motor.nde",
+          "position": [
+            -5.449999999999999,
+            0,
+            0
+          ],
+          "radius": 0.475
+        },
+        {
+          "id": "pump.de",
+          "position": [
+            -0.85,
+            0,
+            0
+          ],
+          "radius": 0.44
+        },
+        {
+          "id": "pump.nde",
+          "position": [
+            0.55,
+            0,
+            0
+          ],
+          "radius": 0.44
+        }
+      ],
+      "sensorAnchors": [
+        {
+          "id": "motor.de",
+          "axisPoint": [
+            -2.25,
+            0,
+            0
+          ],
+          "radius": 0.7979999999999999,
+          "static": false
+        },
+        {
+          "id": "motor.nde",
+          "axisPoint": [
+            -5.349999999999999,
+            0,
+            0
+          ],
+          "radius": 0.7979999999999999,
+          "static": false
+        },
+        {
+          "id": "pump.de",
+          "axisPoint": [
+            -0.85,
+            0,
+            0
+          ],
+          "radius": 0.6,
+          "static": false
+        },
+        {
+          "id": "pump.nde",
+          "axisPoint": [
+            0.55,
+            0,
+            0
+          ],
+          "radius": 0.6,
+          "static": false
+        },
+        {
+          "id": "pump.casing",
+          "axisPoint": [
+            1.7,
+            0,
+            0
+          ],
+          "radius": 1,
+          "static": false
+        },
+        {
+          "id": "foundation",
+          "axisPoint": [
+            -1.2,
+            -1.45,
+            0
+          ],
+          "radius": 0.35,
+          "static": true
+        }
+      ]
+    },
+    {
+      "id": "fan",
+      "label": "Motor-Driven Overhung Fan",
+      "schematic": false,
+      "bounds": {
+        "centre": [
+          -1.1999999999999997,
+          0.4249999999999998,
+          0
+        ],
+        "size": [
+          9.3,
+          5.09,
+          4.2074885914461255
+        ],
+        "radius": 5.703092587516648
+      },
+      "components": [
+        {
+          "id": "base.motor",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -1.73,
+            0
+          ],
+          "size": [
+            3.3,
+            0.56,
+            2.4
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "base.pedestals",
+          "shape": "box",
+          "position": [
+            -0.35,
+            -1.73,
+            0
+          ],
+          "size": [
+            2.6,
+            0.56,
+            1.5
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "base.housing",
+          "shape": "box",
+          "position": [
+            2.15,
+            -1.73,
+            0
+          ],
+          "size": [
+            2.6,
+            0.56,
+            3
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "motor.casing",
+          "shape": "cylinder",
+          "position": [
+            -4.2,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            2.3,
+            1
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "body"
+        },
+        {
+          "id": "motor.fin.0",
+          "shape": "box",
+          "position": [
+            -4.2,
+            1.07,
+            0
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.1",
+          "shape": "box",
+          "position": [
+            -4.2,
+            1.0054711042409221,
+            0.36596155335846553
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -0.3490658503988659,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.2",
+          "shape": "box",
+          "position": [
+            -4.2,
+            0.8196675541373065,
+            0.687782742364597
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -0.6981317007977318,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.3",
+          "shape": "box",
+          "position": [
+            -4.2,
+            0.5350000000000001,
+            0.9266471820493494
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -1.0471975511965976,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.4",
+          "shape": "box",
+          "position": [
+            -4.2,
+            0.18580355010361554,
+            1.0537442957230627
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -1.3962634015954636,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.5",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -0.18580355010361543,
+            1.0537442957230627
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -1.7453292519943295,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.6",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -0.5349999999999998,
+            0.9266471820493495
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -2.0943951023931953,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.7",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -0.8196675541373064,
+            0.6877827423645972
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -2.443460952792061,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.8",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -1.005471104240922,
+            0.3659615533584657
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -2.792526803190927,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.9",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -1.07,
+            1.310372075087668e-16
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -3.141592653589793,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.10",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -1.0054711042409221,
+            -0.3659615533584655
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -3.490658503988659,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.11",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -0.8196675541373066,
+            -0.687782742364597
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -3.839724354387525,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.12",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -0.5350000000000005,
+            -0.9266471820493493
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -4.1887902047863905,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.13",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -0.18580355010361546,
+            -1.0537442957230627
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -4.537856055185257,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.14",
+          "shape": "box",
+          "position": [
+            -4.2,
+            0.18580355010361507,
+            -1.0537442957230627
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -4.886921905584122,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.15",
+          "shape": "box",
+          "position": [
+            -4.2,
+            0.5350000000000001,
+            -0.9266471820493494
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -5.235987755982989,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.16",
+          "shape": "box",
+          "position": [
+            -4.2,
+            0.8196675541373063,
+            -0.6877827423645974
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -5.585053606381854,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.fin.17",
+          "shape": "box",
+          "position": [
+            -4.2,
+            1.0054711042409217,
+            -0.3659615533584663
+          ],
+          "size": [
+            2.1,
+            0.16,
+            0.05
+          ],
+          "axis": "x",
+          "rotation": [
+            -5.93411945678072,
+            0,
+            0
+          ],
+          "tone": "casing"
+        },
+        {
+          "id": "motor.bell.nde",
+          "shape": "cylinder",
+          "position": [
+            -5.22,
+            0,
+            0
+          ],
+          "size": [
+            0.88,
+            0.28,
+            0.88
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.bell.de",
+          "shape": "cylinder",
+          "position": [
+            -3.1799999999999997,
+            0,
+            0
+          ],
+          "size": [
+            0.88,
+            0.28,
+            0.88
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.cowl",
+          "shape": "cylinder",
+          "position": [
+            -5.6,
+            0,
+            0
+          ],
+          "size": [
+            0.78,
+            0.5,
+            0.78
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "motor.terminal.housing",
+          "shape": "box",
+          "position": [
+            -4.2,
+            1.4,
+            0
+          ],
+          "size": [
+            1.1,
+            0.5,
+            0.86
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.feet",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -1.225,
+            0
+          ],
+          "size": [
+            2.1,
+            0.44999999999999996,
+            2.15
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "motor.rotor.core",
+          "shape": "cylinder",
+          "position": [
+            -4.2,
+            0,
+            0
+          ],
+          "size": [
+            0.62,
+            2,
+            0.62
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "shaft.motor",
+          "shape": "cylinder",
+          "position": [
+            -2.6,
+            0,
+            0
+          ],
+          "size": [
+            0.15,
+            5.6,
+            0.15
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "shaft.fan",
+          "shape": "cylinder",
+          "position": [
+            0.4,
+            0,
+            0
+          ],
+          "size": [
+            0.17,
+            4.2,
+            0.17
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "coupling",
+          "shape": "cylinder",
+          "position": [
+            -2.15,
+            0,
+            0
+          ],
+          "size": [
+            0.4,
+            0.62,
+            0.4
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "coupling.guard",
+          "shape": "cylinder",
+          "position": [
+            -2.15,
+            0,
+            0
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.62
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "fan.de.block",
+          "shape": "cylinder",
+          "position": [
+            -1.05,
+            0,
+            0
+          ],
+          "size": [
+            0.44,
+            0.5,
+            0.44
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "fan.de.cap",
+          "shape": "box",
+          "position": [
+            -1.05,
+            0.3,
+            0
+          ],
+          "size": [
+            0.52,
+            0.28,
+            0.72
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "fan.de.column",
+          "shape": "box",
+          "position": [
+            -1.05,
+            -0.945,
+            0
+          ],
+          "size": [
+            0.6,
+            1.01,
+            0.8
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "fan.nde.block",
+          "shape": "cylinder",
+          "position": [
+            0.35,
+            0,
+            0
+          ],
+          "size": [
+            0.44,
+            0.5,
+            0.44
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "fan.nde.cap",
+          "shape": "box",
+          "position": [
+            0.35,
+            0.3,
+            0
+          ],
+          "size": [
+            0.52,
+            0.28,
+            0.72
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "fan.nde.column",
+          "shape": "box",
+          "position": [
+            0.35,
+            -0.945,
+            0
+          ],
+          "size": [
+            0.6,
+            1.01,
+            0.8
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "fan.housing",
+          "shape": "cylinder",
+          "position": [
+            2.15,
+            0,
+            0
+          ],
+          "size": [
+            1.9,
+            1.35,
+            1.9
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "fan.housing.backplate.cover",
+          "shape": "cylinder",
+          "position": [
+            1.43,
+            0,
+            0
+          ],
+          "size": [
+            1.96,
+            0.1,
+            1.96
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "fan.housing.inlet.cover",
+          "shape": "cone",
+          "position": [
+            2.9299999999999997,
+            0,
+            0
+          ],
+          "size": [
+            0.82,
+            0.24,
+            1.3
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "fan.inlet.throat.cover",
+          "shape": "cylinder",
+          "position": [
+            3.13,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            0.3,
+            0.8
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "fan.outlet.casing",
+          "shape": "box",
+          "position": [
+            1.7999999999999998,
+            2.4,
+            0
+          ],
+          "size": [
+            1,
+            1,
+            1.45
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "fan.outlet.flange.cover",
+          "shape": "box",
+          "position": [
+            1.7999999999999998,
+            2.92,
+            0
+          ],
+          "size": [
+            1.2,
+            0.1,
+            1.65
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "fan.hub",
+          "shape": "cylinder",
+          "position": [
+            2.15,
+            0,
+            0
+          ],
+          "size": [
+            0.34,
+            0.6,
+            0.34
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.backplate",
+          "shape": "cylinder",
+          "position": [
+            1.8099999999999998,
+            0,
+            0
+          ],
+          "size": [
+            1.42,
+            0.07,
+            1.42
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.0",
+          "shape": "box",
+          "position": [
+            2.15,
+            1.02,
+            0
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            0.42,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.1",
+          "shape": "box",
+          "position": [
+            2.15,
+            0.8580786034878048,
+            0.5514536338047095
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -0.15119866428905332,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.2",
+          "shape": "box",
+          "position": [
+            2.15,
+            0.4237233132619242,
+            0.9278246352616087
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -0.7223973285781067,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.3",
+          "shape": "box",
+          "position": [
+            2.15,
+            -0.1451611350387507,
+            1.0096178707185515
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -1.2935959928671599,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.4",
+          "shape": "box",
+          "position": [
+            2.15,
+            -0.6679579486241907,
+            0.7708645658413436
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -1.8647946571562133,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.5",
+          "shape": "box",
+          "position": [
+            2.15,
+            -0.9786828330867873,
+            0.28736720797825865
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -2.4359933214452663,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.6",
+          "shape": "box",
+          "position": [
+            2.15,
+            -0.9786828330867875,
+            -0.287367207978258
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -3.0071919857343197,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.7",
+          "shape": "box",
+          "position": [
+            2.15,
+            -0.6679579486241909,
+            -0.7708645658413433
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -3.578390650023373,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.8",
+          "shape": "box",
+          "position": [
+            2.15,
+            -0.14516113503875094,
+            -1.0096178707185512
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -4.1495893143124265,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.9",
+          "shape": "box",
+          "position": [
+            2.15,
+            0.4237233132619246,
+            -0.9278246352616086
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -4.72078797860148,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        },
+        {
+          "id": "fan.blade.10",
+          "shape": "box",
+          "position": [
+            2.15,
+            0.8580786034878044,
+            -0.5514536338047102
+          ],
+          "size": [
+            0.62,
+            0.95,
+            0.08
+          ],
+          "axis": "x",
+          "rotation": [
+            -5.291986642890532,
+            0,
+            0
+          ],
+          "tone": "shaft"
+        }
+      ],
+      "bearingAnchors": [
+        {
+          "id": "motor.nde",
+          "position": [
+            -5.35,
+            0,
+            0
+          ],
+          "radius": 0.46
+        },
+        {
+          "id": "motor.de",
+          "position": [
+            -3.05,
+            0,
+            0
+          ],
+          "radius": 0.46
+        },
+        {
+          "id": "fan.de",
+          "position": [
+            -1.05,
+            0,
+            0
+          ],
+          "radius": 0.44
+        },
+        {
+          "id": "fan.nde",
+          "position": [
+            0.35,
+            0,
+            0
+          ],
+          "radius": 0.44
+        }
+      ],
+      "sensorAnchors": [
+        {
+          "id": "motor.de",
+          "axisPoint": [
+            -3.1799999999999997,
+            0,
+            0
+          ],
+          "radius": 0.88,
+          "static": false
+        },
+        {
+          "id": "motor.nde",
+          "axisPoint": [
+            -5.22,
+            0,
+            0
+          ],
+          "radius": 0.88,
+          "static": false
+        },
+        {
+          "id": "fan.de",
+          "axisPoint": [
+            -1.05,
+            0,
+            0
+          ],
+          "radius": 0.44,
+          "static": false
+        },
+        {
+          "id": "fan.nde",
+          "axisPoint": [
+            0.35,
+            0,
+            0
+          ],
+          "radius": 0.44,
+          "static": false
+        },
+        {
+          "id": "fan.housing",
+          "axisPoint": [
+            2.15,
+            0,
+            0
+          ],
+          "radius": 1.9,
+          "static": false
+        },
+        {
+          "id": "foundation",
+          "axisPoint": [
+            -1.2,
+            -1.45,
+            0
+          ],
+          "radius": 0.35,
+          "static": true
+        }
+      ]
+    },
+    {
+      "id": "compressor",
+      "label": "Compressor Set",
+      "schematic": false,
+      "bounds": {
+        "centre": [
+          -1.3999999999999997,
+          0.1250000000000001,
+          0
+        ],
+        "size": [
+          9.6,
+          3.75,
+          3
+        ],
+        "radius": 5.3670871988444535
+      },
+      "components": [
+        {
+          "id": "base",
+          "shape": "box",
+          "position": [
+            -1.4,
+            -1.5999999999999999,
+            0
+          ],
+          "size": [
+            9.6,
+            0.3,
+            3
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "motor.body",
+          "shape": "cylinder",
+          "position": [
+            -3.9,
+            0,
+            0
+          ],
+          "size": [
+            0.95,
+            2.8,
+            0.95
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "body"
+        },
+        {
+          "id": "motor.bell.de",
+          "shape": "cylinder",
+          "position": [
+            -2.35,
+            0,
+            0
+          ],
+          "size": [
+            0.7979999999999999,
+            0.3,
+            0.7979999999999999
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.bell.nde",
+          "shape": "cylinder",
+          "position": [
+            -5.449999999999999,
+            0,
+            0
+          ],
+          "size": [
+            0.7979999999999999,
+            0.3,
+            0.7979999999999999
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.terminal",
+          "shape": "box",
+          "position": [
+            -3.9,
+            1.17,
+            0
+          ],
+          "size": [
+            1.1199999999999999,
+            0.45,
+            0.9025
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.feet",
+          "shape": "box",
+          "position": [
+            -3.9,
+            -1.2,
+            0
+          ],
+          "size": [
+            2.52,
+            0.5,
+            1.9949999999999999
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "shaft.drive",
+          "shape": "cylinder",
+          "position": [
+            -1.55,
+            0,
+            0
+          ],
+          "size": [
+            0.168,
+            1.848,
+            0.168
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "coupling",
+          "shape": "cylinder",
+          "position": [
+            -1.55,
+            0,
+            0
+          ],
+          "size": [
+            0.42,
+            0.672,
+            0.42
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "compressor.crankshaft",
+          "shape": "cylinder",
+          "position": [
+            0.35,
+            0,
+            0
+          ],
+          "size": [
+            0.16,
+            3.4,
+            0.16
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "compressor.flywheel",
+          "shape": "cylinder",
+          "position": [
+            2.1500000000000004,
+            0,
+            0
+          ],
+          "size": [
+            0.82,
+            0.22,
+            0.82
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "compressor.casing",
+          "shape": "box",
+          "position": [
+            0.5,
+            0.1,
+            0
+          ],
+          "size": [
+            2.6,
+            2.1,
+            1.9
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "compressor.head",
+          "shape": "cylinder",
+          "position": [
+            0.5,
+            1.55,
+            0
+          ],
+          "size": [
+            0.62,
+            0.9,
+            0.62
+          ],
+          "axis": "y",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "compressor.bearing.de",
+          "shape": "cylinder",
+          "position": [
+            -0.9,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            0.6,
+            0.5
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "compressor.bearing.nde",
+          "shape": "cylinder",
+          "position": [
+            1.6,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            0.6,
+            0.5
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "compressor.discharge",
+          "shape": "cylinder",
+          "position": [
+            2.2,
+            0.6,
+            0
+          ],
+          "size": [
+            0.3,
+            0.9,
+            0.3
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "compressor.feet",
+          "shape": "box",
+          "position": [
+            0.5,
+            -1.17,
+            0
+          ],
+          "size": [
+            2.8,
+            0.55,
+            2.1
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        }
+      ],
+      "bearingAnchors": [
+        {
+          "id": "motor.de",
+          "position": [
+            -2.25,
+            0,
+            0
+          ],
+          "radius": 0.475
+        },
+        {
+          "id": "motor.nde",
+          "position": [
+            -5.55,
+            0,
+            0
+          ],
+          "radius": 0.475
+        },
+        {
+          "id": "compressor.de",
+          "position": [
+            -0.9,
+            0,
+            0
+          ],
+          "radius": 0.48
+        },
+        {
+          "id": "compressor.nde",
+          "position": [
+            1.6,
+            0,
+            0
+          ],
+          "radius": 0.48
+        }
+      ],
+      "sensorAnchors": [
+        {
+          "id": "motor.de",
+          "axisPoint": [
+            -2.35,
+            0,
+            0
+          ],
+          "radius": 0.7979999999999999,
+          "static": false
+        },
+        {
+          "id": "motor.nde",
+          "axisPoint": [
+            -5.449999999999999,
+            0,
+            0
+          ],
+          "radius": 0.7979999999999999,
+          "static": false
+        },
+        {
+          "id": "compressor.de",
+          "axisPoint": [
+            -0.9,
+            0,
+            0
+          ],
+          "radius": 0.5,
+          "static": false
+        },
+        {
+          "id": "compressor.nde",
+          "axisPoint": [
+            1.6,
+            0,
+            0
+          ],
+          "radius": 0.5,
+          "static": false
+        },
+        {
+          "id": "compressor.casing",
+          "axisPoint": [
+            0.5,
+            0.1,
+            0
+          ],
+          "radius": 1.05,
+          "static": false
+        },
+        {
+          "id": "foundation",
+          "axisPoint": [
+            -1.4,
+            -1.45,
+            0
+          ],
+          "radius": 0.35,
+          "static": true
+        }
+      ]
+    },
+    {
+      "id": "gearbox",
+      "label": "Gearbox",
+      "schematic": false,
+      "bounds": {
+        "centre": [
+          -1.5,
+          -0.07499999999999984,
+          0
+        ],
+        "size": [
+          9.4,
+          3.3499999999999996,
+          3
+        ],
+        "radius": 5.2101463511114545
+      },
+      "components": [
+        {
+          "id": "base",
+          "shape": "box",
+          "position": [
+            -1.5,
+            -1.5999999999999999,
+            0
+          ],
+          "size": [
+            9.4,
+            0.3,
+            3
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "motor.body",
+          "shape": "cylinder",
+          "position": [
+            -4.2,
+            0,
+            0
+          ],
+          "size": [
+            0.9,
+            2.6,
+            0.9
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "body"
+        },
+        {
+          "id": "motor.bell.de",
+          "shape": "cylinder",
+          "position": [
+            -2.75,
+            0,
+            0
+          ],
+          "size": [
+            0.756,
+            0.3,
+            0.756
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.bell.nde",
+          "shape": "cylinder",
+          "position": [
+            -5.6499999999999995,
+            0,
+            0
+          ],
+          "size": [
+            0.756,
+            0.3,
+            0.756
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.terminal",
+          "shape": "box",
+          "position": [
+            -4.2,
+            1.12,
+            0
+          ],
+          "size": [
+            1.04,
+            0.45,
+            0.855
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "motor.feet",
+          "shape": "box",
+          "position": [
+            -4.2,
+            -1.175,
+            0
+          ],
+          "size": [
+            2.3400000000000003,
+            0.5499999999999999,
+            1.8900000000000001
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "shaft.drive",
+          "shape": "cylinder",
+          "position": [
+            -1.95,
+            0,
+            0
+          ],
+          "size": [
+            0.144,
+            1.584,
+            0.144
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "coupling",
+          "shape": "cylinder",
+          "position": [
+            -1.95,
+            0,
+            0
+          ],
+          "size": [
+            0.36,
+            0.576,
+            0.36
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "gearbox.housing",
+          "shape": "box",
+          "position": [
+            0.2,
+            -0.15,
+            0
+          ],
+          "size": [
+            2.5,
+            2.5,
+            2
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "gearbox.input.shaft",
+          "shape": "cylinder",
+          "position": [
+            -1.5,
+            0,
+            0
+          ],
+          "size": [
+            0.17,
+            1.4,
+            0.17
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "gearbox.input.housing",
+          "shape": "cylinder",
+          "position": [
+            -1.25,
+            0,
+            0
+          ],
+          "size": [
+            0.44,
+            0.5,
+            0.44
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "gearbox.output.shaft",
+          "shape": "cylinder",
+          "position": [
+            2.05,
+            -0.55,
+            0
+          ],
+          "size": [
+            0.26,
+            1.6,
+            0.26
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "gearbox.output.housing",
+          "shape": "cylinder",
+          "position": [
+            1.55,
+            -0.55,
+            0
+          ],
+          "size": [
+            0.52,
+            0.5,
+            0.52
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "gearbox.breather",
+          "shape": "cylinder",
+          "position": [
+            0.2,
+            1.35,
+            0
+          ],
+          "size": [
+            0.18,
+            0.5,
+            0.18
+          ],
+          "axis": "y",
+          "rotation": null,
+          "tone": "guard"
+        },
+        {
+          "id": "gearbox.feet",
+          "shape": "box",
+          "position": [
+            0.2,
+            -1.2,
+            0
+          ],
+          "size": [
+            2.7,
+            0.5,
+            2.2
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        }
+      ],
+      "bearingAnchors": [
+        {
+          "id": "motor.de",
+          "position": [
+            -2.65,
+            0,
+            0
+          ],
+          "radius": 0.45
+        },
+        {
+          "id": "motor.nde",
+          "position": [
+            -5.75,
+            0,
+            0
+          ],
+          "radius": 0.45
+        },
+        {
+          "id": "gearbox.input",
+          "position": [
+            -1.25,
+            0,
+            0
+          ],
+          "radius": 0.42
+        },
+        {
+          "id": "gearbox.output",
+          "position": [
+            1.55,
+            -0.55,
+            0
+          ],
+          "radius": 0.5
+        }
+      ],
+      "sensorAnchors": [
+        {
+          "id": "motor.de",
+          "axisPoint": [
+            -2.75,
+            0,
+            0
+          ],
+          "radius": 0.756,
+          "static": false
+        },
+        {
+          "id": "motor.nde",
+          "axisPoint": [
+            -5.6499999999999995,
+            0,
+            0
+          ],
+          "radius": 0.756,
+          "static": false
+        },
+        {
+          "id": "gearbox.input",
+          "axisPoint": [
+            -1.25,
+            0,
+            0
+          ],
+          "radius": 0.44,
+          "static": false
+        },
+        {
+          "id": "gearbox.output",
+          "axisPoint": [
+            1.55,
+            -0.55,
+            0
+          ],
+          "radius": 0.52,
+          "static": false
+        },
+        {
+          "id": "foundation",
+          "axisPoint": [
+            -1.5,
+            -1.45,
+            0
+          ],
+          "radius": 0.35,
+          "static": true
+        }
+      ]
+    },
+    {
+      "id": "generic",
+      "label": "Generic Rotating Machine",
+      "schematic": true,
+      "bounds": {
+        "centre": [
+          0,
+          -0.3999999999999999,
+          0
+        ],
+        "size": [
+          6,
+          2.6999999999999997,
+          2.8
+        ],
+        "radius": 3.575262228144951
+      },
+      "components": [
+        {
+          "id": "base",
+          "shape": "box",
+          "position": [
+            0,
+            -1.5999999999999999,
+            0
+          ],
+          "size": [
+            6,
+            0.3,
+            2.8
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        },
+        {
+          "id": "generic.body",
+          "shape": "box",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2.6,
+            1.9,
+            1.9
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "body"
+        },
+        {
+          "id": "generic.housing.de",
+          "shape": "cylinder",
+          "position": [
+            1.6,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            0.6,
+            0.5
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "generic.housing.nde",
+          "shape": "cylinder",
+          "position": [
+            -1.6,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            0.6,
+            0.5
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "casing"
+        },
+        {
+          "id": "generic.shaft",
+          "shape": "cylinder",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.2,
+            5,
+            0.2
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "shaft"
+        },
+        {
+          "id": "generic.feet",
+          "shape": "box",
+          "position": [
+            0,
+            -1.2,
+            0
+          ],
+          "size": [
+            3,
+            0.5,
+            2.1
+          ],
+          "axis": "x",
+          "rotation": null,
+          "tone": "base"
+        }
+      ],
+      "bearingAnchors": [
+        {
+          "id": "generic.de",
+          "position": [
+            1.6,
+            0,
+            0
+          ],
+          "radius": 0.48
+        },
+        {
+          "id": "generic.nde",
+          "position": [
+            -1.6,
+            0,
+            0
+          ],
+          "radius": 0.48
+        }
+      ],
+      "sensorAnchors": [
+        {
+          "id": "generic.de",
+          "axisPoint": [
+            1.6,
+            0,
+            0
+          ],
+          "radius": 0.5,
+          "static": false
+        },
+        {
+          "id": "generic.nde",
+          "axisPoint": [
+            -1.6,
+            0,
+            0
+          ],
+          "radius": 0.5,
+          "static": false
+        },
+        {
+          "id": "foundation",
+          "axisPoint": [
+            0,
+            -1.45,
+            0
+          ],
+          "radius": 0.35,
+          "static": true
+        }
+      ]
+    }
+  ]
+}

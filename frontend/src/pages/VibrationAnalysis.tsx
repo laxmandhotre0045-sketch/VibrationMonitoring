@@ -522,11 +522,10 @@ export function VibrationAnalysisPage() {
         </div>
         <div hidden={activeTab !== "statistics"}>
           <StatisticsTab
-            plotsData={plotsData}
+            uploadId={selectedUploadId}
             samplingRateHz={samplingRate}
             activeChannel={activeChannel}
             plotsEnabled={plotsEnabled}
-            plotsLoading={plotsLoading}
           />
         </div>
       </AnalysisWorkspace>

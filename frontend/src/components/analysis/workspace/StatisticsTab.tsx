@@ -1,22 +1,37 @@
 import React, { useMemo } from "react";
-import type { PlotSeries } from "@/types/measurements";
-import {
-  crestFactor,
-  kurtosisExcess,
-  peak,
-  rms,
-  skewness,
-} from "@/lib/health-metrics";
+import { useQuery } from "@tanstack/react-query";
+import { getUploadFeatures } from "@/api/measurements";
 import { formatHealthMetricDisplay } from "@/lib/health-trend-option";
+import { getFeatureDefinition, type VibrationFeatureKey } from "@/lib/vibration-features";
 import { analysisBodyStack } from "@/components/analysis/analysis-layout";
 import { cn } from "@/lib/utils";
 
+/**
+ * The statistical summary, in the order a reader expects it.
+ *
+ * Every one of these is computed by the backend and read from the features
+ * endpoint. This tab used to recompute RMS, peak, crest, skew and kurtosis from
+ * the plotted waveform, which meant a number on screen could have come from
+ * either side and no finding could be traced to one source. The browser no
+ * longer has an opinion: if the API has not computed a feature, the row says
+ * so rather than filling itself in.
+ */
+const SUMMARY_KEYS: VibrationFeatureKey[] = [
+  "rms",
+  "peak",
+  "peak_to_peak",
+  "std_dev",
+  "dc_offset",
+  "crest_factor",
+  "skewness",
+  "kurtosis",
+];
+
 interface StatisticsTabProps {
-  plotsData: { plots: PlotSeries[] } | undefined;
+  uploadId: string;
   samplingRateHz: number;
   activeChannel: number;
   plotsEnabled: boolean;
-  plotsLoading: boolean;
 }
 
 interface StatRow {
@@ -25,60 +40,78 @@ interface StatRow {
 }
 
 export function StatisticsTab({
-  plotsData,
+  uploadId,
   samplingRateHz,
   activeChannel,
   plotsEnabled,
-  plotsLoading,
 }: StatisticsTabProps) {
+  const featuresQuery = useQuery({
+    queryKey: ["upload-features", uploadId, activeChannel],
+    queryFn: () => getUploadFeatures(uploadId, activeChannel),
+    enabled: Boolean(uploadId) && plotsEnabled,
+    staleTime: 60_000,
+  });
+
   const rows = useMemo((): StatRow[] => {
-    const waveform = plotsData?.plots.find((p) => p.plot_type === "time_waveform");
-    if (!waveform || waveform.y.length === 0) return [];
+    const items = featuresQuery.data?.items;
+    if (!items?.length) return [];
 
-    const samples = waveform.y;
-    const mean =
-      samples.reduce((sum, v) => sum + v, 0) / samples.length;
-    const variance =
-      samples.reduce((sum, v) => sum + (v - mean) ** 2, 0) / samples.length;
-    const stdDev = Math.sqrt(variance);
-    const min = Math.min(...samples);
-    const max = Math.max(...samples);
+    const byKey = new Map(
+      items.filter((item) => item.feature_key).map((item) => [item.feature_key, item])
+    );
 
+    const measured: StatRow[] = SUMMARY_KEYS.map((key) => {
+      const definition = getFeatureDefinition(key);
+      const item = byKey.get(key);
+      const value = typeof item?.value === "number" ? item.value : null;
+
+      return {
+        parameter: definition.label,
+        // A feature the API did not return is absent, not zero. Printing a
+        // number here would be the browser having an opinion again.
+        value:
+          value === null
+            ? "—"
+            : formatHealthMetricDisplay(value, definition.unit === "-" ? "" : definition.unit),
+      };
+    });
+
+    // Configuration, not measurement: these describe how the capture was taken
+    // rather than what was in it, so they are not features and never were.
     return [
       { parameter: "Channel", value: `ch${activeChannel}` },
-      { parameter: "Sample Count", value: samples.length.toLocaleString() },
-      { parameter: "Mean", value: formatHealthMetricDisplay(mean, "g") },
-      { parameter: "Std Dev", value: formatHealthMetricDisplay(stdDev, "g") },
-      { parameter: "Min", value: formatHealthMetricDisplay(min, "g") },
-      { parameter: "Max", value: formatHealthMetricDisplay(max, "g") },
-      { parameter: "RMS", value: formatHealthMetricDisplay(rms(samples), "g") },
-      { parameter: "Peak", value: formatHealthMetricDisplay(peak(samples), "g") },
-      { parameter: "Crest Factor", value: formatHealthMetricDisplay(crestFactor(samples), "") },
-      { parameter: "Skew", value: formatHealthMetricDisplay(skewness(samples), "") },
-      { parameter: "Kurtosis", value: formatHealthMetricDisplay(kurtosisExcess(samples), "") },
+      ...measured,
       { parameter: "Sampling Rate", value: `${samplingRateHz.toLocaleString()} Hz` },
     ];
-  }, [plotsData, activeChannel, samplingRateHz]);
+  }, [featuresQuery.data, activeChannel, samplingRateHz]);
 
   return (
     <div className={analysisBodyStack}>
       <p className="text-sm text-muted-foreground">
-        Statistical summary for the active diagnostic channel and selected capture.
+        Statistical summary for the active diagnostic channel and selected capture, as computed
+        by the analysis engine.
       </p>
 
-      {!plotsEnabled && !plotsLoading && (
+      {!plotsEnabled && (
         <p className="text-sm text-muted-foreground">
           Select a capture on the timeline to view statistics.
         </p>
       )}
 
-      {plotsLoading && (
+      {plotsEnabled && featuresQuery.isLoading && (
         <p className="text-sm text-muted-foreground">Loading statistics…</p>
       )}
 
-      {plotsEnabled && !plotsLoading && rows.length === 0 && (
+      {plotsEnabled && featuresQuery.isError && (
         <p className="text-sm text-muted-foreground">
-          No waveform data available for statistics on channel ch{activeChannel}.
+          Statistics are unavailable for channel ch{activeChannel}: the analysis engine could not
+          be reached.
+        </p>
+      )}
+
+      {plotsEnabled && !featuresQuery.isLoading && !featuresQuery.isError && rows.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No features have been computed for channel ch{activeChannel} on this capture.
         </p>
       )}
 

@@ -4,6 +4,7 @@ import type {
   Baseline,
   BaselineCreateFromUpload,
   BaselineFileUpload,
+  BaselineHealth,
   BaselineListResponse,
 } from "@/types/baseline";
 
@@ -65,6 +66,20 @@ export async function getBaselinePlots(
 ): Promise<AllPlotsResponse> {
   const res = await api.get(`/api/v1/baselines/${baselineId}/plots`, {
     params: channel !== undefined ? { channel } : undefined,
+  });
+  return res.data;
+}
+
+/**
+ * How much the learned baseline in force for this sensor is worth.
+ *
+ * Always answers: a sensor with no baseline comes back `available: false` with
+ * a reason, in the same shape as one with a good baseline, so a caller reads
+ * one field rather than branching on the response.
+ */
+export async function getBaselineHealth(sensorId: string): Promise<BaselineHealth> {
+  const res = await api.get("/api/v1/learned-baselines/health", {
+    params: { sensor_id: sensorId },
   });
   return res.data;
 }

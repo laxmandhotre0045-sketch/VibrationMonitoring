@@ -126,6 +126,7 @@ export function useThresholdRules(options?: { enabled?: boolean }) {
     rules,
     ruleTypes: query.data?.rule_types ?? {},
     overriddenChannels: query.data?.overridden_channels ?? [],
+    sensors: query.data?.sensors ?? [],
     featureCodes,
     globalByCode,
     resolveFor,
