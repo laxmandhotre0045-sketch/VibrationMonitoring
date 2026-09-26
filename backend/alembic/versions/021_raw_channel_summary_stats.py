@@ -32,8 +32,8 @@ summarised" rather than as zero.
 from alembic import op
 import sqlalchemy as sa
 
-revision = "021a"
-down_revision = "021"
+revision = "021"
+down_revision = "020"
 branch_labels = None
 depends_on = None
 

@@ -27,6 +27,35 @@ from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 
+def _database_url_from_dotenv() -> str:
+    """DATABASE_URL out of `backend/.env`, the way the application gets it.
+
+    `app.config.settings` is a pydantic-settings model with `env_file =
+    ".env"`, so on a normal developer machine the URL is in that file and not
+    exported in the shell. Reading only `os.environ` therefore found nothing,
+    and every database-backed test skipped -- quietly, because a skip is not
+    a failure.
+
+    Parsed by hand rather than by importing the settings, because this has to
+    run before any application import: `app.database.engine` is built at
+    import time from whatever DATABASE_URL says, and alembic's env.py reuses
+    the same settings object. Anything set afterwards is already too late.
+    """
+    env_file = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if not os.path.isfile(env_file):
+        return ""
+    try:
+        with open(env_file, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("DATABASE_URL="):
+                    return line.split("=", 1)[1].strip().strip("\"'")
+    except OSError:
+        return ""
+    return ""
+
+
 def _resolve_test_database_url() -> str | None:
     """Where the API tests should write, worked out before any app import.
 
@@ -37,7 +66,7 @@ def _resolve_test_database_url() -> str | None:
     if explicit:
         return explicit
 
-    base = os.environ.get("DATABASE_URL", "")
+    base = os.environ.get("DATABASE_URL", "") or _database_url_from_dotenv()
     if not base:
         return None
     parts = urlsplit(base)
@@ -95,8 +124,40 @@ def database_url() -> str:
     return url
 
 
+def _create_database_if_absent(url: str) -> None:
+    """Create the test database rather than skipping because it is missing.
+
+    Asking each developer to create it by hand means it exists on whoever set
+    it up and nowhere else -- and the tests do not fail there, they skip,
+    which looks identical to passing in a scrolled terminal. Every
+    database-backed test in this suite skipped on this machine for exactly
+    that reason, including the twenty-six that cover the baseline lifecycle.
+
+    Only ever creates the `_test` database, which `database_url` has already
+    refused to let be anything else. A server that is not running still
+    skips, which is the honest outcome: that one the developer has to fix.
+    """
+    name = _database_name(url)
+    admin_url = urlunsplit(urlsplit(url)._replace(path="/postgres"))
+    admin = sa.create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as connection:
+            exists = connection.execute(sa.text(
+                "SELECT 1 FROM pg_database WHERE datname = :n"),
+                {"n": name}).scalar()
+            if not exists:
+                connection.execute(sa.text(f'CREATE DATABASE "{name}"'))
+    finally:
+        admin.dispose()
+
+
 @pytest.fixture(scope="session")
 def engine(database_url: str):
+    try:
+        _create_database_if_absent(database_url)
+    except Exception:  # noqa: BLE001 — no server, or no permission to create
+        pass           # the connect below reports it properly
+
     eng = sa.create_engine(database_url, pool_pre_ping=True)
     try:
         with eng.connect() as connection:
@@ -105,8 +166,8 @@ def engine(database_url: str):
         eng.dispose()
         pytest.skip(
             f"No database at {_database_name(database_url)!r} ({type(exc).__name__}). "
-            "Start one with `docker compose up -d postgres`, create the database, "
-            "and set TEST_DATABASE_URL."
+            "Start one with `docker compose up -d postgres`; the database "
+            "itself is created automatically."
         )
 
     _migrate(database_url)

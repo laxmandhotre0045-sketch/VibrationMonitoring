@@ -1,0 +1,57 @@
+# Revisions that have been released, and the parent each was released with.
+#
+# One line per revision: <revision> <down_revision>.
+#
+# This exists because alembic records only where a database is now, never the
+# path it took. A migration slotted in behind an existing one therefore runs
+# on a database built from scratch and never on a database already past it --
+# alembic computes 028 -> 029 and does not walk backwards. The table is never
+# created, head is still reported, and the first symptom is the code that uses
+# the table failing in production.
+#
+# That happened here: processing_jobs was added as revision 021, ahead of the
+# migration already holding that number, which was renamed to 021a to make
+# room. Fresh databases got the table. Every existing one did not.
+#
+# No test of the current chain can catch that, because the chain is perfectly
+# valid -- what is wrong is its relationship to databases that already exist.
+# This file is that missing history.
+#
+# Adding a migration: append one line. Its parent must be the current last
+# line, so it lands at the end of the chain, which is the only place every
+# database is guaranteed to pass through.
+#
+# Editing or removing a line means changing the identity of a migration that
+# databases have already run. There is almost never a good reason, and the
+# friction is the point.
+#
+001 None
+002 001
+003 002
+004 003
+005 004
+006 005
+007 006
+008 007
+009 008
+010 009
+011 010
+012 011
+013 012
+014 013
+015 014
+016 015
+017 016
+018 017
+019 018
+020 019
+021 020
+022 021
+023 022
+024 023
+025 024
+026 025
+027 026
+028 027
+029 028
+030 029

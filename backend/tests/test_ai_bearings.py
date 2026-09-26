@@ -87,12 +87,84 @@ def test_an_unmatched_bearing_is_not_silently_zero():
 #
 # Skipped where no database is reachable, so the suite still runs offline.
 
-def _db():
+CATALOGUE = "bearing_fault_frequencies"
+CATALOGUE_COLUMNS = ("id", "source_bearing_id", "manufacturer", "designation",
+                     "search_key", "rolling_elements", "ftf", "bsf", "bpfo",
+                     "bpfi", "is_consistent", "created_at")
+
+
+def _copy_catalogue_from_development(session) -> int:
+    """Fill an empty catalogue from the development database, if there is one.
+
+    The 88,734 rows are loaded from a spreadsheet that is not in the
+    repository, so no migration and no seed script can build them. A test
+    database therefore starts with the table and none of the contents.
+
+    Skipping would be honest but expensive: these five tests are the only
+    thing checking that a plant's spelling of a bearing reaches the right
+    catalogue row, and a skip reads exactly like a pass in a scrolled
+    terminal. So the rows are copied when the development database has them,
+    and the tests skip with a real reason when it does not.
+
+    Read-only against the development database, and it only ever writes into
+    the `_test` one.
+    """
+    import os
+    from sqlalchemy import create_engine, text as sql
+
+    url = os.environ.get("DATABASE_URL", "")
+    if not url.endswith("_test"):
+        return 0
+    source_url = url[: -len("_test")]
+
     try:
+        source = create_engine(source_url)
+        with source.connect() as connection:
+            rows = connection.execute(sql(
+                f"SELECT {', '.join(CATALOGUE_COLUMNS)} FROM {CATALOGUE}"
+            )).fetchall()
+    except Exception:
+        return 0
+    finally:
+        try:
+            source.dispose()
+        except Exception:
+            pass
+
+    if not rows:
+        return 0
+
+    placeholders = ", ".join(f":{c}" for c in CATALOGUE_COLUMNS)
+    statement = sql(f"INSERT INTO {CATALOGUE} ({', '.join(CATALOGUE_COLUMNS)}) "
+                    f"VALUES ({placeholders}) ON CONFLICT DO NOTHING")
+    for start in range(0, len(rows), 5000):
+        session.execute(statement, [
+            dict(zip(CATALOGUE_COLUMNS, row)) for row in rows[start:start + 5000]
+        ])
+    session.commit()
+    return len(rows)
+
+
+def _db():
+    """A session whose catalogue actually has rows in it.
+
+    The previous version asked whether the table could be queried, which an
+    empty table answers yes to. When the suite moved to a dedicated test
+    database the table was created by the migrations and never filled, so
+    the guard waved it through and five tests failed on
+    `(None, None, None, None, None) in set()` instead of skipping.
+    """
+    try:
+        from sqlalchemy import text as sql
+
         from app.database import SessionLocal
         session = SessionLocal()
-        session.execute(__import__("sqlalchemy").text(
-            "SELECT 1 FROM bearing_fault_frequencies LIMIT 1")).fetchone()
+        count = session.execute(sql(f"SELECT COUNT(*) FROM {CATALOGUE}")).scalar()
+        if not count:
+            count = _copy_catalogue_from_development(session)
+        if not count:
+            session.close()
+            return None
         return session
     except Exception:
         return None
@@ -102,7 +174,11 @@ def _db():
 def db():
     session = _db()
     if session is None:
-        pytest.skip("no database, or the bearing catalogue is not loaded")
+        pytest.skip(
+            f"no database, or {CATALOGUE} is empty and could not be copied "
+            f"from the development database. It is loaded from a spreadsheet "
+            f"that is not in the repository, so no migration builds it."
+        )
     yield session
     session.close()
 
