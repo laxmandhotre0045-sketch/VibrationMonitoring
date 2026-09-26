@@ -167,13 +167,25 @@ SUITES = {
     "vibrationbot": ["tests/", "iso_agent/tests/", "report_agent/tests/",
                      "sql_agent/tests/", "kb_agent/tests/"],
 }
+def frontend_tests() -> tuple[int, bool]:
+    """Count and run the vitest suite. Zero and False when npm is absent."""
+    out = subprocess.run(["npm", "test", "--silent"], cwd=REPO + "\\frontend",
+                         capture_output=True, text=True, shell=True)
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", out.stdout + out.stderr)
+    m = re.search(r"Tests\s+(\d+)\s+passed", plain)
+    return (int(m.group(1)) if m else 0, out.returncode == 0)
+
+
 BACKEND_TESTS = tests_in("backend", SUITES["backend"])
 GATEWAY_TESTS = tests_in("gateway", SUITES["gateway"])
 BOT_TESTS = tests_in("vibrationbot", SUITES["vibrationbot"])
-TOTAL_TESTS = BACKEND_TESTS + GATEWAY_TESTS + BOT_TESTS
+FRONTEND_TESTS, FRONTEND_GREEN = frontend_tests()
+TOTAL_TESTS = BACKEND_TESTS + GATEWAY_TESTS + BOT_TESTS + FRONTEND_TESTS
 
 FAILING = sorted(name for name, args in SUITES.items()
                  if not suite_passes(name, args))
+if FRONTEND_TESTS and not FRONTEND_GREEN:
+    FAILING.append("frontend")
 ALL_GREEN = not FAILING
 
 INK = colors.HexColor("#1B2733")
@@ -269,15 +281,22 @@ _shape_txt = ("%.0f kSPS for %.3f s" % (SHAPE[0] / 1000.0, SHAPE[1] / SHAPE[0])
               if SHAPE else "an unrecorded shape")
 
 story.append(box(
-    "<b>All ten of Atharva's Phase 1 tickets are finished and committed.</b> "
-    "The platform measures %d things about every capture instead of 10, judges "
-    "whether each capture can be trusted, and has learned what normal looks "
-    "like for this pump from %d real captures rather than from one file "
-    "somebody nominated. Eight tickets remain, all Laxman's.<br/><br/>"
-    "<b>%s automated tests across the three services</b> (%d platform, %d "
-    "chatbot, %d gateway), up from 58 at the end of Phase 0 &#8212; and all "
-    "three suites were run while building this document: %s. %s commits, "
-    "%s.<br/><br/>"
+    "<b>Phase 1 is complete on both sides and merged.</b> The platform "
+    "measures %d things about every capture instead of 10, judges whether "
+    "each capture can be trusted, and has learned what normal looks like for "
+    "this pump from %d real captures rather than from one file somebody "
+    "nominated. Laxman's eight tickets are merged, and the background worker "
+    "left over from Phase 0 is built.<br/><br/>"
+    "<b>Three defects came in with that merge and are fixed.</b> All three "
+    "worked on the machine they were written on and silently did nothing "
+    "elsewhere &#8212; a migration that could never run on an existing "
+    "database, a test suite that skipped every database test without saying "
+    "so, and a guard that let an empty catalogue through. They have a "
+    "section of their own below.<br/><br/>"
+    "<b>%s automated tests across the four suites</b> (%d platform, %d "
+    "chatbot, %d frontend, %d gateway), up from 58 at the end of Phase 0 "
+    "&#8212; and all four were run while building this document: %s. %s "
+    "commits, %s.<br/><br/>"
     "<b>The one thing Phase 1 cannot fix in software.</b> The pump's vibration "
     "is so small next to the range the hardware is set to that two channels "
     "resolve it in about one and a half steps of the converter. Every shape "
@@ -285,7 +304,7 @@ story.append(box(
     "This needs somebody at the PLC, and it is the single highest-value open "
     "item in this document."
     % (L["definitions"], L["captures"], f"{TOTAL_TESTS:,}", BACKEND_TESTS,
-       BOT_TESTS, GATEWAY_TESTS,
+       BOT_TESTS, FRONTEND_TESTS, GATEWAY_TESTS,
        "all passed" if ALL_GREEN else
        "<font color='%s'><b>FAILING: %s</b></font>"
        % (RED.hexval(), ", ".join(FAILING)),
@@ -317,9 +336,10 @@ story.append(p(
 story.append(p("What is included in Phase 1", H2))
 story.append(p(
     "Eighteen tickets. Ten are Atharva's and all ten are done. Eight are "
-    "Laxman's and none is started &#8212; their detail lives in the 85-ticket "
+    "Laxman's, and his branch is merged. Their detail lives in the 85-ticket "
     "sheet, which is not in this repository, so they are listed here by "
-    "number and owner only rather than described from memory.", BODY))
+    "number and owner rather than described from memory &#8212; and what his "
+    "code actually does is set out under the table.", BODY))
 
 done = GREEN
 todo = RED
@@ -370,13 +390,37 @@ for tid, title, detail, status, colour in tickets:
 story.append(table(rows, [20 * mm, 128 * mm, 20 * mm]))
 
 story.append(Spacer(1, 7))
-story.append(p("Laxman's eight, not started", H3))
+story.append(p("Laxman's eight, merged", H3))
 story.append(p(
     "VIK-023, VIK-028, VIK-029, VIK-030, VIK-031, VIK-032, VIK-033 and "
-    "VIK-034. VIK-033 is the one that was waiting on VIK-027 and is now "
-    "unblocked &#8212; the endpoints it needs are live. The rest are described "
-    "in the ticket sheet; this document does not restate them because it "
-    "cannot read them.", BODY))
+    "VIK-034. His branch is merged and his commit says Phase 1 is complete. "
+    "<b>This document does not tick them off individually, because it cannot "
+    "check them:</b> the ticket sheet is not in the repository and his "
+    "commits name only VIK-033. What follows is what the merged code "
+    "demonstrably does, which is a different and more useful claim.", BODY))
+
+landed = [
+    ("The background worker", "VIK-013",
+     "Uploads now parse, store and queue; a separate worker process runs "
+     "plots, features and alerts. This was the Phase 0 leftover the last "
+     "report flagged as starting to matter in Phase 2. Verified running "
+     "against the merged schema."),
+    ("Baseline health on screen", "VIK-033",
+     "Reads the seven endpoints VIK-027 built. It is written not to fall "
+     "back to looking sound when the check fails, which is the right call."),
+    ("Capture trust on screen", "&#8212;",
+     "An API layer over the VIK-022 engine that keeps the difference between "
+     "a check that failed and one that could not run."),
+    ("Thresholds scoped per sensor and equipment", "&#8212;",
+     "Migration 029, plus a coverage matrix in the settings screen."),
+    ("3D equipment models", "&#8212;",
+     "Nine machine types with a contract test for each."),
+]
+rows = [[p("<b>What landed</b>", CELLB), p("<b>Ticket</b>", CELLB),
+         p("<b>Notes</b>", CELLB)]]
+for what, tid, note in landed:
+    rows.append([p("<b>%s</b>" % what, CELL), p(tid, CELL), p(note, CELL)])
+story.append(table(rows, [42 * mm, 18 * mm, 108 * mm]))
 
 
 # ==================================================== what changed ========
@@ -562,6 +606,61 @@ story.append(box(
     "baseline that was built but never switched on.", AMBER, colors.HexColor("#FDF8EF")))
 
 # ================================================= what needs fixing =====
+story.append(p("What the merge broke, and what fixed it", H2))
+story.append(p(
+    "Three defects came in with the merge. All three share a shape worth "
+    "naming, because it is the one that survives review: <b>they work on the "
+    "machine they were written on and silently do nothing everywhere "
+    "else</b>. None of them failed loudly.", BODY))
+
+merge_bugs = [
+    ("A migration that can never run on an existing database",
+     "<font face='Courier'>processing_jobs</font> was added as revision 021, "
+     "ahead of the migration already holding that number. Alembic records "
+     "only where a database is now, never the path it took, so a database at "
+     "028 computes 028 to 029 and never walks back to pick up something "
+     "inserted at 021. The table is never created, alembic still reports "
+     "head, and the first symptom is the worker dying. Fresh databases were "
+     "fine, which is where it was written. Moved to 030, the end of the "
+     "chain, which is the only place every database is guaranteed to pass "
+     "through."),
+    ("Every database test was skipping",
+     "The new test setup reads the database address from the environment, "
+     "but this repository keeps it in <font face='Courier'>backend/.env</font>, "
+     "and it expected the test database to have been created by hand. "
+     "Neither was true here, so all of it skipped &#8212; including the "
+     "twenty-six covering the baseline lifecycle. A skip is not a failure "
+     "and reads exactly like a pass. It now falls back to the .env file and "
+     "creates the database itself."),
+    ("Five bearing tests failed instead of skipping",
+     "Their guard asked whether the catalogue table could be queried, which "
+     "an empty table answers yes to. Pointed at a fresh test database it "
+     "waved through zero rows. The guard now requires rows, and copies the "
+     "88,734 from the development database when it has them."),
+]
+rows = [[p("<b>What was wrong</b>", CELLB), p("<b>What it means</b>", CELLB)]]
+for title, detail in merge_bugs:
+    rows.append([p("<b>%s</b>" % title, CELL), p(detail, CELL)])
+story.append(table(rows, [52 * mm, 116 * mm]))
+
+story.append(Spacer(1, 6))
+story.append(box(
+    "<b>The guard that now exists, and the one that does not work.</b> The "
+    "obvious test for the migration bug &#8212; migrate a second database to "
+    "an older revision, then to head, and compare &#8212; does not catch it. "
+    "It was written first, the bug was recreated behind it, and it passed: "
+    "under the new chain, reaching 028 necessarily passes through anything "
+    "inserted before 028. The chain is internally valid; what is wrong is "
+    "its relationship to databases that already exist, and the files hold no "
+    "record of that.<br/><br/>"
+    "<font face='Courier'>alembic/released_revisions.txt</font> is that "
+    "record &#8212; one line per released revision and the parent it shipped "
+    "with. A released revision may not be renumbered or re-parented, and a "
+    "new one must hang off the last released revision. Recreating the "
+    "original mistake now fails with <i>\"revision 022 was released with "
+    "parent '021' and now claims '021a'\"</i>.",
+    AMBER, colors.HexColor("#FDF8EF")))
+
 story.append(p("What still needs fixing", H2))
 
 story.append(p("1. The hardware range is wrong for this machine &#8212; "
@@ -635,12 +734,14 @@ story.append(p(
     "marks them so nothing downstream reads them as limits by accident.",
     BODY))
 
-story.append(p("5. Open from Phase 0, still open", H3))
+story.append(p("5. Open from Phase 0 &#8212; now closed", H3))
 story.append(p(
-    "VIK-013, the background worker, is still not built. It does not block "
-    "anything in Phase 1 &#8212; a whole capture costs about a fifth of a "
-    "second &#8212; but Phase 2 runs scoring and baseline comparison on every "
-    "capture, and that is where it starts to matter.", BODY))
+    "VIK-013, the background worker, was the outstanding Phase 0 item in the "
+    "last report. It is now built and merged: uploads parse, store and "
+    "queue, and a separate worker process runs the rest. It was verified "
+    "against the merged schema once its migration was moved to the end of "
+    "the chain &#8212; before that it could not start on this database at "
+    "all.", BODY))
 
 
 # ================================================= state of the data =====
@@ -707,10 +808,14 @@ story.append(p(
     "reads the baselines and the trust grades built here, which is why it "
     "could not start earlier.", BODY))
 story.append(p(
-    "<b>Laxman:</b> eight Phase 1 tickets, none started. VIK-033 is unblocked "
-    "&#8212; the seven endpoints it needs are live and returning real data "
-    "today. VIK-013 from Phase 0 is still open and starts to matter in Phase "
-    "2.", BODY))
+    "<b>Laxman:</b> his branch is merged and green. Two things worth "
+    "carrying forward. A new migration goes at the end of the chain and gets "
+    "a line in <font face='Courier'>released_revisions.txt</font>; a test "
+    "now enforces both. And a test that skips is not a test that passes "
+    "&#8212; the suite was skipping every database test on this machine "
+    "without anything saying so. Worth running with "
+    "<font face='Courier'>-rs</font> occasionally to see what is being "
+    "skipped.", BODY))
 story.append(p(
     "<b>Whoever owns the hardware:</b> the sensitivity question above. It "
     "costs one conversation and it is currently limiting what every "
