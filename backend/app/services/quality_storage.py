@@ -22,6 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.ai.quality import assess_capture
+from app.ai.signal_unit import sensitivity_for_channel
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,7 @@ def persist_quality(
     sampling_rate_hz: float,
     expected_samples: Optional[int] = None,
     sensitivity_mv_per_g: Optional[float] = None,
+    channel_map: Optional[list[dict[str, Any]]] = None,
     shaft_hz: Optional[float] = None,
 ) -> dict[str, Any]:
     """Assess every channel and store the result. Returns the summary.
@@ -121,44 +123,66 @@ def persist_quality(
     Never raises. A capture whose quality could not be judged is still a
     capture worth keeping, and losing it to a failure in the thing that
     grades it would be the worst outcome available.
-    """
-    full_scale_g, step_g = converter_scale(sensitivity_mv_per_g)
 
-    # Prefer the step the samples actually show over the one the
-    # configuration claims. The resolution check is built on the step, and a
-    # declared sensitivity that is wrong by five times makes it wrong by five
-    # times -- which is the state this gateway is in.
-    declared_step = step_g
-    measured = [measure_quantisation_step(v) for v in channels.values()]
-    measured = [m for m in measured if m]
+    Sensitivity is resolved per channel, not once for the capture. A gateway
+    may legitimately run 500 mV/g on two channels and 100 on the rest --
+    that is the whole point of making it configurable -- and those channels
+    then have a different range and a different step from each other.
+    `channel_map` supplies the per-channel figures; `sensitivity_mv_per_g`
+    is the sensor-wide fallback for channels the map does not name.
+    """
     warnings: list[str] = []
-    if measured:
-        step_g = float(np.median(measured))
-        implied = sensitivity_from_step(step_g)
-        if (sensitivity_mv_per_g and implied
-                and abs(implied - sensitivity_mv_per_g) / sensitivity_mv_per_g
-                > SENSITIVITY_TOLERANCE):
-            warnings.append(
-                f"The samples are quantised in steps of {step_g:.5f} g, which "
-                f"is {implied:.0f} mV/g, but the sensor record declares "
-                f"{sensitivity_mv_per_g:g} mV/g. The device applied a "
-                f"different sensitivity from the one recorded, so either the "
-                f"record or the device is wrong -- and every value in g is "
-                f"out by the ratio between them. The measured figure is used "
-                f"for the resolution check."
-            )
-            logger.warning("Sensitivity mismatch on upload %s: samples imply "
-                           "%.0f mV/g, record says %s",
-                           upload_id, implied, sensitivity_mv_per_g)
-        if full_scale_g <= 0 and implied:
-            full_scale_g = ADC_VOLTS / (implied / 1000.0)
+    overrides: dict[int, dict[str, Any]] = {}
+    declared_step: Optional[float] = converter_scale(sensitivity_mv_per_g)[1]
+    steps: list[float] = []
+
+    for name, samples in channels.items():
+        try:
+            index = int(str(name).lstrip("ch"))
+        except ValueError:
+            continue
+
+        declared, source = sensitivity_for_channel(
+            index, channel_map, sensitivity_mv_per_g)
+        full_scale_g, step_g = converter_scale(declared)
+
+        # Prefer the step this channel's own samples show over the one its
+        # configuration claims. The resolution check is built on the step,
+        # and a declared sensitivity wrong by five times makes it wrong by
+        # five times -- which is the state this gateway is in.
+        measured = measure_quantisation_step(samples)
+        if measured:
+            steps.append(measured)
+            step_g = measured
+            implied = sensitivity_from_step(measured)
+            if (declared and implied
+                    and abs(implied - declared) / declared > SENSITIVITY_TOLERANCE):
+                warnings.append(
+                    f"Channel {index} is quantised in steps of "
+                    f"{measured:.5f} g, which is {implied:.0f} mV/g, but the "
+                    f"{source} record declares {declared:g} mV/g. The device "
+                    f"applied a different sensitivity from the one recorded, "
+                    f"so every value in g on this channel is out by the ratio "
+                    f"between them. The measured figure is used for the "
+                    f"resolution check."
+                )
+                logger.warning(
+                    "Sensitivity mismatch on upload %s channel %s: samples "
+                    "imply %.0f mV/g, %s record says %s",
+                    upload_id, index, implied, source, declared)
+            if full_scale_g <= 0 and implied:
+                full_scale_g = ADC_VOLTS / (implied / 1000.0)
+
+        overrides[index] = {"full_scale_g": full_scale_g,
+                            "quantisation_step_g": step_g}
 
     try:
         summary = assess_capture(
             channels, sampling_rate_hz,
+            per_channel_overrides=overrides,
             expected_samples=expected_samples,
-            full_scale_g=full_scale_g,
-            quantisation_step_g=step_g,
+            full_scale_g=0.0,
+            quantisation_step_g=None,
             shaft_hz=shaft_hz,
         )
     except Exception:
@@ -175,6 +199,7 @@ def persist_quality(
         "failed_checks": json.dumps(summary["failed_checks"]),
         "not_assessed": json.dumps(summary.get("not_assessed", [])),
         "checks": json.dumps([]),
+        "step_g": None,
     }]
     for index, assessment in summary["channels"].items():
         rows.append({
@@ -185,6 +210,12 @@ def persist_quality(
             "failed_checks": json.dumps(assessment["failed_checks"]),
             "not_assessed": json.dumps(assessment.get("not_assessed", [])),
             "checks": json.dumps(assessment["checks"]),
+            # What this channel was really quantised in. A baseline is
+            # scoped to it, so switching a channel from 100 mV/g to 500
+            # starts a new normal instead of silently invalidating the old
+            # one while the system goes on comparing against it.
+            "step_g": (overrides.get(int(index), {}) or {}).get(
+                "quantisation_step_g"),
         })
 
     try:
@@ -196,19 +227,26 @@ def persist_quality(
             db.execute(text(f"""
                 INSERT INTO {TABLE}
                     (upload_id, sensor_id, channel, level, confidence_factor,
-                     failed_checks, not_assessed, checks, engine_version)
+                     failed_checks, not_assessed, checks, engine_version,
+                     quantisation_step_g)
                 VALUES (:upload_id, :sensor_id, :channel, :level,
                         :confidence_factor, CAST(:failed_checks AS jsonb),
                         CAST(:not_assessed AS jsonb), CAST(:checks AS jsonb),
-                        :version)
+                        :version, :step_g)
             """), {**row, "version": ENGINE_VERSION})
     except Exception:
         logger.exception("Could not store quality assessment for upload %s",
                          upload_id)
 
     summary["warnings"] = warnings
-    summary["quantisation_step_g"] = step_g
+    # The median across channels, for a caller that wants one number. The
+    # per-channel figures are what the checks actually used and they can
+    # differ -- reporting one as though it covered the capture is how a
+    # 500 mV/g channel comes to be judged against a 100 mV/g step.
+    summary["quantisation_step_g"] = float(np.median(steps)) if steps else None
     summary["declared_step_g"] = declared_step
+    summary["channel_steps_g"] = {i: o["quantisation_step_g"]
+                                  for i, o in sorted(overrides.items())}
     return summary
 
 

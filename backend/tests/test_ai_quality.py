@@ -646,3 +646,152 @@ def test_an_undeclared_sensitivity_is_recovered_rather_than_left_unknown():
         "the full-scale range was recoverable from the samples, so the "
         "clipping check had no reason to stand down"
     )
+
+
+# ------------------------------------------ sensitivity per channel ----
+#
+# The converter setting is per channel, and making it switchable is the
+# point: a quiet channel moved from 100 mV/g to 500 goes from resolving this
+# pump's vibration in one and a half steps to about eight. One figure applied
+# to all eight channels makes the resolution check wrong by the ratio between
+# them wherever they differ.
+
+def _persist_mixed(declared_sensor, channel_map, applied):
+    """Persist a capture whose channels were digitised at different settings."""
+    from uuid import uuid4
+    import app.services.quality_storage as qs
+    channels = {f"ch{i}": quantised(applied[i], seed=i).tolist()
+                for i in range(len(applied))}
+    return qs.persist_quality(
+        _RecordingSession(), upload_id=uuid4(), sensor_id=uuid4(),
+        channels=channels, sampling_rate_hz=FS,
+        sensitivity_mv_per_g=declared_sensor, channel_map=channel_map,
+        shaft_hz=SHAFT_HZ)
+
+
+def noise_floor(summary, channel):
+    """The noise-floor verdict for one channel, which is where the converter
+    step actually bites. Asserting on this rather than on the step the code
+    recorded: the first version of these tests read back the overrides dict
+    the code had just built, so removing per-channel handling entirely left
+    them passing."""
+    for check in summary["channels"][channel]["checks"]:
+        if check["check"] == "noise_floor":
+            return check
+    raise AssertionError(f"channel {channel} has no noise_floor check")
+
+
+def quantised_to(step_g, sigma, seed=0, n=N):
+    """A signal of a chosen size, digitised in a chosen step."""
+    rng = np.random.default_rng(seed)
+    return np.round(rng.normal(0.0, sigma, n) / step_g) * step_g
+
+
+STEP_100 = ADC_VOLTS / ADC_COUNTS / 0.100        # 0.00153 g
+STEP_500 = ADC_VOLTS / ADC_COUNTS / 0.500        # 0.00031 g
+
+
+def test_each_channel_is_judged_at_its_own_converter_setting():
+    """Two channels digitised at different settings, carrying the same
+    physical vibration. The one at 100 mV/g resolves it in two converter
+    counts and must fail; the one at 500 resolves it in ten and must pass.
+    Applying either channel's step to both gets one of them wrong."""
+    sigma = 0.003
+    channels = {"ch0": quantised_to(STEP_500, sigma, seed=1).tolist(),
+                "ch1": quantised_to(STEP_100, sigma, seed=2).tolist()}
+
+    from uuid import uuid4
+    import app.services.quality_storage as qs
+    summary = qs.persist_quality(
+        _RecordingSession(), upload_id=uuid4(), sensor_id=uuid4(),
+        channels=channels, sampling_rate_hz=FS, sensitivity_mv_per_g=100.0,
+        channel_map=[{"channel_index": 1, "sensitivity_mv_per_g": 500.0}],
+        shaft_hz=SHAFT_HZ)
+
+    fine, coarse = noise_floor(summary, 0), noise_floor(summary, 1)
+    assert fine["passed"] is True, (
+        f"a channel at 500 mV/g resolves this vibration in "
+        f"{fine['value']:.1f} counts and should pass"
+    )
+    assert coarse["passed"] is False, (
+        f"the same vibration at 100 mV/g spans {coarse['value']:.1f} counts "
+        f"and is reporting rounding"
+    )
+    assert fine["value"] == pytest.approx(coarse["value"] * 5, rel=0.05), (
+        "five times the sensitivity is five times the resolution"
+    )
+
+
+def test_the_measured_step_beats_the_declaration_per_channel():
+    """The channel is declared 500 mV/g and was digitised at 100. Believing
+    the declaration would judge it against a step five times finer than the
+    converter can produce and pass a channel that is reporting rounding."""
+    from uuid import uuid4
+    import app.services.quality_storage as qs
+    summary = qs.persist_quality(
+        _RecordingSession(), upload_id=uuid4(), sensor_id=uuid4(),
+        channels={"ch0": quantised_to(STEP_100, 0.003, seed=3).tolist()},
+        sampling_rate_hz=FS, sensitivity_mv_per_g=100.0,
+        channel_map=[{"channel_index": 1, "sensitivity_mv_per_g": 500.0}],
+        shaft_hz=SHAFT_HZ)
+
+    check = noise_floor(summary, 0)
+    assert check["passed"] is False
+    assert check["value"] == pytest.approx(2.0, abs=0.5), (
+        "judged at the step the samples actually show, not the declared one"
+    )
+    assert summary["warnings"] and "Channel 0" in summary["warnings"][0]
+
+
+def test_the_measured_step_is_written_to_the_assessment_row():
+    """A baseline is scoped to the step, and it reads it from this row. If
+    the step is not stored, switching a channel from 100 mV/g to 500 looks
+    to the baseline engine like no change at all."""
+    from uuid import uuid4
+    import app.services.quality_storage as qs
+
+    session = _RecordingSession()
+    qs.persist_quality(
+        session, upload_id=uuid4(), sensor_id=uuid4(),
+        channels={"ch0": quantised_to(STEP_100, 0.02, seed=4).tolist()},
+        sampling_rate_hz=FS, sensitivity_mv_per_g=100.0, shaft_hz=SHAFT_HZ)
+
+    inserts = [params for sql, params in session.statements
+               if params and "step_g" in params and params.get("channel") == 0]
+    assert inserts, "no per-channel assessment row was written"
+    assert inserts[0]["step_g"] == pytest.approx(STEP_100, rel=1e-6)
+
+
+def test_the_channel_map_beats_the_sensor_wide_figure():
+    """The sensor-level sensitivity is a fallback for channels the map does
+    not name, not a default that overrides the ones it does."""
+    sigma = 0.003
+    from uuid import uuid4
+    import app.services.quality_storage as qs
+    summary = qs.persist_quality(
+        _RecordingSession(), upload_id=uuid4(), sensor_id=uuid4(),
+        channels={"ch0": quantised_to(STEP_500, sigma, seed=5).tolist(),
+                  "ch1": quantised_to(STEP_100, sigma, seed=6).tolist()},
+        sampling_rate_hz=FS, sensitivity_mv_per_g=100.0,
+        channel_map=[{"channel_index": 1, "sensitivity_mv_per_g": 500.0}],
+        shaft_hz=SHAFT_HZ)
+
+    assert summary["warnings"] == [], (
+        "channel 0 matches its map entry and channel 1 matches the sensor "
+        "fallback, so nothing disagrees"
+    )
+    assert noise_floor(summary, 0)["value"] > noise_floor(summary, 1)["value"]
+
+
+def test_switching_a_channel_to_500_improves_its_resolution():
+    """The reason this is configurable at all. The same signal measured at
+    500 mV/g lands on five times as many converter steps as at 100, which is
+    the difference between a shape measurement describing the machine and one
+    describing rounding."""
+    quiet = 0.0023                      # what ch5 on this pump actually does
+    at_100 = quiet / STEP_100
+    at_500 = quiet / STEP_500
+
+    assert at_100 < 2, "at 100 mV/g this channel is reporting rounding"
+    assert at_500 > 7, "at 500 mV/g it has real resolution"
+    assert at_500 == pytest.approx(at_100 * 5, rel=1e-6)

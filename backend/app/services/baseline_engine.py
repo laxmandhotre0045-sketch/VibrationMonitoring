@@ -63,6 +63,10 @@ def load_history(
                -- baseline that mixed two shapes would find every capture
                -- anomalous for a settings change.
                c.sample_rate_hz, c.sample_count,
+               -- and the converter setting the channel was measured at, so
+               -- a baseline learned at 100 mV/g is not compared with one at
+               -- 500. Measured from the samples, not declared.
+               q.quantisation_step_g,
                -- 'unknown', never 'high'. A capture nobody assessed is not
                -- a capture that passed, and defaulting it to the best grade
                -- is how the nine synthetic uploads on this platform -- which
@@ -85,7 +89,9 @@ def load_history(
             float(row.value), row.created_at, row.quality_level,
             AcquisitionShape(
                 float(row.sample_rate_hz) if row.sample_rate_hz else None,
-                int(row.sample_count) if row.sample_count else None)))
+                int(row.sample_count) if row.sample_count else None,
+                float(row.quantisation_step_g)
+                if row.quantisation_step_g else None)))
 
     if limit_captures:
         for key, observations in history.items():
@@ -111,12 +117,13 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
              window_start, window_end, baseline_version,
              acquisition_sample_rate_hz, acquisition_sample_count,
              confidence, excluded_count, distinct_count, mixed_population,
-             other_shape_count)
+             other_shape_count, acquisition_step_g, other_step_count)
         VALUES (:sensor_id, :channel, :feature_code, NULL, :median, :mad,
                 :robust_sigma, :p05, :p50, :p95, :ewma, :sample_count,
                 :window_start, :window_end, :version,
                 :rate_hz, :samples,
-                :confidence, :excluded, :distinct, :mixed, :other_shape)
+                :confidence, :excluded, :distinct, :mixed, :other_shape,
+                :step_g, :other_step)
         ON CONFLICT (sensor_id, channel, feature_code, mode_id, baseline_version)
         DO UPDATE SET
             median = EXCLUDED.median, mad = EXCLUDED.mad,
@@ -132,6 +139,8 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
             distinct_count = EXCLUDED.distinct_count,
             mixed_population = EXCLUDED.mixed_population,
             other_shape_count = EXCLUDED.other_shape_count,
+            acquisition_step_g = EXCLUDED.acquisition_step_g,
+            other_step_count = EXCLUDED.other_step_count,
             computed_at = now()
     """), {
         "sensor_id": stats.sensor_id, "channel": stats.channel,
@@ -153,6 +162,8 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
         "distinct": stats.distinct_count,
         "mixed": stats.mixed_population,
         "other_shape": stats.other_shape_count,
+        "step_g": stats.shape.step_g,
+        "other_step": stats.other_step_count,
     })
     return True
 
@@ -290,7 +301,7 @@ def load_baseline_map(db: Session, sensor_id: UUID,
                p05, p50, p95, ewma, sample_count, baseline_version,
                acquisition_sample_rate_hz, acquisition_sample_count,
                confidence, excluded_count, distinct_count, mixed_population,
-               other_shape_count
+               other_shape_count, acquisition_step_g, other_step_count
           FROM {TABLE}
          WHERE sensor_id = :s AND baseline_version = :v
     """), {"s": str(sensor_id), "v": version}).mappings().fetchall()

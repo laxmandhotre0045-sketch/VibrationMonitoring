@@ -90,11 +90,28 @@ def test_the_fields_the_caller_did_change_are_applied():
 
 def test_a_label_can_still_be_cleared():
     """`label` is legitimately nullable, so an explicit null must clear it --
-    preserving on None would make a label permanent once set."""
+    preserving on None would make a label permanent once set.
+
+    The null has to be *sent*, though. This test previously omitted `label`
+    altogether and expected the same result, which made "did not mention it"
+    and "asked to clear it" the same request. That is what made switching one
+    channel to 500 mV/g wipe that channel's label: the settings screen sends
+    the one field it changed, and everything it left out was being cleared.
+    """
     stored = StoredConfig([{"channel_index": 1, "label": "old",
                             "sensitivity_mv_per_g": 500.0}])
-    merged = _merge_channel_map(stored, [ChannelMapEntryIO(channel_index=1)])
+    merged = _merge_channel_map(
+        stored, [ChannelMapEntryIO(channel_index=1, label=None)])
     assert merged[0]["label"] is None
+    assert merged[0]["sensitivity_mv_per_g"] == 500.0
+
+
+def test_omitting_a_field_leaves_it_alone():
+    """The other half of the same contract, and the one that was wrong."""
+    stored = StoredConfig([{"channel_index": 1, "label": "Motor DE H",
+                            "sensitivity_mv_per_g": 500.0}])
+    merged = _merge_channel_map(stored, [ChannelMapEntryIO(channel_index=1)])
+    assert merged[0]["label"] == "Motor DE H"
     assert merged[0]["sensitivity_mv_per_g"] == 500.0
 
 
@@ -126,3 +143,74 @@ def test_the_merged_map_is_what_unit_resolution_reads():
                                     device_declared_unit="g")
         assert unit.sensitivity_mv_per_g == expected
         assert unit.sensitivity_source == "channel_map"
+
+
+# ------------------------------- switching one channel's sensitivity ---
+#
+# The path a settings screen uses to move a quiet channel from 100 mV/g to
+# 500. It is a one-field request, and it must behave like one.
+
+class _StoredConfig:
+    def __init__(self, channel_map):
+        self.channel_map = channel_map
+
+
+FULL_ENTRY = {"channel_index": 1, "sensitivity_mv_per_g": 100.0,
+              "label": "Motor DE Horizontal", "machine_axis": "HORIZONTAL",
+              "signal_type": "VIBRATION"}
+
+
+def test_switching_one_channel_changes_only_that_field():
+    """The bug this replaced: `model_dump()` emits every field, filling the
+    ones the caller never mentioned with schema defaults. Switching channel
+    1 to 500 mV/g therefore also cleared its label and stamped an axis and a
+    signal type nobody chose -- silently, in the same request."""
+    from app.routers.acquisition import _merge_channel_map
+    from app.schemas.acquisition import ChannelMapEntryIO
+
+    stored = _StoredConfig([dict(FULL_ENTRY),
+                            {"channel_index": 2, "sensitivity_mv_per_g": 100.0,
+                             "label": "Motor DE Vertical"}])
+    merged = _merge_channel_map(
+        stored, [ChannelMapEntryIO(channel_index=1, sensitivity_mv_per_g=500.0)])
+
+    assert merged[0]["sensitivity_mv_per_g"] == 500.0
+    assert merged[0]["label"] == "Motor DE Horizontal"
+    assert merged[0]["machine_axis"] == "HORIZONTAL"
+    assert merged[0]["signal_type"] == "VIBRATION"
+    assert merged[1] == {"channel_index": 2, "sensitivity_mv_per_g": 100.0,
+                         "label": "Motor DE Vertical"}, (
+        "a channel the caller did not mention must not move at all"
+    )
+
+
+def test_channels_can_hold_different_sensitivities():
+    """Two at 500 and six at 100 is what the gateway configuration asks for,
+    and the stored map has to be able to say so."""
+    from app.routers.acquisition import _merge_channel_map
+    from app.schemas.acquisition import ChannelMapEntryIO
+
+    stored = _StoredConfig([{"channel_index": i, "sensitivity_mv_per_g": 100.0}
+                            for i in range(1, 9)])
+    merged = _merge_channel_map(stored, [
+        ChannelMapEntryIO(channel_index=1, sensitivity_mv_per_g=500.0),
+        ChannelMapEntryIO(channel_index=2, sensitivity_mv_per_g=500.0)])
+
+    assert [e["sensitivity_mv_per_g"] for e in merged] == [
+        500.0, 500.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
+
+
+def test_an_explicit_null_still_clears_a_nullable_field():
+    """`exclude_unset` must distinguish "not mentioned" from "set to null",
+    or clearing a label becomes impossible."""
+    from app.routers.acquisition import _merge_channel_map
+    from app.schemas.acquisition import ChannelMapEntryIO
+
+    stored = _StoredConfig([dict(FULL_ENTRY)])
+    merged = _merge_channel_map(
+        stored, [ChannelMapEntryIO(channel_index=1, label=None)])
+
+    assert merged[0]["label"] is None
+    assert merged[0]["sensitivity_mv_per_g"] == 100.0, (
+        "clearing a label must not disturb the converter setting"
+    )

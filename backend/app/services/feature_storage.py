@@ -188,6 +188,23 @@ def _machine_type_of(db: Session, sensor: Any) -> str | None:
     return getattr(equipment, "machine_type", None)
 
 
+def _stored_channel_map(db, sensor_id) -> list[dict]:
+    """The per-channel acquisition settings, or an empty list.
+
+    Never raises and never guesses. A sensor with no stored map falls back
+    to the sensor-wide sensitivity, which is the honest answer -- inventing
+    a map here would put a number on channels nobody has configured.
+    """
+    try:
+        from app.crud import measurement as measurement_crud
+        config = measurement_crud.get_plot_config_by_sensor(db, sensor_id)
+        stored = getattr(config, "channel_map", None) if config else None
+        return stored if isinstance(stored, list) else []
+    except Exception:
+        logger.exception("Could not read the channel map for sensor %s", sensor_id)
+        return []
+
+
 def persist_upload_features_and_trends(
     db: Session,
     upload: SensorDataUpload,
@@ -247,6 +264,10 @@ def persist_upload_features_and_trends(
         sensitivity_mv_per_g=(float(sensor.sensitivity)
                               if sensor is not None and sensor.sensitivity
                               else None),
+        # Per channel, because the converter setting is per channel. The
+        # sensor-wide figure above is the fallback for channels the map does
+        # not name, not a default that overrides it.
+        channel_map=_stored_channel_map(db, upload.sensor_id),
         shaft_hz=machine.hz if machine.usable else None,
     )
     if quality["level"] != "high":

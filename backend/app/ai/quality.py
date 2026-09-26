@@ -625,6 +625,7 @@ def _run_checks(missing, x, sampling_rate_hz, full_scale_g,
 def assess_capture(
     channels: dict[str, list[float]],
     sampling_rate_hz: float,
+    per_channel_overrides: Optional[dict[int, dict[str, Any]]] = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Every channel, plus the capture's own level.
@@ -633,14 +634,23 @@ def assess_capture(
     does not make the other seven unusable, so the per-channel assessments
     are kept and an engine reading one channel reads that channel's level --
     but a summary that reported the best of eight would be useless.
+
+    `per_channel_overrides` replaces named keyword arguments for one channel.
+    It exists because the converter settings are genuinely per channel: a
+    gateway may run 500 mV/g on two channels and 100 on the rest, which
+    changes both the range and the step size on those channels only. Applying
+    one channel's figures to all eight makes the resolution check wrong by
+    the ratio between them -- five times, on this hardware.
     """
+    overrides = per_channel_overrides or {}
     per_channel: dict[int, QualityAssessment] = {}
     for name, samples in channels.items():
         try:
             index = int(str(name).lstrip("ch"))
         except ValueError:
             continue
-        per_channel[index] = assess_channel(samples, sampling_rate_hz, **kwargs)
+        settings = {**kwargs, **overrides.get(index, {})}
+        per_channel[index] = assess_channel(samples, sampling_rate_hz, **settings)
 
     level = HIGH
     for assessment in per_channel.values():

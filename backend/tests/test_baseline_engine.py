@@ -396,3 +396,108 @@ def test_a_built_but_unactivated_baseline_is_not_reported_as_the_answer(db, sens
     # It still appears in the history, because it exists and somebody has to
     # be able to see that it is waiting.
     assert [v["version"] for v in health["history"]] == [built["version"]]
+
+
+# ------------------------------- switching the converter setting -------
+#
+# Making sensitivity configurable is only safe if changing it starts a new
+# normal. At 100 mV/g the step is 0.0015 g and this pump's quietest channel
+# spans one and a half of them; at 500 it is 0.0003 g and the same channel
+# spans eight. Kurtosis and crest factor are describing rounding in the
+# first case and the machine in the second, so a baseline that mixed them
+# would be built from two different measurements of two different things.
+
+STEP_AT_100 = 5.0 / 32768 / 0.100        # 0.0015 g
+STEP_AT_500 = 5.0 / 32768 / 0.500        # 0.0003 g
+
+
+def set_step(db, sensor_id, step, *, after=None):
+    """Stamp a converter step onto the stored quality assessments."""
+    clause = " AND u.created_at > :after" if after else ""
+    db.execute(text(f"""
+        UPDATE data_quality_assessments q SET quantisation_step_g = :step
+          FROM sensor_data_uploads u
+         WHERE u.id = q.upload_id AND q.sensor_id = :s {clause}
+    """), {"s": str(sensor_id), "step": step,
+           **({"after": after} if after else {})})
+    db.flush()
+
+
+def test_a_baseline_will_not_mix_two_converter_settings(db, sensor_id):
+    """The whole point of scoping by step. Twenty captures at 100 mV/g and
+    twenty at 500 are not forty samples of one normal."""
+    from datetime import datetime, timedelta, timezone
+
+    add_captures(db, sensor_id, 20, start_days_ago=40.0, seed=1)
+    set_step(db, sensor_id, STEP_AT_100)
+
+    switched_at = datetime.now(timezone.utc) - timedelta(days=10)
+    add_captures(db, sensor_id, 20, start_days_ago=9.0, seed=2)
+    set_step(db, sensor_id, STEP_AT_500, after=switched_at)
+
+    reset_baseline(db, sensor_id, reason="after switching to 500 mV/g")
+    row = load_baseline_map(db, sensor_id)[(0, "rms")]
+
+    assert row["sample_count"] == 20, (
+        "the baseline must be built from one setting's captures, not both"
+    )
+    assert row["other_step_count"] == 20, (
+        "and it must say how many it left out, not drop them silently"
+    )
+    assert row["acquisition_step_g"] == pytest.approx(STEP_AT_500, rel=1e-6), (
+        "the newest setting wins, so the baseline describes the machine as "
+        "it is being measured now"
+    )
+
+
+def test_too_few_captures_at_the_new_setting_refuses_rather_than_mixes(db, sensor_id):
+    """Right after a switch there is not enough history at the new setting.
+    Refusing is correct: a baseline spanning the change would report the
+    settings change as a fault on every capture."""
+    from datetime import datetime, timedelta, timezone
+
+    add_captures(db, sensor_id, 30, start_days_ago=40.0, seed=1)
+    set_step(db, sensor_id, STEP_AT_100)
+
+    switched_at = datetime.now(timezone.utc) - timedelta(days=2)
+    add_captures(db, sensor_id, 3, start_days_ago=1.0, seed=2)
+    set_step(db, sensor_id, STEP_AT_500, after=switched_at)
+
+    result = reset_baseline(db, sensor_id, reason="just switched", activate=False)
+    assert result["stored"] == 0, (
+        "three captures at the new setting is not a baseline, and the "
+        "thirty at the old one cannot be borrowed"
+    )
+
+
+def test_a_capture_is_not_compared_across_a_setting_change(db, sensor_id):
+    """The read side of the same rule."""
+    from app.ai.baseline import AcquisitionShape, BaselineStats
+
+    learned = BaselineStats(
+        sensor_id=str(sensor_id), channel=0, feature_code="rms",
+        available=True,
+        shape=AcquisitionShape(RATE, SAMPLES, STEP_AT_100))
+
+    same = AcquisitionShape(RATE, SAMPLES, STEP_AT_100)
+    switched = AcquisitionShape(RATE, SAMPLES, STEP_AT_500)
+
+    assert learned.comparable_with(same) is True
+    assert learned.comparable_with(switched) is False, (
+        "comparing across a converter change measures the change, not the "
+        "machine"
+    )
+
+
+def test_captures_from_before_the_step_was_recorded_still_form_a_baseline(db, sensor_id):
+    """Backwards compatibility. Rows written before the step was stored have
+    None, and two Nones are the same unknown -- otherwise this change would
+    have wiped every existing baseline."""
+    add_captures(db, sensor_id, 20, seed=1)
+    set_step(db, sensor_id, None)
+
+    reset_baseline(db, sensor_id, reason="history with no step recorded")
+    row = load_baseline_map(db, sensor_id)[(0, "rms")]
+    assert row["sample_count"] == 20
+    assert row["other_step_count"] == 0
+    assert row["acquisition_step_g"] is None
