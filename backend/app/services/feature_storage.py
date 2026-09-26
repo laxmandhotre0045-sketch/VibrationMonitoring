@@ -30,7 +30,9 @@ from app.services.feature_extraction import (
     extract_all_channels,
 )
 from app.services.plot_generator import load_parsed_data
-from app.services.anomaly_storage import persist_scores
+from app.services.alarm_storage import persist_alarms
+from app.services.anomaly_storage import mode_of, persist_scores
+from app.services.detector_storage import persist_detectors
 from app.services.mode_storage import equipment_for_sensor, persist_mode
 from app.services.quality_storage import persist_quality
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
@@ -402,6 +404,40 @@ def persist_upload_features_and_trends(
                       for channel, features in scalars.items()
                       for code, payload in features.items()
                       if payload.get("value") is not None},
+        )
+        db.commit()
+
+        # VIK-043. Per channel rather than per feature: these two look at
+        # the whole feature vector at once, which is how they catch a
+        # combination that no single feature would flag -- every number
+        # inside its own range while the relationship between them stops
+        # making sense.
+        scored_features = {
+            (int(channel), code): float(payload["value"])
+            for channel, features in scalars.items()
+            for code, payload in features.items()
+            if payload.get("value") is not None
+        }
+        persist_detectors(
+            db,
+            upload_id=upload.id,
+            sensor_id=upload.sensor_id,
+            features=scored_features,
+            mode_id=mode_of(db, upload.id),
+        )
+        db.commit()
+
+        # VIK-044/046, after the scores are committed because the alarm
+        # decision reads this capture's score alongside the previous ones.
+        # A single high score is not an alarm -- at this threshold chance
+        # alone puts about one feature per capture past the line -- so this
+        # is what stands between the platform and seven hundred alarms a day
+        # on a healthy machine.
+        persist_alarms(
+            db,
+            upload_id=upload.id,
+            sensor_id=upload.sensor_id,
+            equipment_id=equipment_for_sensor(db, upload.sensor_id),
         )
         db.commit()
     except Exception:
