@@ -30,12 +30,8 @@ from app.dependencies.api_key import require_api_key
 from app.models.integration import ApiKey
 from app.schemas.ingest import MeasurementIngest, MeasurementIngestAck
 from app.schemas.raw_vibration import RawTimebaseOut, RawUploadAck
-<<<<<<< HEAD
-from app.services.measurement_pipeline import resolve_config, run_pipeline
-=======
 from app.services.device_declaration import record_declaration
-from app.services.feature_storage import persist_upload_features_and_trends
->>>>>>> 28b0aa6724005c5bf547cf3238877fa0ff1c5aa4
+from app.services.measurement_pipeline import resolve_config, run_pipeline
 from app.services.plot_generator import save_parsed_data
 from app.services.raw_storage import store_capture
 from app.services.raw_vibration import (

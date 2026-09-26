@@ -55,12 +55,28 @@ export interface FeatureCompareItem {
   unit?: string;
 }
 
+/**
+ * How far a capture's numbers can be trusted, from the data-quality checks.
+ *
+ * Ordered worst-last on purpose: these are the only four the API publishes, and
+ * a screen switching on them can be exhaustive. `null` is a fifth state and not
+ * one of these — it means nothing assessed the capture, which is not the same
+ * as passing and must never be rendered as one.
+ */
+export type TrustLevel = "High" | "Medium" | "Low" | "Invalid";
+
 export interface UploadFeaturesResponse {
   upload_id: string;
   channel: number;
   items: FeatureStatusItem[];
   summary: FeatureSummaryCounts;
   channel_overview: ChannelHealthOverviewData;
+  /** null means unassessed — never treat it as a pass. */
+  trust_level: TrustLevel | null;
+  /** Checks that ran and did not pass. */
+  failed_checks: string[];
+  /** Checks that could not run at all — not failures, and not passes either. */
+  not_assessed_checks: string[];
 }
 
 export interface FeatureCompareResponse {

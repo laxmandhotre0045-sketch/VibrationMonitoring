@@ -76,6 +76,17 @@ class UploadFeaturesOut(BaseModel):
             "failed."
         ),
     )
+    not_assessed_checks: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Names of the quality checks that could not be run on this "
+            "measurement — too short a record to judge steadiness, no shaft "
+            "speed to check against. Distinct from failed_checks: these did "
+            "not fail, they never ran, and a caller that shows them as passing "
+            "is reporting a grade nobody gave. Unrelated to summary."
+            "not_assessed, which counts features without a baseline."
+        ),
+    )
 
 
 class FactorTrendSeriesOut(BaseModel):

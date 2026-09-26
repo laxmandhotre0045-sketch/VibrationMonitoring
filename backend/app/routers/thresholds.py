@@ -22,10 +22,13 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app import crud
 from app.crud import feature as feature_crud
 from app.database import get_db
 from app.dependencies.auth import get_current_user, require_admin
+from app.models.equipment import Equipment
 from app.models.measurement import FeatureThresholdRule
+from app.models.sensor import SensorConfiguration
 from app.models.user import User
 from app.schemas.threshold import (
     ThresholdRuleBulkUpdate,
@@ -33,6 +36,7 @@ from app.schemas.threshold import (
     ThresholdRuleListOut,
     ThresholdRuleOut,
     ThresholdRuleUpdate,
+    ThresholdScopeSensorOut,
 )
 from app.services.threshold_defaults import (
     RULE_TYPE_INFO,
@@ -85,6 +89,8 @@ def _rule_out(rule: FeatureThresholdRule, definitions: dict) -> ThresholdRuleOut
         rule_type=rule.rule_type,
         machine_type=rule.machine_type,
         channel=rule.channel,
+        sensor_id=rule.sensor_id,
+        equipment_id=rule.equipment_id,
         normal_max=_as_float(rule.normal_max),
         warning_max=_as_float(rule.warning_max),
         normal_min=_as_float(rule.normal_min),
@@ -146,10 +152,61 @@ def _validate_against_stored(rule: FeatureThresholdRule, payload: ThresholdRuleU
         )
 
 
+def _scope_phrase(payload: ThresholdRuleCreate) -> str:
+    """How the scope reads in an error message, narrowest part first."""
+    parts: list[str] = []
+    if payload.sensor_id is not None:
+        parts.append("this sensor")
+    elif payload.equipment_id is not None:
+        parts.append("this machine")
+    elif payload.machine_type:
+        parts.append(f"machine type {payload.machine_type}")
+    parts.append(
+        f"channel {payload.channel}" if payload.channel is not None else "all channels"
+    )
+    return ", ".join(parts)
+
+
+def _sensor_roster(db: Session) -> list[ThresholdScopeSensorOut]:
+    """Every sensor, named the way an engineer would name it.
+
+    Listed in full rather than only where a rule exists: a coverage view built
+    from the rules alone could show which sensors have their own limit but
+    never which ones fall back, and the second half is the question being
+    asked.
+    """
+    rows = (
+        db.query(SensorConfiguration, Equipment)
+        .outerjoin(Equipment, Equipment.id == SensorConfiguration.equipment_id)
+        .order_by(Equipment.machine_name.asc().nullslast(),
+                  SensorConfiguration.mounting_location.asc())
+        .all()
+    )
+
+    roster: list[ThresholdScopeSensorOut] = []
+    for sensor, equipment in rows:
+        where = " · ".join(
+            part for part in (sensor.mounting_location, sensor.orientation) if part
+        )
+        machine = equipment.machine_name if equipment is not None else None
+        roster.append(
+            ThresholdScopeSensorOut(
+                id=sensor.id,
+                label=" — ".join(part for part in (machine, where) if part)
+                or str(sensor.id),
+                machine_name=machine,
+                machine_type=equipment.machine_type if equipment is not None else None,
+                equipment_id=sensor.equipment_id,
+            )
+        )
+    return roster
+
+
 @router.get("/rules", response_model=ThresholdRuleListOut)
 def list_threshold_rules(
     machine_type: Optional[str] = Query(default=None),
     channel: Optional[int] = Query(default=None, ge=0, le=63),
+    sensor_id: Optional[UUID] = Query(default=None),
     include_inactive: bool = Query(default=True),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -158,6 +215,7 @@ def list_threshold_rules(
         db,
         machine_type=machine_type,
         channel=channel,
+        sensor_id=sensor_id,
         include_inactive=include_inactive,
     )
     definitions = feature_crud.get_definition_map(db)
@@ -167,6 +225,7 @@ def list_threshold_rules(
         items=[_rule_out(rule, definitions) for rule in rules],
         rule_types=RULE_TYPE_INFO,
         overridden_channels=channels,
+        sensors=_sensor_roster(db),
     )
 
 
@@ -214,17 +273,30 @@ def create_threshold_rule(
             status_code=422, detail=f"Unknown feature code '{payload.feature_code}'"
         )
 
+    # A scope must name something that exists, or the rule is written for a
+    # machine nobody can find and silently never fires.
+    if payload.sensor_id is not None:
+        if crud.get_sensor_by_id(db, payload.sensor_id) is None:
+            raise HTTPException(status_code=422, detail="Unknown sensor_id.")
+    if payload.equipment_id is not None:
+        if crud.get_equipment_by_id(db, payload.equipment_id) is None:
+            raise HTTPException(status_code=422, detail="Unknown equipment_id.")
+
     existing = feature_crud.find_threshold_rule(
         db,
         payload.feature_code,
         channel=payload.channel,
         machine_type=payload.machine_type,
+        sensor_id=payload.sensor_id,
+        equipment_id=payload.equipment_id,
     )
     if existing:
-        scope = f"channel {payload.channel}" if payload.channel is not None else "all channels"
         raise HTTPException(
             status_code=409,
-            detail=f"A rule for {payload.feature_code} on {scope} already exists; update it instead.",
+            detail=(
+                f"A rule for {payload.feature_code} at this scope "
+                f"({_scope_phrase(payload)}) already exists; update it instead."
+            ),
         )
 
     # An override inherits the global rule's type and any limits it did not
@@ -250,6 +322,8 @@ def create_threshold_rule(
         rule_type=rule_type,
         machine_type=payload.machine_type,
         channel=payload.channel,
+        sensor_id=payload.sensor_id,
+        equipment_id=payload.equipment_id,
         normal_max=limit("normal_max"),
         warning_max=limit("warning_max"),
         normal_min=limit("normal_min"),
@@ -361,16 +435,26 @@ def delete_threshold_rule(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> None:
-    """Drop a channel override so the channel follows the global rule again.
+    """Drop an override so its scope follows the broader rule again.
 
     Global rules are not deletable: removing one would leave its feature with no
     limits at all, which reads as "healthy" rather than "unmonitored". Reset it
     or deactivate it instead.
+
+    "Global" is decided on every scope column, not on channel and machine type
+    alone. A rule written for one sensor also has both of those null, so the
+    narrower test refused to delete it — the one scope a limit could be created
+    at but never removed from.
     """
     rule = feature_crud.get_threshold_rule(db, rule_id)
     if not rule:
         raise HTTPException(status_code=404, detail="Threshold rule not found")
-    if rule.channel is None and rule.machine_type is None:
+    if (
+        rule.channel is None
+        and rule.machine_type is None
+        and rule.sensor_id is None
+        and rule.equipment_id is None
+    ):
         raise HTTPException(
             status_code=409,
             detail="Global rules cannot be deleted. Reset it to defaults, or set is_active=false to stop evaluating it.",

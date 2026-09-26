@@ -108,7 +108,7 @@ function flatten(groups: { items: FeatureStatusItem[] }[]): FeatureStatusItem[] 
 
 describe("the Status health table", () => {
   it("shows every catalog feature even when the API sends none", () => {
-    // An upload with no baseline still has to render ten rows; a short list
+    // An upload with no baseline still has to render every row; a short list
     // reads as "this machine has fewer things to watch", which is not true.
     const rows = flatten(groupFeatureStatusItems([]));
     expect(rows.map((row) => row.feature_key)).toEqual(CATALOG_KEYS);
@@ -192,38 +192,67 @@ describe("Settings and Status", () => {
 // The backend, which supplies the numbers
 // ---------------------------------------------------------------------------
 
-const BACKEND_FEATURE_EXTRACTION = join(
+const BACKEND_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
   "..",
   "..",
   "backend",
-  "app",
-  "services",
-  "feature_extraction.py"
+  "app"
 );
 
+const BACKEND_FEATURE_EXTRACTION = join(BACKEND_ROOT, "services", "feature_extraction.py");
+
 /**
- * Read FEATURE_CODES out of the extractor.
+ * The four files FEATURE_CODES is assembled from.
+ *
+ * It is not one literal: `feature_extraction.py` declares the original ten and
+ * then appends three lists imported from `app.ai`. Reading only the first file
+ * would report the other thirty-six as "on screen but nothing computes them",
+ * which is the opposite of true.
+ */
+const BACKEND_CODE_SOURCES: [string, string][] = [
+  [BACKEND_FEATURE_EXTRACTION, "FEATURE_CODES"],
+  [join(BACKEND_ROOT, "ai", "time_features.py"), "TIME_FEATURE_CODES"],
+  [join(BACKEND_ROOT, "ai", "frequency_features.py"), "FREQUENCY_FEATURE_CODES"],
+  [join(BACKEND_ROOT, "ai", "envelope_features.py"), "ENVELOPE_FEATURE_CODES"],
+];
+
+/**
+ * Read the backend's feature codes out of the Python.
  *
  * A frontend test reaching into the Python is unusual, but this catalog exists
- * to mirror that list and has no other reason to hold ten entries. Skipped
- * when the backend is not checked out beside the frontend, so a frontend-only
- * clone still runs green.
+ * to mirror that list and has no other reason to hold the entries it does.
+ * Skipped when the backend is not checked out beside the frontend, so a
+ * frontend-only clone still runs green.
  */
 function backendFeatureCodes(): string[] {
-  const source = readFileSync(BACKEND_FEATURE_EXTRACTION, "utf8");
-  const block = /FEATURE_CODES\s*=\s*\[([^\]]*)\]/.exec(source);
-  if (!block) return [];
-  return [...block[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  const codes: string[] = [];
+  for (const [path, symbol] of BACKEND_CODE_SOURCES) {
+    if (!existsSync(path)) continue;
+    const source = readFileSync(path, "utf8");
+    // String.raw, or the backslashes collapse in the template literal and the
+    // pattern silently stops matching anything.
+    const block = new RegExp(String.raw`${symbol}\s*=\s*\[([^\]]*)\]`).exec(source);
+    if (!block) continue;
+    for (const match of block[1].matchAll(/"([^"]+)"/g)) {
+      if (!codes.includes(match[1])) codes.push(match[1]);
+    }
+  }
+  return codes;
 }
 
 describe.skipIf(!existsSync(BACKEND_FEATURE_EXTRACTION))("the backend feature list", () => {
-  it("was found and parsed", () => {
+  it("was found and parsed, from all four of its sources", () => {
     // Guards the guard: a silently empty list would make the next two tests
-    // pass without checking anything.
-    expect(backendFeatureCodes().length).toBeGreaterThan(0);
+    // pass without checking anything, and reading only the first file would
+    // silently drop thirty-six codes.
+    const codes = backendFeatureCodes();
+    expect(codes.length).toBe(CATALOG_KEYS.length);
+    for (const marker of ["rms", "peak_to_peak", "dominant_frequency", "ftf_band_energy"]) {
+      expect(codes, `${marker} is missing, so a source file went unread`).toContain(marker);
+    }
   });
 
   it("has every code resolving to a catalog feature", () => {

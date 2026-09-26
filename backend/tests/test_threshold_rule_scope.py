@@ -176,8 +176,15 @@ def test_every_rule_that_predates_the_migration_is_still_global(db):
 
 
 def test_the_seeded_rules_are_all_still_there(db):
-    """One row per seeded default, no more and no fewer."""
-    from app.services.threshold_defaults import THRESHOLD_RULE_DEFAULTS
+    """One row per seeded default, no more and no fewer.
+
+    Counted against the feature catalogue rather than
+    `THRESHOLD_RULE_DEFAULTS`. That dict was the whole seed when this test was
+    written; 023 and 024 made it the absolute-limit special case and gave every
+    other definition a baseline-relative or informational default, so it now
+    names ten of the catalogue's rules rather than all of them.
+    """
+    from app.services.feature_catalog import all_default_rules
 
     seeded = db.execute(
         sa.text(
@@ -187,7 +194,7 @@ def test_the_seeded_rules_are_all_still_there(db):
         )
     ).scalar()
 
-    assert seeded == len(THRESHOLD_RULE_DEFAULTS)
+    assert seeded == len(all_default_rules())
 
 
 # ---------------------------------------------------------------------------

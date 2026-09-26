@@ -175,6 +175,19 @@ def machine_bearing_orders(db: Session, upload: SensorDataUpload) -> dict | None
     return orders
 
 
+def _machine_type_of(db: Session, sensor: Any) -> str | None:
+    """The machine type a sensor is bolted to, for scoping threshold rules.
+
+    None when the sensor or its equipment cannot be read, which narrows the
+    rules to the untyped ones rather than guessing a type -- a wrong type would
+    apply another fleet's limits to this machine.
+    """
+    if sensor is None or sensor.equipment_id is None:
+        return None
+    equipment = crud.get_equipment_by_id(db, sensor.equipment_id)
+    return getattr(equipment, "machine_type", None)
+
+
 def persist_upload_features_and_trends(
     db: Session,
     upload: SensorDataUpload,
@@ -191,9 +204,25 @@ def persist_upload_features_and_trends(
     produced later from the same stored samples. The live path leaves this
     on, so nothing about normal ingestion changes.
     """
-    # Keyed by (channel, code): a channel with its own override uses it, every
-    # other channel falls back to the global rule. See crud.feature.resolve_rule.
-    rules_map = feature_crud.get_resolved_rule_map(db)
+    # The sensor is needed twice below -- once to scope the threshold rules and
+    # once for the quality engine's sensitivity -- so it is read once here.
+    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
+
+    # Keyed by (channel, code). Which rule is stored under each key is decided
+    # by scope: sensor, then equipment, then machine type, then global, with a
+    # named channel breaking ties inside any one of those.
+    #
+    # This used to be called as `get_resolved_rule_map(db)` with no context at
+    # all, which did not merely skip the narrowing -- it filtered every scoped
+    # rule out of the map, so a pump-specific limit could never fire however it
+    # was configured. Every threshold status in the system was decided by the
+    # global rule alone.
+    rules_map = feature_crud.get_resolved_rule_map(
+        db,
+        _machine_type_of(db, sensor),
+        sensor_id=upload.sensor_id,
+        equipment_id=sensor.equipment_id if sensor is not None else None,
+    )
     baseline_refs = _baseline_ref_map(db, upload.sensor_id)
 
     machine = machine_shaft_speed(db, upload, parsed_data, sampling_rate_hz)
@@ -208,7 +237,6 @@ def persist_upload_features_and_trends(
     # It never raises: a capture whose quality could not be judged is still
     # worth keeping, and losing it to the thing that grades it would be the
     # worst outcome available.
-    sensor = crud.get_sensor_by_id(db, upload.sensor_id)
     quality = persist_quality(
         db,
         upload_id=upload.id,

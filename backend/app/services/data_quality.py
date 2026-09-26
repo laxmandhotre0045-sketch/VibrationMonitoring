@@ -1,34 +1,44 @@
 """The trust level that rides along with a set of features.
 
-The engine that *decides* trust is VIK-022, and it is not in this repository
-yet — no branch here defines a trust level, a check, or anything that produces
-one. What this module holds is the half the API owes its callers regardless:
-the one place the endpoint asks for an upload's verdict, and the coercion that
-keeps whatever the engine returns inside the four levels the contract
-publishes. Those four live with the contract, in `app.schemas.feature`.
+The engine that *decides* trust is VIK-022, in `app.ai.quality`; it stores its
+verdict through `app.services.quality_storage`, one row per channel plus one
+for the capture as a whole. What this module holds is the half the API owes its
+callers: the one place the endpoint asks for an upload's verdict, and the
+coercion that keeps whatever the engine returns inside the four levels the
+contract publishes. Those four live with the contract, in `app.schemas.feature`.
 
-Two rules shape everything below.
+Three rules shape everything below.
 
 **Absent is not "High".** A missing verdict is reported as nothing at all, never
 as a passing grade. Features computed before the engine existed, or while it was
 switched off, are not trustworthy — they are unexamined, and an operator reading
 a number off a screen deserves to be told which one they are looking at.
 
+**A check that could not run is not a check that passed.** The engine keeps that
+third outcome and so does this module: `not_assessed` travels beside
+`failed_checks` rather than being folded into it or dropped. Folding it into the
+failures would invent problems; dropping it would report "clipping: fine" for a
+record too short to judge clipping.
+
 **The API emits only the four documented levels.** Whatever the engine hands
 back — an enum, a string in some other case, a dataclass — it is normalized here
 before it reaches a response, so the contract cannot drift with the
-implementation.
-
-When VIK-022 lands, `read_quality` is the only function that needs to change,
-and possibly not even that: it already reads the verdict off the upload row, so
-an engine that stores its result there is picked up as-is.
+implementation. The engine's own vocabulary is lowercase, and its "unknown"
+(what it returns when the assessment itself failed) is deliberately not one of
+the four: it normalizes to None, which is the same as unassessed, because it is.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any, Mapping, Optional, cast
+from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from app.schemas.feature import TRUST_LEVELS, TrustLevel
+
+logger = logging.getLogger(__name__)
 
 _BY_LOWERCASE: dict[str, TrustLevel] = {
     level.lower(): cast(TrustLevel, level) for level in TRUST_LEVELS
@@ -37,16 +47,17 @@ _BY_LOWERCASE: dict[str, TrustLevel] = {
 
 @dataclass(frozen=True)
 class QualityVerdict:
-    """One upload's data-quality result.
+    """One upload's data-quality result, for one channel or for the capture.
 
-    `failed_checks` names the checks that did not pass, in the order the engine
-    reported them. An empty list alongside a non-null level means everything
-    passed — which is why "not assessed" is a missing verdict rather than an
-    empty one.
+    `failed_checks` names the checks that ran and did not pass; `not_assessed`
+    names the ones that could not run at all. Both empty alongside a non-null
+    level means everything was checked and everything passed — which is why
+    "not assessed" is a missing verdict rather than an empty one.
     """
 
     trust_level: TrustLevel
     failed_checks: list[str] = field(default_factory=list)
+    not_assessed: list[str] = field(default_factory=list)
 
 
 def normalize_trust_level(value: Any) -> Optional[TrustLevel]:
@@ -69,7 +80,7 @@ def normalize_trust_level(value: Any) -> Optional[TrustLevel]:
 
 
 def normalize_failed_checks(value: Any) -> list[str]:
-    """Reduce a list of failed checks to the names the response carries.
+    """Reduce a list of checks to the names the response carries.
 
     The engine may report checks as plain names or as records with a code and a
     message attached. Both flatten to a name here; blanks and duplicates are
@@ -103,31 +114,70 @@ def normalize_failed_checks(value: Any) -> list[str]:
     return names
 
 
-def read_quality(upload: Any) -> Optional[QualityVerdict]:
-    """The verdict for an upload, or None when nothing has assessed it.
+def verdict_from_assessments(
+    assessments: Mapping[Any, Any],
+    channel: Optional[int] = None,
+) -> Optional[QualityVerdict]:
+    """Pick the assessment that answers the question that was asked.
 
-    Reads the result off the upload row. Nothing writes those attributes today,
-    so this returns None for every upload in this build — deliberately, per the
-    first rule at the top of this module.
+    `assessments` is what `quality_storage.latest_for_upload` returns: stored
+    rows keyed by channel index, with the key None holding the capture-level
+    verdict (the worst of its channels).
 
-    It is written as an attribute read rather than a hard-coded None so that an
-    engine storing its verdict on the upload needs no change here, and so the
-    endpoint and its tests exercise the real path rather than a stub that will
-    be deleted.
+    Asking about the whole capture gets the capture-level row. Asking about one
+    channel gets *that channel's* row and nothing else — no falling back to the
+    capture. The capture's level is the worst of eight channels, so handing it
+    back for channel 3 would report another channel's problem as channel 3's.
+    A channel with no stored row was never assessed, and says so by returning
+    None, per the first rule at the top of this module.
     """
-    if upload is None:
+    if not assessments:
         return None
 
-    level = normalize_trust_level(
-        getattr(upload, "trust_level", None) or getattr(upload, "data_trust_level", None)
-    )
+    row = assessments.get(int(channel) if channel is not None else None)
+    if row is None:
+        return None
+
+    level = normalize_trust_level(_field(row, "level"))
     if level is None:
         return None
 
     return QualityVerdict(
         trust_level=level,
-        failed_checks=normalize_failed_checks(
-            getattr(upload, "failed_checks", None)
-            or getattr(upload, "data_quality_failed_checks", None)
-        ),
+        failed_checks=normalize_failed_checks(_field(row, "failed_checks")),
+        not_assessed=normalize_failed_checks(_field(row, "not_assessed")),
     )
+
+
+def _field(row: Any, name: str) -> Any:
+    """Read a column off a mapping row or an object row, whichever arrived."""
+    if isinstance(row, Mapping):
+        return row.get(name)
+    return getattr(row, name, None)
+
+
+def read_quality(
+    db: Session,
+    upload_id: UUID,
+    channel: Optional[int] = None,
+) -> Optional[QualityVerdict]:
+    """The stored verdict for an upload, or None when nothing assessed it.
+
+    Never raises. The verdict is an annotation on the features, not the
+    features themselves, and an upload whose quality could not be looked up is
+    still an upload worth returning — losing the whole response to the thing
+    that grades it would be the worst outcome available. A lookup that fails is
+    logged and reported as unassessed, which is what it is.
+    """
+    # Imported here rather than at module scope: quality_storage pulls in numpy
+    # and the engine, and the schema-facing helpers above are imported by code
+    # that has no need of either.
+    from app.services import quality_storage
+
+    try:
+        assessments = quality_storage.latest_for_upload(db, upload_id)
+    except Exception:
+        logger.exception("Could not read quality assessment for upload %s", upload_id)
+        return None
+
+    return verdict_from_assessments(assessments, channel)

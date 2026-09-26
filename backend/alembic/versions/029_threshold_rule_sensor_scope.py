@@ -31,8 +31,8 @@ So the three existing predicates are narrowed to mean "and not scoped to a
 sensor or a piece of equipment either", and four more cover uniqueness at the
 new scopes. Rewriting a predicate rewrites an index, not a row.
 
-Revision ID: 023
-Revises: 021
+Revision ID: 029
+Revises: 028
 """
 from typing import Sequence, Union
 
@@ -40,11 +40,16 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
-revision: str = "023"
-# 022 is not in this repository. 021 is the only head here, so this chains to
-# it; if 022 lands later it must revise 023 rather than 021, or the two become
-# separate heads and `alembic upgrade head` stops being able to pick one.
-down_revision: Union[str, None] = "021"
+revision: str = "029"
+# Originally written as 023 chained to 021, when 021 was the only head in this
+# repository. 022 onwards then landed from another branch and did exactly what
+# the note here warned about: two revisions numbered 023, two numbered 021, and
+# two heads, so `alembic upgrade head` could no longer pick one and everything
+# from 024 up was stranded. Re-chained onto 028, the real head.
+#
+# Safe to re-run where the old 023 already applied it: every step below is
+# guarded by an existence check, so on those databases this is a no-op.
+down_revision: Union[str, None] = "028"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

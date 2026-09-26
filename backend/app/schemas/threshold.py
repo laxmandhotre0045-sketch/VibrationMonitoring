@@ -32,6 +32,12 @@ class ThresholdRuleOut(BaseModel):
     rule_type: str
     machine_type: Optional[str] = None
     channel: Optional[int] = None
+    #: The scope this rule was written at, narrowest first: a sensor, or a
+    #: machine, or neither. Both null means the rule is not narrowed that way —
+    #: which, with machine_type also null, is the global rule everything falls
+    #: back to. A rule carries at most one of the two.
+    sensor_id: Optional[UUID] = None
+    equipment_id: Optional[UUID] = None
     normal_max: Optional[float] = None
     warning_max: Optional[float] = None
     normal_min: Optional[float] = None
@@ -46,11 +52,30 @@ class ThresholdRuleOut(BaseModel):
     limit_labels: Dict[str, str] = Field(default_factory=dict)
 
 
+class ThresholdScopeSensorOut(BaseModel):
+    """One sensor a rule could be written for.
+
+    Every sensor is listed, not only the ones that have a rule. A coverage view
+    whose rows came from the rules could only ever show sensors that already
+    have their own limit — the ones falling back to the global rule are exactly
+    what it needs to name, and they have no row to be named by.
+    """
+
+    id: UUID
+    label: str
+    machine_name: Optional[str] = None
+    machine_type: Optional[str] = None
+    equipment_id: Optional[UUID] = None
+
+
 class ThresholdRuleListOut(BaseModel):
     items: List[ThresholdRuleOut]
     rule_types: Dict[str, Dict[str, Any]]
     #: Channels that carry at least one override, for the coverage matrix.
     overridden_channels: List[int] = Field(default_factory=list)
+    #: Every sensor on the platform, so coverage can show inheritance as well
+    #: as overrides. See ThresholdScopeSensorOut.
+    sensors: List[ThresholdScopeSensorOut] = Field(default_factory=list)
 
 
 class ThresholdRuleUpdate(BaseModel):
@@ -68,11 +93,20 @@ class ThresholdRuleUpdate(BaseModel):
 
 
 class ThresholdRuleCreate(BaseModel):
-    """Create a channel-specific override of a feature's global rule."""
+    """Create an override of a feature's global rule, at some narrower scope.
+
+    A channel, a machine type, one machine or one sensor — or a combination of
+    a channel with one of the others. `sensor_id` and `equipment_id` are
+    mutually exclusive: a sensor already belongs to one machine, so a rule
+    naming both would either repeat itself or contradict itself, and the
+    database has a CHECK that refuses it.
+    """
 
     feature_code: str
     channel: Optional[int] = Field(default=None, ge=0, le=63)
     machine_type: Optional[str] = None
+    sensor_id: Optional[UUID] = None
+    equipment_id: Optional[UUID] = None
     rule_type: Optional[str] = None
     normal_max: Optional[float] = None
     warning_max: Optional[float] = None
@@ -83,6 +117,11 @@ class ThresholdRuleCreate(BaseModel):
 
     @model_validator(mode="after")
     def _check(self) -> "ThresholdRuleCreate":
+        if self.sensor_id is not None and self.equipment_id is not None:
+            raise ValueError(
+                "A rule is scoped to a sensor or to a machine, not both: a sensor "
+                "already belongs to one machine."
+            )
         if self.rule_type is not None and self.rule_type not in RULE_TYPES:
             raise ValueError(f"rule_type must be one of {', '.join(RULE_TYPES)}")
         _validate_ordering(self.normal_max, self.warning_max, self.normal_min, self.warning_min)

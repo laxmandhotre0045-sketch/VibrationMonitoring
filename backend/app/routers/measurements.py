@@ -1309,7 +1309,11 @@ def get_upload_features(
     # How far these numbers can be trusted travels with them. A caller that has
     # the features but not the verdict has no way to ask for it later without a
     # second round trip, and will simply render them as fact.
-    verdict = read_quality(upload)
+    #
+    # Scoped to the same channel as the features: asking for channel 3 gets
+    # channel 3's verdict, not the capture's worst-of-eight. Asking for the
+    # whole capture gets the capture's.
+    verdict = read_quality(db, upload_id, channel=channel)
 
     return UploadFeaturesOut(
         upload_id=upload.id,
@@ -1323,6 +1327,7 @@ def get_upload_features(
         channel_overview=_channel_health_overview(channel_rows, definitions),
         trust_level=verdict.trust_level if verdict else None,
         failed_checks=list(verdict.failed_checks) if verdict else [],
+        not_assessed_checks=list(verdict.not_assessed) if verdict else [],
     )
 
 

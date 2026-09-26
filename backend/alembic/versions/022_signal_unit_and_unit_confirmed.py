@@ -1,7 +1,7 @@
 """Record what unit a sensor's samples are stored in, and whether that is known.
 
 Revision ID: 022
-Revises: 021
+Revises: 021a
 
 VIK-006. Numbered 022 rather than the ticket's 019, which was taken twice over
 by the time this was written -- once by the raw-channel summary stats and once
@@ -34,7 +34,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "022"
-down_revision = "021"
+down_revision = "021a"
 branch_labels = None
 depends_on = None
 

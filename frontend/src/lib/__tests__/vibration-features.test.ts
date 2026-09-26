@@ -36,21 +36,66 @@ const SUPERSCRIPT_TWO = "²";
 // ---------------------------------------------------------------------------
 
 describe("the catalog", () => {
-  it("is exactly these ten features, in this order", () => {
+  it("is exactly these forty-six features, in this order", () => {
     // Written out rather than derived on purpose. Everything else here checks
     // the catalog against itself and would happily follow a mistake; this is
     // the one assertion that makes adding, removing or reordering a feature a
     // deliberate act with a matching test edit.
+    //
+    // Grouped by category, which is the order the Status tab and the Settings
+    // grid render. The backend's own list is ordered by when each feature was
+    // added, and the contract test next door checks the two cover each other
+    // as sets rather than in step.
     expect(KEYS).toEqual([
+      // time_domain
       "rms",
       "peak",
       "crest_factor",
       "kurtosis",
+      "peak_to_peak",
+      "std_dev",
+      "skewness",
+      "impulse_factor",
+      "shape_factor",
+      "clearance_factor",
+      "burst_count",
+      "shock_index",
+      "modulation_index",
+      "rms_change_short",
+      "rms_change_long",
+      "zero_crossing_rate",
+      "dc_offset",
+      // frequency_domain
       "fft_band_energy",
       "amplitude_1x",
       "amplitude_2x",
       "amplitude_3x",
+      "dominant_frequency",
+      "dominant_prominence",
+      "harmonic_count",
+      "harmonic_energy_ratio",
+      "sideband_spacing",
+      "sideband_energy_ratio",
+      "spectral_centroid",
+      "spectral_spread",
+      "spectral_entropy",
+      "broadband_noise",
+      "haystack_score",
+      "narrowband_ratio",
+      "peak_drift",
+      // envelope
       "envelope_rms",
+      "ftf_band_energy",
+      "bsf_band_energy",
+      "bpfo_band_energy",
+      "bpfi_band_energy",
+      "bearing_harmonic_energy",
+      "envelope_peak",
+      "envelope_kurtosis",
+      "demodulated_peak_prominence",
+      "repetition_impact_frequency",
+      "resonance_band_energy",
+      // noise
       "noise_floor",
     ]);
   });
