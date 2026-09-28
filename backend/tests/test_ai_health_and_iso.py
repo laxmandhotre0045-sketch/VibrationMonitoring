@@ -78,7 +78,7 @@ def test_poor_data_lowers_the_ceiling_and_never_the_score():
 def test_a_clean_well_seen_machine_scores_near_a_hundred():
     verdict = assess(anomaly_scores=[8, 12, 5], **SEEN_WELL)
     assert verdict.score >= 97
-    assert verdict.band == "healthy"
+    assert verdict.band == "Excellent"
 
 
 def test_one_severe_fault_outranks_four_mild_concerns():
@@ -114,7 +114,7 @@ def test_the_score_cannot_leave_the_scale():
         symptoms=[{"key": "s", "name": "Impacting"}], **SEEN_WELL)
 
     assert 0.0 <= verdict.score <= 100.0
-    assert verdict.band == "critical"
+    assert verdict.band == "Critical"
 
 
 def test_criticality_moves_priority_and_leaves_condition_alone():
@@ -166,7 +166,7 @@ def test_a_recovered_machine_reads_healthy_but_keeps_its_history():
         findings=[finding(severity=0, stage="normal", peak_stage="severe")],
         anomaly_scores=[15], **SEEN_WELL)
 
-    assert verdict.band == "healthy"
+    assert verdict.band in ("Excellent", "Good")
     assert any(c.key == "history" for c in verdict.contributions)
 
 
@@ -178,13 +178,45 @@ def test_an_unmeasurable_trend_is_recorded_as_unknown_not_as_steady():
     assert all(c.key != "trend" for c in verdict.contributions)
 
 
-def test_bands_are_not_the_fault_stage_vocabulary():
-    """A health band describes a machine; a stage describes one finding on
-    one channel. Sharing words invites them to be read as one claim."""
+def test_the_bands_are_the_ones_requirement_12_1_specifies():
+    """Verbatim, boundaries and words.
+
+    These were originally invented -- five bands at different cut-offs,
+    "healthy" and "acceptable" for "Excellent" and "Good" -- on the
+    reasoning that a health band and a fault stage should not share
+    vocabulary. The reasoning was sound and the decision was still wrong:
+    the document sets the boundaries and the words, somebody will check the
+    screen against it, and a band reading "degraded" where the
+    specification says "Watch" is a defect however well argued.
+    """
     assert band_for(None) == "unknown"
-    assert band_for(95) == "healthy"
-    assert band_for(10) == "critical"
-    assert "watch" not in {band_for(s) for s in range(0, 101, 5)}
+    for score, expected in ((100, "Excellent"), (90, "Excellent"),
+                            (89, "Good"), (75, "Good"),
+                            (74, "Watch"), (60, "Watch"),
+                            (59, "Poor"), (40, "Poor"),
+                            (39, "High risk"), (20, "High risk"),
+                            (19, "Critical"), (0, "Critical")):
+        assert band_for(score) == expected, score
+
+
+def test_trend_acceleration_is_its_own_input():
+    """Requirement 12.1 lists it separately from the trend, and is right
+    to: something getting worse steadily and something getting worse faster
+    and faster are different amounts of time to act in."""
+    steady = assess(anomaly_scores=[60], trend_rising=True,
+                    trend_accelerating=False, **SEEN_WELL)
+    speeding = assess(anomaly_scores=[60], trend_rising=True,
+                      trend_accelerating=True, **SEEN_WELL)
+
+    assert speeding.score < steady.score
+    assert any(c.key == "acceleration" for c in speeding.contributions)
+
+
+def test_unknown_acceleration_is_not_reported_as_steady():
+    verdict = assess(anomaly_scores=[60], trend_rising=True,
+                     trend_accelerating=None, **SEEN_WELL)
+    assert all(c.key != "acceleration" for c in verdict.contributions)
+    assert any("speeding up" in u for u in verdict.unknowns)
 
 
 # ========================================================  ISO  ==========

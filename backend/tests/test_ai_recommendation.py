@@ -234,3 +234,54 @@ def test_a_fault_with_no_recorded_action_still_returns_something_usable():
 
 def test_the_history_is_capped_so_a_row_cannot_grow_without_limit():
     assert 4 <= HISTORY_LENGTH <= 50
+
+
+# --------------------------------------- trend acceleration (12.1, 10.2) --
+
+def test_acceleration_needs_a_real_run_of_readings():
+    """Requirement 12.1 asks for acceleration as its own input. Two slopes
+    need four points, and below six the second slope is mostly the noise in
+    the first -- so this returns None rather than "not accelerating", which
+    would be a reassuring answer nobody measured."""
+    from app.ai.recommendation import (MIN_SIGHTINGS_FOR_ACCELERATION,
+                                       acceleration_of)
+
+    assert MIN_SIGHTINGS_FOR_ACCELERATION >= 4
+    short = [0.1] * (MIN_SIGHTINGS_FOR_ACCELERATION - 1)
+    assert acceleration_of(short) is None
+    assert acceleration_of([0.1, 0.9]) is None
+
+
+def test_a_deterioration_that_speeds_up_is_reported_as_accelerating():
+    from app.ai.recommendation import acceleration_of
+
+    verdict = acceleration_of([0.10, 0.12, 0.14, 0.20, 0.32, 0.50])
+    assert verdict is not None
+    assert verdict["accelerating"] is True
+    assert "speeding up" in verdict["statement"]
+    assert verdict["late_rate"] > verdict["early_rate"]
+
+
+def test_a_deterioration_that_is_easing_off_is_not_accelerating():
+    from app.ai.recommendation import acceleration_of
+
+    verdict = acceleration_of([0.10, 0.22, 0.34, 0.40, 0.44, 0.46])
+    assert verdict["accelerating"] is False
+
+
+def test_a_fault_recovering_faster_and_faster_is_not_an_emergency():
+    """The sign error worth guarding. A score falling ever more steeply is
+    good news; comparing rates without checking direction reports it as an
+    accelerating fault."""
+    from app.ai.recommendation import acceleration_of
+
+    verdict = acceleration_of([0.90, 0.70, 0.50, 0.30, 0.16, 0.05])
+    assert verdict["accelerating"] is False
+    assert verdict["late_rate"] < 0
+
+
+def test_a_steady_climb_is_not_accelerating():
+    from app.ai.recommendation import acceleration_of
+
+    verdict = acceleration_of([0.10, 0.20, 0.30, 0.40, 0.50, 0.60])
+    assert verdict["accelerating"] is False

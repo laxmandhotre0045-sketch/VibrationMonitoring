@@ -28,6 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.ai.health import assess
+from app.ai.recommendation import acceleration_of
 from app.services.alarm_storage import ALARMS, active_alarms
 from app.services.baseline_lifecycle import _IN_FORCE_SQL
 
@@ -67,7 +68,8 @@ def sensor_health(db: Session, sensor_id: UUID, *,
     """Score one sensor's machine from everything stored about it."""
     findings = [dict(r) for r in db.execute(text(f"""
         SELECT fault_key, fault_name, channel, stage, severity, confidence,
-               times_seen, peak_stage, resolved_at, resolution
+               times_seen, peak_stage, resolved_at, resolution,
+               score_history, direction
           FROM {FINDINGS} WHERE sensor_id = :s
     """), {"s": str(sensor_id)}).mappings().fetchall()]
 
@@ -144,9 +146,25 @@ def sensor_health(db: Session, sensor_id: UUID, *,
     if escalating:
         trend_rising = True
 
+    # Requirement 12.1 lists trend acceleration as its own input, separately
+    # from the trend. Read off the worst open finding's score history, which
+    # is the only run of comparable numbers this machine keeps.
+    accelerating: Optional[bool] = None
+    acceleration: Optional[dict[str, Any]] = None
+    open_rows = [f for f in findings if f.get("resolved_at") is None
+                 and f.get("score_history")]
+    if open_rows:
+        worst = max(open_rows, key=lambda f: int(f.get("severity") or 0))
+        acceleration = acceleration_of(worst["score_history"] or [])
+        if acceleration is not None:
+            accelerating = bool(acceleration["accelerating"])
+            trend_rising = trend_rising or (
+                worst.get("direction") == "rising")
+
     verdict = assess(
         findings=findings, anomaly_scores=scores, symptoms=symptoms,
         active_alarms=alarms, trend_rising=trend_rising,
+        trend_accelerating=accelerating, acceleration_detail=acceleration,
         has_baseline=has_baseline, resolution_usable=resolution_usable,
         hours_since_capture=hours,
         captures_seen=int(captures) if captures is not None else None,

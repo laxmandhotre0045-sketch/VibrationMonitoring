@@ -155,6 +155,50 @@ def direction_of(scores: Sequence[float]) -> Direction:
         f"margin that separates movement from run-to-run wobble.")
 
 
+#: Readings needed before acceleration can be judged. Two slopes need
+#: four points, and four is the bare minimum at which the second slope is
+#: not simply the noise in the first.
+MIN_SIGHTINGS_FOR_ACCELERATION = 6
+
+
+def acceleration_of(scores: Sequence[float]) -> Optional[dict[str, Any]]:
+    """Is the deterioration speeding up? Requirement 12.1 and 10.2.
+
+    Compares how fast the score moved over the recent half against the
+    earlier half. Returns ``None`` when there are too few readings, because
+    "not accelerating" and "not enough data to tell" are different answers
+    and only one of them is reassuring.
+    """
+    values = [float(s) for s in scores if s is not None]
+    if len(values) < MIN_SIGHTINGS_FOR_ACCELERATION:
+        return None
+
+    middle = len(values) // 2
+    early, late = values[:middle + 1], values[middle:]
+    early_rate = (early[-1] - early[0]) / max(len(early) - 1, 1)
+    late_rate = (late[-1] - late[0]) / max(len(late) - 1, 1)
+
+    # Only a worsening trend can accelerate. A fault recovering faster and
+    # faster is good news and must not be reported as an emergency.
+    accelerating = late_rate > early_rate + DIRECTION_MARGIN / 2 \
+        and late_rate > 0
+
+    return {
+        "accelerating": accelerating,
+        "early_rate": round(early_rate, 4),
+        "late_rate": round(late_rate, 4),
+        "statement": (
+            f"The score rose {late_rate:.3f} per reading over the most "
+            f"recent {len(late)} readings against {early_rate:.3f} over the "
+            f"earlier {len(early)}, so the deterioration is speeding up and "
+            f"the time available to act is shortening."
+            if accelerating else
+            f"The rate of change went from {early_rate:.3f} to "
+            f"{late_rate:.3f} per reading, so the trend is not speeding "
+            f"up."),
+    }
+
+
 def _cap(proposed: str, ceiling: str) -> str:
     return proposed if URGENCY.index(proposed) <= URGENCY.index(ceiling) \
         else ceiling

@@ -57,6 +57,7 @@ WEIGHTS = {
     "unusualness": 0.55,
     "alarms": 0.50,
     "trend": 0.35,
+    "acceleration": 0.30,
     "history": 0.30,
     "symptoms": 0.25,
 }
@@ -154,24 +155,32 @@ class HealthVerdict:
         }
 
 
-def band_for(score: Optional[float]) -> str:
-    """The word that goes with the number.
+#: Requirement 12.1's bands, verbatim: lower bound and label.
+#:
+#: These were originally invented -- five bands at different boundaries,
+#: with "healthy" and "acceptable" in place of "Excellent" and "Good" --
+#: on the reasoning that a health band and a fault stage should not share
+#: vocabulary, since one describes a machine and the other one finding on
+#: one channel. That reasoning is fine and the decision was still wrong:
+#: the requirement specifies the boundaries and the words, somebody will
+#: check the screen against the document, and a band that reads "degraded"
+#: where the specification says "Watch" is a defect however well argued.
+#:
+#: The collision the original choice avoided is handled by context instead.
+#: A machine has a health band; a finding has a stage. They are never shown
+#: in the same column.
+BANDS = ((90, "Excellent"), (75, "Good"), (60, "Watch"), (40, "Poor"),
+         (20, "High risk"), (0, "Critical"))
 
-    Deliberately not the same vocabulary as the fault stages. A health band
-    describes a machine; a stage describes one finding on one channel, and
-    reusing the words invites the two to be read as the same claim.
-    """
+
+def band_for(score: Optional[float]) -> str:
+    """The word that goes with the number, per requirement 12.1."""
     if score is None:
         return "unknown"
-    if score >= 90:
-        return "healthy"
-    if score >= 75:
-        return "acceptable"
-    if score >= 55:
-        return "degraded"
-    if score >= 35:
-        return "poor"
-    return "critical"
+    for lower, label in BANDS:
+        if score >= lower:
+            return label
+    return "Critical"
 
 
 def _quality(
@@ -224,6 +233,8 @@ def assess(
     active_alarms: Sequence[dict[str, Any]] = (),
     trend_rising: Optional[bool] = None,
     trend_detail: Optional[dict[str, Any]] = None,
+    trend_accelerating: Optional[bool] = None,
+    acceleration_detail: Optional[dict[str, Any]] = None,
     has_baseline: bool = False,
     resolution_usable: Optional[bool] = None,
     hours_since_capture: Optional[float] = None,
@@ -330,6 +341,23 @@ def assess(
             "Whether this machine is getting worse could not be established "
             "-- the steadiness check needs about ten shaft revolutions per "
             "half of the record and this gateway's captures are too short.")
+
+    # Requirement 12.1 lists trend acceleration separately from the trend
+    # itself, and it is right to: something getting worse steadily and
+    # something getting worse faster and faster are different amounts of
+    # time to act in, and only the second one has a deadline.
+    if trend_accelerating is True:
+        add("acceleration", "Getting worse faster",
+            0.9,
+            (acceleration_detail or {}).get("statement")
+            or "The rate of change is itself increasing, so the time "
+               "available to act is shortening.",
+            acceleration_detail or {})
+    elif trend_accelerating is None and trend_rising is not None:
+        unknowns.append(
+            "Whether the deterioration is speeding up could not be "
+            "established, which needs a longer run of readings than this "
+            "machine has.")
 
     # ----------------------------------------------------------- symptoms
     named = [s for s in symptoms if s.get("key")]

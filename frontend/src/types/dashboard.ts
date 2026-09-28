@@ -2,12 +2,16 @@ export type EquipmentHealthStatus = "critical" | "warning" | "normal" | "no_base
 
 /** Deliberately not the fault-stage vocabulary: a band describes a machine,
  *  a stage describes one finding on one channel. */
+/** Requirement 12.1's bands, verbatim: 90+ / 75+ / 60+ / 40+ / 20+ / below.
+ *  Capitalised because the document names them that way and the screen is
+ *  checked against it. */
 export type HealthBand =
-  | "healthy"
-  | "acceptable"
-  | "degraded"
-  | "poor"
-  | "critical"
+  | "Excellent"
+  | "Good"
+  | "Watch"
+  | "Poor"
+  | "High risk"
+  | "Critical"
   | "unknown";
 
 /** How well the machine can be seen at all. Caps `health_ceiling`. */
