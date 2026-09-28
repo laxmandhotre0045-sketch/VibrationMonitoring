@@ -231,3 +231,178 @@ def test_every_verdict_explains_itself():
     for scores, conf in ((SUSTAINED, 0.9), (SPIKE, 0.9),
                          (SUSTAINED, 0.1), ([10.0], 0.9)):
         assert len(verdict(scores, confidence=conf).reason) > 40
+
+
+# ------------------------- the four conditions behind escalation -------
+#
+# VIK-044's full sentence: "Escalation needs repetition, a rising trend,
+# steady speed and trustworthy data. Record each condition separately so the
+# reason for escalating can be audited."
+#
+# The first cut of this file covered two of the four and collapsed them into
+# one string. These cover all four, and the separation -- because a finding
+# that did not escalate has to be able to say which condition it was short
+# of, months later, to somebody who was not there.
+
+from app.ai.alarm import RISING_MARGIN, Conditions, is_rising  # noqa: E402
+
+CLIMBING = [95.0, 90.0, 85.0, 80.0]        # newest first, rising
+FLAT_HIGH = [95.0, 95.0, 94.0, 95.0]       # sustained, not rising
+
+
+def full(scores, *, stability="steady", confidence=0.9, profile=BALANCED):
+    return evaluate(2, "rms", scores, confidence=confidence, band="high",
+                    sensitivity=resolve(profile), stability=stability)
+
+
+def test_all_four_conditions_escalate():
+    verdict = full(CLIMBING)
+    assert verdict.alarming is True
+    assert verdict.escalating is True
+    assert verdict.conditions.all_met is True
+    assert verdict.conditions.missing() == []
+
+
+@pytest.mark.parametrize("kwargs,missing", [
+    ({"stability": "unstable"}, "steady speed"),
+    ({"stability": None}, "steady speed"),
+])
+def test_an_unsteady_speed_stops_escalation_but_not_the_alarm(kwargs, missing):
+    """A fault found while the speed was moving is still a fault. The moving
+    speed is a reason to check the finding, not to discard it."""
+    verdict = full(CLIMBING, **kwargs)
+    assert verdict.alarming is True, "the reading is real either way"
+    assert verdict.escalating is False
+    assert missing in verdict.conditions.missing()
+
+
+def test_a_flat_severe_fault_still_rings():
+    """The property that matters most here. A bearing that jumped to 95 and
+    stayed there is not rising, and is exactly what an alarm exists for --
+    requiring a climb to ring would silence the worst findings a machine can
+    produce."""
+    verdict = full(FLAT_HIGH)
+    assert verdict.alarming is True
+    assert verdict.escalating is False
+    assert verdict.conditions.rising is False
+    assert "rising trend" in verdict.reason
+
+
+def test_escalation_is_never_claimed_without_the_alarm():
+    """Escalating is a stronger claim than alarming, never a weaker one. A
+    fault getting worse that nobody is told about is the worst state here."""
+    for scores, kw in ((CLIMBING, {"confidence": 0.1}),
+                       ([95.0, 10.0, 10.0], {}),
+                       ([10.0, 10.0, 10.0], {})):
+        verdict = full(scores, **kw)
+        assert not (verdict.escalating and not verdict.alarming)
+
+
+def test_every_condition_is_recorded_whatever_the_outcome():
+    """Recorded, not merely consulted. A finding held back at the first gate
+    still has to say how the other three stood."""
+    verdict = full([95.0, 10.0, 10.0, 10.0])          # fails repetition
+    assert verdict.held_back == "not_persistent"
+    recorded = verdict.conditions.as_dict()
+    assert set(recorded) == {"repetition", "rising", "steady_speed",
+                             "trustworthy"}
+    assert recorded["repetition"] is False
+    assert recorded["steady_speed"] is True, (
+        "the speed was steady even though the finding did not repeat, and "
+        "the record has to say so"
+    )
+
+
+def test_the_reason_names_which_conditions_were_short():
+    """A single boolean cannot say "it repeated and was trustworthy but
+    never climbed", and that is the only question worth asking about an
+    alarm that did not escalate."""
+    verdict = full(FLAT_HIGH, stability="unstable")
+    assert "rising trend" in verdict.reason
+    assert "steady speed" in verdict.reason
+
+
+# ------------------------------------------- the rising-trend test -----
+
+def test_a_climb_is_rising_and_a_flat_run_is_not():
+    assert is_rising(CLIMBING, 4) is True
+    assert is_rising(FLAT_HIGH, 4) is False
+
+
+def test_a_falling_run_is_not_rising():
+    assert is_rising([80.0, 85.0, 90.0, 95.0], 4) is False
+
+
+def test_a_two_capture_run_cannot_be_called_rising():
+    """Two points have a direction but not a shape, and calling that a trend
+    would make every second capture a worsening machine."""
+    assert is_rising([95.0, 80.0], 2) is False
+
+
+def test_ordinary_scatter_does_not_count_as_a_climb():
+    """A bare "newer > older" would call half of all flat runs rising by
+    coin flip, and every one of those would read as a machine getting
+    worse."""
+    barely = [82.0, 81.0, 80.0, 80.0]      # under the margin
+    assert max(barely) - min(barely) < RISING_MARGIN
+    assert is_rising(barely, 4) is False
+
+
+def test_one_spike_inside_a_run_does_not_make_it_rising():
+    """The case that broke the first version of this test.
+
+    Comparing the median of each half looked robust and was not: a run is
+    often four captures, so each half holds two values, and the median of
+    two values is their mean. This spike counted in full and the run came
+    back as a machine getting worse. Comparing the ends makes the answer
+    depend on the readings the spike is not sitting on.
+    """
+    spiked = [70.0, 99.0, 70.0, 70.0]
+    assert is_rising(spiked, 4) is False
+
+
+def test_a_run_that_was_flat_and_has_just_jumped_is_rising():
+    """Deliberately. It has already satisfied repetition, so it is not one
+    odd reading -- and a step change is the shape of a fault arriving."""
+    assert is_rising([99.0, 70.0, 70.0, 70.0], 4) is True
+
+
+def test_a_run_that_mostly_falls_is_not_rising_even_if_it_ends_higher():
+    """What the direction check earns its keep on.
+
+    Oldest to newest this goes 70, 100, 95, 90, 85, 74: one jump and then a
+    steady decline. It ends four points above where it started, so the
+    endpoints alone would call it rising -- but four of its five steps are
+    downward and the machine is plainly recovering, not degrading.
+
+    The first version of this test used a series I called "mostly falling"
+    that was nothing of the sort, just noisy, and it failed for that reason
+    rather than for a fault in the code.
+    """
+    assert is_rising([74.0, 85.0, 90.0, 95.0, 100.0, 70.0], 6) is False
+
+
+def test_escalating_findings_rank_above_merely_ringing_ones():
+    """A fault getting worse is the one to look at first. Ordered on score
+    alone it would be buried under a higher reading flat for a month."""
+    histories = {
+        (0, "flat"): [99.0, 99.0, 98.0, 99.0],       # higher, and not moving
+        (0, "climbing"): CLIMBING,                    # lower, and climbing
+    }
+    current = {
+        (0, "flat"): {"confidence": 0.9, "band": "critical"},
+        (0, "climbing"): {"confidence": 0.9, "band": "high"},
+    }
+    verdicts = evaluate_capture(histories, current, resolve(BALANCED),
+                                "steady")
+    assert verdicts[0].feature_code == "climbing"
+    assert verdicts[0].escalating is True
+    assert verdicts[1].score > verdicts[0].score, (
+        "and the flat one really does score higher, which is the point"
+    )
+
+
+def test_conditions_report_what_is_missing_in_readable_words():
+    assert Conditions(repetition=True, trustworthy=True).missing() == [
+        "rising trend", "steady speed"]
+    assert Conditions(True, True, True, True).missing() == []

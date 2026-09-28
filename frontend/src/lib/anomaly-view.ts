@@ -1,6 +1,7 @@
 import type { StatusTone } from "@/lib/status-box";
 import type {
   Alarm,
+  AlarmConditions,
   AnomalyBand,
   CaptureScores,
   FeatureScore,
@@ -180,6 +181,38 @@ export function explainHeldBack(alarm: HeldBackAlarm): string {
   return `Sustained, but the normal it was measured against is too thin to act on (${formatConfidence(alarm.confidence)} confidence).`;
 }
 
+export const CONDITION_LABELS: Record<keyof AlarmConditions, string> = {
+  repetition: "Repeated",
+  rising: "Rising",
+  steady_speed: "Steady speed",
+  trustworthy: "Trusted baseline",
+};
+
+/** The conditions in a fixed order, so the row reads the same every time. */
+export const CONDITION_ORDER: (keyof AlarmConditions)[] = [
+  "repetition",
+  "rising",
+  "steady_speed",
+  "trustworthy",
+];
+
+/**
+ * Why a ringing alarm is not escalating.
+ *
+ * Named rather than counted: "two of four" tells nobody anything, and which
+ * two it is decides what to do about it. A finding that never climbed is a
+ * level sitting high; one taken while the speed was swinging is a
+ * measurement to repeat.
+ */
+export function explainNotEscalating(alarm: Alarm): string | null {
+  if (alarm.escalating) return null;
+  const missing = CONDITION_ORDER.filter((key) => !alarm.conditions[key]).map(
+    (key) => CONDITION_LABELS[key].toLowerCase(),
+  );
+  if (missing.length === 0) return null;
+  return `Sustained, not worsening — ${missing.join(" and ")} missing.`;
+}
+
 /** How long a fault has been running, from when it first rang. */
 export function formatDuration(since: string | null, now: Date = new Date()): string {
   if (!since) return "—";
@@ -209,6 +242,10 @@ export function rankAlarms(alarms: Alarm[]): Alarm[] {
   return [...alarms].sort((a, b) => {
     const seen = Number(Boolean(a.acknowledged_at)) - Number(Boolean(b.acknowledged_at));
     if (seen !== 0) return seen;
+    // A fault getting worse outranks a higher reading that has been flat for
+    // a month. Ordered on score alone the climbing one gets buried.
+    const worsening = Number(b.escalating) - Number(a.escalating);
+    if (worsening !== 0) return worsening;
     return (b.score ?? 0) - (a.score ?? 0);
   });
 }

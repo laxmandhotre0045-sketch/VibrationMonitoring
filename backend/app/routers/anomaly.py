@@ -215,19 +215,35 @@ def alarms(
     rows = db.execute(text("""
         SELECT channel, feature_code, score, band, confidence, run_length,
                required, first_alarmed_at, last_alarmed_at, acknowledged_at,
-               acknowledged_by, reason, alarming, held_back
+               acknowledged_by, reason, alarming, held_back, escalating,
+               stability, cond_repetition, cond_rising, cond_steady_speed,
+               cond_trustworthy
           FROM feature_alarm_state
          WHERE sensor_id = :s AND (alarming OR held_back IS NOT NULL)
-         ORDER BY alarming DESC, score DESC NULLS LAST
+         ORDER BY alarming DESC, escalating DESC, score DESC NULLS LAST
     """), {"s": str(sensor_id)}).mappings().fetchall()
 
-    ringing = [dict(r) for r in rows if r["alarming"]]
-    suppressed = [dict(r) for r in rows if r["held_back"]]
+    def shape(row) -> dict:
+        payload = dict(row)
+        # Nested for the caller, flat in the table. The four columns are
+        # queried individually often enough to earn their place as columns,
+        # and a screen wants them as one object.
+        payload["conditions"] = {
+            "repetition": row["cond_repetition"],
+            "rising": row["cond_rising"],
+            "steady_speed": row["cond_steady_speed"],
+            "trustworthy": row["cond_trustworthy"],
+        }
+        return payload
+
+    ringing = [shape(r) for r in rows if r["alarming"]]
+    suppressed = [shape(r) for r in rows if r["held_back"]]
 
     return {
         "sensor_id": sensor_id,
         "profile": sensitivity.profile,
         "alarming": len(ringing),
+        "escalating": sum(1 for r in ringing if r["escalating"]),
         "held_back": len(suppressed),
         "alarms": ringing,
         "suppressed": suppressed if include_suppressed else [],

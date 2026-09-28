@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   BAND_ORDER,
+  CONDITION_ORDER,
   explainHeldBack,
+  explainNotEscalating,
   formatConfidence,
   formatDeviation,
   formatDuration,
@@ -153,6 +155,14 @@ describe("alarms", () => {
       score: 80,
       band: "high",
       confidence: 0.9,
+      escalating: false,
+      conditions: {
+        repetition: true,
+        rising: false,
+        steady_speed: true,
+        trustworthy: true,
+      },
+      stability: "steady",
       run_length: 4,
       required: 3,
       first_alarmed_at: "2026-09-26T10:00:00Z",
@@ -198,6 +208,14 @@ describe("a held-back finding explains which kind it is", () => {
       score: 95,
       band: "critical",
       confidence: 0.2,
+      escalating: false,
+      conditions: {
+        repetition: false,
+        rising: false,
+        steady_speed: true,
+        trustworthy: false,
+      },
+      stability: "steady",
       run_length: 1,
       required: 3,
       first_alarmed_at: null,
@@ -214,5 +232,88 @@ describe("a held-back finding explains which kind it is", () => {
     // "suppressed".
     expect(explainHeldBack(held("not_persistent"))).toContain("1 of the 3");
     expect(explainHeldBack(held("low_confidence"))).toContain("too thin");
+  });
+});
+
+
+describe("the four conditions behind an escalation", () => {
+  function alarm(overrides: Partial<Alarm> = {}): Alarm {
+    return {
+      channel: 0,
+      feature_code: "rms",
+      score: 80,
+      band: "high",
+      confidence: 0.9,
+      escalating: false,
+      conditions: {
+        repetition: true,
+        rising: true,
+        steady_speed: true,
+        trustworthy: true,
+      },
+      stability: "steady",
+      run_length: 4,
+      required: 3,
+      first_alarmed_at: "2026-09-26T10:00:00Z",
+      last_alarmed_at: null,
+      acknowledged_at: null,
+      acknowledged_by: null,
+      reason: null,
+      ...overrides,
+    };
+  }
+
+  it("names which conditions were short, rather than counting them", () => {
+    // "two of four" tells nobody anything; which two decides what to do.
+    const explanation = explainNotEscalating(
+      alarm({
+        conditions: {
+          repetition: true,
+          rising: false,
+          steady_speed: false,
+          trustworthy: true,
+        },
+      }),
+    );
+    expect(explanation).toContain("rising");
+    expect(explanation).toContain("steady speed");
+  });
+
+  it("says nothing when the alarm is escalating", () => {
+    expect(explainNotEscalating(alarm({ escalating: true }))).toBeNull();
+  });
+
+  it("keeps the conditions in a fixed order so the row reads the same", () => {
+    expect(CONDITION_ORDER).toEqual([
+      "repetition",
+      "rising",
+      "steady_speed",
+      "trustworthy",
+    ]);
+  });
+
+  it("puts a worsening fault above a higher one that has been flat", () => {
+    // Ordered on score alone, the climbing fault gets buried under a
+    // reading that has not moved in a month.
+    const ranked = rankAlarms([
+      alarm({ feature_code: "flat", score: 99, escalating: false }),
+      alarm({ feature_code: "climbing", score: 80, escalating: true }),
+    ]);
+    expect(ranked[0].feature_code).toBe("climbing");
+  });
+
+  it("still puts an unseen alarm above an acknowledged escalating one", () => {
+    // Somebody has already looked at the escalating one; nobody has looked
+    // at the other.
+    const ranked = rankAlarms([
+      alarm({
+        feature_code: "seen",
+        score: 99,
+        escalating: true,
+        acknowledged_at: "2026-09-26T11:00:00Z",
+      }),
+      alarm({ feature_code: "new", score: 70, escalating: false }),
+    ]);
+    expect(ranked[0].feature_code).toBe("new");
   });
 });

@@ -24,9 +24,12 @@ import {
 } from "@/hooks/useAnomaly";
 import {
   BAND_LABELS,
+  CONDITION_LABELS,
+  CONDITION_ORDER,
   PROFILE_BLURBS,
   PROFILE_LABELS,
   explainHeldBack,
+  explainNotEscalating,
   formatConfidence,
   formatDeviation,
   formatDuration,
@@ -362,6 +365,14 @@ export function AiInsightsPage() {
               {summary.alarming} ringing
             </StatusBadge>
           )}
+          {summary && summary.escalating > 0 && (
+            // A separate badge, not a bigger number. "Getting worse" is a
+            // different claim from "unusual" and folding them together
+            // loses the one that decides what happens next.
+            <StatusBadge tone="critical">
+              {summary.escalating} getting worse
+            </StatusBadge>
+          )}
         </header>
 
         {alarmsLoading && <p className="text-helper">Loading&hellip;</p>}
@@ -412,6 +423,38 @@ export function AiInsightsPage() {
                 )}
               </div>
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {CONDITION_ORDER.map((key) => (
+                <span
+                  key={key}
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[11px] font-medium",
+                    alarm.conditions[key]
+                      ? "bg-machine-healthy/10 text-machine-healthy"
+                      : "bg-muted text-muted-foreground line-through",
+                  )}
+                  title={
+                    alarm.conditions[key]
+                      ? `${CONDITION_LABELS[key]}: met`
+                      : `${CONDITION_LABELS[key]}: not met`
+                  }
+                >
+                  {CONDITION_LABELS[key]}
+                </span>
+              ))}
+            </div>
+
+            {alarm.escalating ? (
+              <p className="mt-2 text-sm font-medium text-machine-critical">
+                Getting worse &mdash; climbing, on a machine whose speed held
+                steady.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {explainNotEscalating(alarm)}
+              </p>
+            )}
+
             {alarm.reason && (
               <p className="mt-2 text-sm text-muted-foreground">
                 {alarm.reason}

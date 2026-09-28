@@ -102,6 +102,20 @@ class DetectorScoreOut(BaseModel):
 
 # ------------------------------------------------------ alarms ---------
 
+class AlarmConditionsOut(BaseModel):
+    """The four things escalation needs, each on its own.
+
+    Separately, because a finding that did not escalate has to be able to
+    say which of the four it was short of. Collapsed into one flag, an alarm
+    that never climbed is indistinguishable from one taken while the speed
+    was swinging, and those call for different responses.
+    """
+    repetition: bool = False
+    rising: bool = False
+    steady_speed: bool = False
+    trustworthy: bool = False
+
+
 class AlarmOut(BaseModel):
     channel: int
     feature_code: str
@@ -111,6 +125,12 @@ class AlarmOut(BaseModel):
     #: Consecutive captures past the line, and how many this machine's
     #: sensitivity setting requires. Both, because "3 of 3" and "3 of 4"
     #: are the difference between ringing and not.
+    #: All four conditions met: this is a fault getting worse, not merely a
+    #: level sitting high. Always implies `alarming` and never replaces it.
+    escalating: bool = False
+    conditions: AlarmConditionsOut = Field(default_factory=AlarmConditionsOut)
+    #: How the shaft speed behaved during the capture behind this verdict.
+    stability: Optional[str] = None
     run_length: int = 0
     required: int = 0
     #: When this fault *first* started, kept across a dip below the line.
@@ -137,6 +157,7 @@ class AlarmSummaryOut(BaseModel):
     sensor_id: UUID
     profile: str
     alarming: int
+    escalating: int = 0
     held_back: int
     alarms: List[AlarmOut] = Field(default_factory=list)
     suppressed: List[HeldBackOut] = Field(default_factory=list)

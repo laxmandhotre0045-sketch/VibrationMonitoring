@@ -103,12 +103,34 @@ export interface DetectorScore {
   reason: string | null;
 }
 
+/**
+ * The four things escalation needs, each on its own.
+ *
+ * Separately, because a finding that did not escalate has to be able to say
+ * which of the four it was short of — "it repeated and was trustworthy but
+ * never climbed" is the only useful thing to know about one.
+ */
+export interface AlarmConditions {
+  repetition: boolean;
+  rising: boolean;
+  steady_speed: boolean;
+  trustworthy: boolean;
+}
+
 export interface Alarm {
   channel: number;
   feature_code: string;
   score: number | null;
   band: AnomalyBand | null;
   confidence: number | null;
+  /**
+   * All four conditions met: a fault getting worse, not merely a level
+   * sitting high. Always implies `alarming`; never replaces it.
+   */
+  escalating: boolean;
+  conditions: AlarmConditions;
+  /** How the shaft speed behaved during the capture behind this verdict. */
+  stability: string | null;
   /** Consecutive captures past the line, and how many this machine needs. */
   run_length: number;
   required: number;
@@ -132,6 +154,7 @@ export interface AlarmSummary {
   sensor_id: string;
   profile: SensitivityProfile;
   alarming: number;
+  escalating: number;
   held_back: number;
   alarms: Alarm[];
   /** Past the line, not acted on. Never includes features that are simply quiet. */

@@ -105,20 +105,48 @@ def current_scores(db: Session, upload_id: UUID) -> dict[tuple[int, str], dict]:
     return {(int(r["channel"]), r["feature_code"]): dict(r) for r in rows}
 
 
+def capture_stability(db: Session, upload_id: UUID) -> Optional[str]:
+    """How the shaft speed behaved during this capture.
+
+    Read from the operating-mode verdict, which took it from the quality
+    engine. None where nothing assessed it -- and None is not "steady": the
+    steadiness check stands down on records too short to judge, and treating
+    that as steady would let a capture taken during a speed change escalate
+    as though the machine had been holding one speed.
+    """
+    try:
+        return db.execute(text("""
+            SELECT stability FROM capture_operating_modes WHERE upload_id = :u
+        """), {"u": str(upload_id)}).scalar()
+    except Exception:
+        logger.exception("Could not read stability for upload %s", upload_id)
+        return None
+
+
 def _store(db: Session, sensor_id: UUID, upload_id: UUID,
            verdict: AlarmVerdict, now: datetime) -> None:
     """Write one feature's alarm state, preserving when it first rang."""
     db.execute(text(f"""
         INSERT INTO {ALARMS}
-            (sensor_id, channel, feature_code, alarming, run_length, required,
+            (sensor_id, channel, feature_code, alarming, escalating,
+             cond_repetition, cond_rising, cond_steady_speed, cond_trustworthy,
+             stability, run_length, required,
              score, band, confidence, held_back, reason, last_upload_id,
              first_alarmed_at, last_alarmed_at, updated_at)
-        VALUES (:s, :channel, :code, :alarming, :run, :required, :score,
+        VALUES (:s, :channel, :code, :alarming, :escalating,
+                :c_rep, :c_rise, :c_steady, :c_trust,
+                :stability, :run, :required, :score,
                 :band, :confidence, :held_back, :reason, :upload,
                 CASE WHEN :alarming THEN :now ELSE NULL END,
                 CASE WHEN :alarming THEN :now ELSE NULL END, :now)
         ON CONFLICT (sensor_id, channel, feature_code) DO UPDATE SET
             alarming = EXCLUDED.alarming,
+            escalating = EXCLUDED.escalating,
+            cond_repetition = EXCLUDED.cond_repetition,
+            cond_rising = EXCLUDED.cond_rising,
+            cond_steady_speed = EXCLUDED.cond_steady_speed,
+            cond_trustworthy = EXCLUDED.cond_trustworthy,
+            stability = EXCLUDED.stability,
             run_length = EXCLUDED.run_length,
             required = EXCLUDED.required,
             score = EXCLUDED.score,
@@ -151,6 +179,12 @@ def _store(db: Session, sensor_id: UUID, upload_id: UUID,
     """), {
         "s": str(sensor_id), "channel": verdict.channel,
         "code": verdict.feature_code, "alarming": verdict.alarming,
+        "escalating": verdict.escalating,
+        "c_rep": verdict.conditions.repetition,
+        "c_rise": verdict.conditions.rising,
+        "c_steady": verdict.conditions.steady_speed,
+        "c_trust": verdict.conditions.trustworthy,
+        "stability": verdict.stability,
         "run": verdict.run_length, "required": verdict.required,
         "score": verdict.score, "band": verdict.band,
         "confidence": verdict.confidence, "held_back": verdict.held_back,
@@ -173,7 +207,8 @@ def persist_alarms(
             return {"alarming": 0, "held_back": 0, "quiet": 0,
                     "profile": sensitivity.profile, "alarms": []}
         verdicts = evaluate_capture(histories, current_scores(db, upload_id),
-                                    sensitivity)
+                                    sensitivity,
+                                    capture_stability(db, upload_id))
     except Exception:
         logger.exception("Alarm evaluation failed for upload %s", upload_id)
         return {"alarming": 0, "held_back": 0, "quiet": 0,
@@ -190,6 +225,7 @@ def persist_alarms(
     summary = {
         "profile": sensitivity.profile,
         "alarming": len(ringing),
+        "escalating": sum(1 for v in verdicts if v.escalating),
         "held_back": sum(1 for v in verdicts if v.held_back),
         "quiet": sum(1 for v in verdicts
                      if not v.alarming and not v.held_back),
@@ -208,10 +244,12 @@ def active_alarms(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
     rows = db.execute(text(f"""
         SELECT channel, feature_code, score, band, confidence, run_length,
                required, first_alarmed_at, last_alarmed_at, acknowledged_at,
-               acknowledged_by, reason
+               acknowledged_by, reason, escalating, stability,
+               cond_repetition, cond_rising, cond_steady_speed,
+               cond_trustworthy
           FROM {ALARMS}
          WHERE sensor_id = :s AND alarming
-         ORDER BY score DESC NULLS LAST
+         ORDER BY escalating DESC, score DESC NULLS LAST
     """), {"s": str(sensor_id)}).mappings().fetchall()
     return [dict(row) for row in rows]
 

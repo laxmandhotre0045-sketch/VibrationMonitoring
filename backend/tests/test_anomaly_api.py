@@ -524,3 +524,101 @@ def test_a_machine_with_nothing_scored_returns_an_empty_list(
                           headers=admin_headers)
     assert response.status_code == 200
     assert response.json() == []
+
+
+# ------------------------------ the four conditions over the API -------
+
+def test_an_alarm_carries_the_four_conditions_separately(
+    client, admin_headers, db, sensor_id
+):
+    """VIK-044 asks for each condition recorded so an escalation can be
+    audited. Over the wire that means four named booleans, not one flag --
+    "it repeated and was trustworthy but never climbed" is the only useful
+    thing to know about an alarm that did not escalate."""
+    db.execute(sa.text("""
+        INSERT INTO feature_alarm_state
+            (sensor_id, channel, feature_code, alarming, escalating,
+             cond_repetition, cond_rising, cond_steady_speed, cond_trustworthy,
+             stability, run_length, required, score, band, confidence,
+             reason, first_alarmed_at)
+        VALUES (:s, 0, 'rms', true, false, true, false, true, true,
+                'steady', 4, 3, 88.0, 'high', 0.9, 'sustained', now())
+    """), {"s": str(sensor_id)})
+    db.flush()
+
+    body = client.get(ALARMS, params={"sensor_id": str(sensor_id)},
+                      headers=admin_headers).json()
+    alarm = body["alarms"][0]
+
+    assert alarm["escalating"] is False
+    assert alarm["conditions"] == {
+        "repetition": True, "rising": False,
+        "steady_speed": True, "trustworthy": True,
+    }
+    assert alarm["stability"] == "steady"
+    assert body["escalating"] == 0
+
+
+def test_escalating_alarms_are_counted_and_ranked_first(
+    client, admin_headers, db, sensor_id
+):
+    """A fault getting worse is the one to look at first, even when a flat
+    finding scores higher."""
+    db.execute(sa.text("""
+        INSERT INTO feature_alarm_state
+            (sensor_id, channel, feature_code, alarming, escalating,
+             cond_repetition, cond_rising, cond_steady_speed, cond_trustworthy,
+             run_length, required, score, band, confidence, first_alarmed_at)
+        VALUES
+            (:s, 0, 'flat', true, false, true, false, true, true,
+             9, 3, 99.0, 'critical', 0.9, now()),
+            (:s, 1, 'climbing', true, true, true, true, true, true,
+             4, 3, 80.0, 'high', 0.9, now())
+    """), {"s": str(sensor_id)})
+    db.flush()
+
+    body = client.get(ALARMS, params={"sensor_id": str(sensor_id)},
+                      headers=admin_headers).json()
+
+    assert body["escalating"] == 1
+    assert body["alarms"][0]["feature_code"] == "climbing"
+    assert body["alarms"][1]["score"] > body["alarms"][0]["score"], (
+        "the flat one scores higher, which is exactly why ranking on score "
+        "alone would bury the one that is getting worse"
+    )
+
+
+def test_the_database_refuses_an_escalation_that_is_not_an_alarm(
+    db, sensor_id
+):
+    """A fault getting worse that nobody is being told about is the worst
+    state available here, so the schema forbids it."""
+    import pytest as _pytest
+    from sqlalchemy.exc import IntegrityError
+
+    with _pytest.raises(IntegrityError):
+        db.execute(sa.text("""
+            INSERT INTO feature_alarm_state
+                (sensor_id, channel, feature_code, alarming, escalating,
+                 cond_repetition, cond_rising, cond_steady_speed,
+                 cond_trustworthy, run_length, required)
+            VALUES (:s, 7, 'rms', false, true, true, true, true, true, 5, 3)
+        """), {"s": str(sensor_id)})
+        db.flush()
+
+
+def test_the_database_refuses_an_escalation_missing_a_condition(db, sensor_id):
+    """The flag can never disagree with the evidence recorded beside it."""
+    import pytest as _pytest
+    from sqlalchemy.exc import IntegrityError
+
+    with _pytest.raises(IntegrityError):
+        db.execute(sa.text("""
+            INSERT INTO feature_alarm_state
+                (sensor_id, channel, feature_code, alarming, escalating,
+                 cond_repetition, cond_rising, cond_steady_speed,
+                 cond_trustworthy, run_length, required, first_alarmed_at)
+            VALUES (:s, 6, 'rms', true, true, true, false, true, true, 5, 3,
+                    now())
+        """), {"s": str(sensor_id)})
+        db.flush()
