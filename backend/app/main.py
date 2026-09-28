@@ -11,6 +11,7 @@ from app.routers.acquisition import router as acquisition_router
 from app.routers.ai import router as ai_router
 from app.routers.anomaly import router as anomaly_router
 from app.routers.diagnosis import router as diagnosis_router
+from app.routers.triage import router as triage_router
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
 from app.routers.bearings import router as bearings_router
@@ -104,6 +105,7 @@ app.include_router(baselines_router)
 app.include_router(bearings_router)
 app.include_router(dashboard_router)
 app.include_router(diagnosis_router)
+app.include_router(triage_router)
 app.include_router(equipment_router)
 app.include_router(exports_router)
 app.include_router(learned_baselines_router)
