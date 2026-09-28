@@ -160,6 +160,52 @@ def sensor_health(db: Session, sensor_id: UUID, *,
     return payload
 
 
+def capture_symptoms(db: Session, sensor_id: UUID,
+                     upload_id: Optional[UUID] = None) -> dict[str, Any]:
+    """What was observed in a capture's signal, per channel.
+
+    Defaults to the most recent capture. Returns the checks that could run
+    beside the ones that fired, because most captures on this gateway can
+    run only two of the five -- the other three are written in orders of
+    running speed and no shaft speed has ever been established here. An
+    empty list from a two-check capture and an empty list from a five-check
+    one are different findings.
+    """
+    if upload_id is None:
+        upload = latest_upload(db, sensor_id)
+        if not upload:
+            return {"sensor_id": str(sensor_id), "upload_id": None,
+                    "channels": [], "reason":
+                    "No capture exists for this sensor."}
+        upload_id = upload["id"]
+
+    rows = [dict(r) for r in db.execute(text(f"""
+        SELECT channel, symptoms, shaft_usable, checks_run, checks_possible,
+               created_at
+          FROM {CAPTURE_SYMPTOMS}
+         WHERE upload_id = :u ORDER BY channel
+    """), {"u": str(upload_id)}).mappings().fetchall()]
+
+    fired = sum(len(r["symptoms"] or []) for r in rows)
+    if not rows:
+        reason = ("This capture has not been through symptom detection. "
+                  "Nothing has been looked for, which is not the same as "
+                  "nothing being there.")
+    elif fired:
+        reason = (f"{fired} observation(s) across {len(rows)} channel(s).")
+    else:
+        possible = max((r["checks_possible"] for r in rows), default=0)
+        reason = (
+            f"None of the {possible} checks that could run on this capture "
+            f"found anything."
+            + ("" if rows[0]["shaft_usable"] else
+               " Three of the five need a shaft speed, and none was "
+               "established, so they were not among them."))
+
+    return {"sensor_id": str(sensor_id), "upload_id": str(upload_id),
+            "channels": rows, "observations": fired, "reason": reason}
+
+
 def plots_for(db: Session, fault_key: str) -> list[dict[str, Any]]:
     """Which plots would confirm or refute this fault, best first."""
     rows = db.execute(text(f"""

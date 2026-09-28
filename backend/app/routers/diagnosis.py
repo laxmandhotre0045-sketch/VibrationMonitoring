@@ -32,6 +32,7 @@ from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.services.fault_storage import open_findings
 from app.services.health_storage import (
+    capture_symptoms,
     latest_upload,
     plot_evidence_table,
     plots_for,
@@ -193,6 +194,25 @@ def iso(
                     "upload_id": str(upload["id"]),
                     "machine_name": machine.get("machine_name")})
     return payload
+
+
+@router.get("/symptoms", summary="What the signal is doing (VIK-051)")
+def symptoms(
+    sensor_id: UUID = Query(...),
+    upload_id: Optional[UUID] = Query(
+        None, description="A specific capture; omit for the most recent."),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Observations, separate from any fault the rules did or did not name.
+
+    This is the endpoint that matters most on this gateway. No capture here
+    establishes a shaft speed, so no rule in the fault table can be
+    evaluated and `/findings` is empty on every machine. The symptoms are
+    the only thing the platform can currently say about a signal, and they
+    say it with the numbers attached.
+    """
+    _require_sensor(db, sensor_id)
+    return capture_symptoms(db, sensor_id, upload_id)
 
 
 @router.get("/plot-evidence",
