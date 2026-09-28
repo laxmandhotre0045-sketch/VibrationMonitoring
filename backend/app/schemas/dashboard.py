@@ -24,6 +24,13 @@ class EquipmentHealthOut(BaseModel):
     machine_type: str
     status: str  # critical | warning | normal | no_baseline | no_data
     health_score: Optional[float] = None
+    # VIK-055. `health_score` may be None where it used to be 100, so the
+    # band and the reason travel with it -- a blank cell on a dashboard is
+    # read as "fine" unless something says otherwise.
+    health_band: Optional[str] = "unknown"
+    health_reason: Optional[str] = None
+    health_ceiling: Optional[float] = None
+    data_quality: Optional[str] = None
     last_upload_at: Optional[datetime] = None
     worst_feature_name: Optional[str] = None
 

@@ -472,6 +472,18 @@ def persist_upload_features_and_trends(
                 sample_rate_hz=sampling_rate_hz,
                 sample_count=parsed_data.get("sample_count"),
                 mode_id=mode_of(db, upload.id),
+                # The same scalars the features were stored from, flattened
+                # to plain numbers. The impacting and bearing-band symptoms
+                # read these; without them those two checks would be
+                # deciding on an empty dict and reporting nothing found,
+                # which is the failure this whole phase is about.
+                features={
+                    channel: {code: float(item.get("value"))
+                              for code, item in values.items()
+                              if isinstance(item, dict)
+                              and item.get("value") is not None}
+                    for channel, values in scalars.items()
+                },
             )
             db.commit()
     except Exception:

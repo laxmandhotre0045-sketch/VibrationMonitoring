@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.fault_resolution import assess_resolution
 from app.ai.severity import grade
+from app.ai.symptoms import detect as detect_symptoms
 from app.services.fault_context import (
     context_completeness,
     direction_for_channel,
@@ -49,7 +50,17 @@ from vibcore.signatures import match_faults
 logger = logging.getLogger(__name__)
 
 TABLE = "fault_findings"
+SYMPTOMS_TABLE = "capture_symptoms"
 ENGINE_VERSION = "1"
+
+#: How many checks `app.ai.symptoms.detect` runs in total. Recorded beside
+#: each result so an empty list can be told from a list that could only
+#: ever have had two entries in it.
+SYMPTOM_CHECKS_TOTAL = 5
+
+#: The checks that need no shaft speed. The other three are written in
+#: orders of running speed and cannot be evaluated without one.
+SYMPTOM_CHECKS_WITHOUT_SPEED = 2
 
 #: Hypotheses kept per channel. The engine ranks them; below the top few a
 #: hypothesis is the rule table reaching, and a screen showing fifteen
@@ -62,9 +73,39 @@ TOP_N = 4
 MIN_SCORE = 0.20
 
 
+def _record_symptoms(db: Session, *, upload_id: UUID, sensor_id: UUID,
+                     channel: int, symptoms: list[dict[str, Any]],
+                     shaft_usable: bool) -> None:
+    """Store one channel's observations, whether or not a fault was named.
+
+    Written before the shaft-speed gate on purpose. An earlier version
+    detected symptoms inside the fault-ranking loop, which runs only after
+    a shaft speed has been established -- and on this gateway one never has
+    been, so the whole layer ran zero times in production. VIK-051 exists
+    precisely so a capture matching no rule still has something said about
+    it, and that is this machine, every time.
+    """
+    db.execute(text(f"""
+        INSERT INTO {SYMPTOMS_TABLE}
+            (upload_id, sensor_id, channel, symptoms, shaft_usable,
+             checks_run, checks_possible)
+        VALUES (:u, :s, :c, CAST(:sym AS jsonb), :usable, :run, :possible)
+        ON CONFLICT (upload_id, channel) DO UPDATE SET
+            symptoms = EXCLUDED.symptoms,
+            shaft_usable = EXCLUDED.shaft_usable,
+            checks_run = EXCLUDED.checks_run,
+            checks_possible = EXCLUDED.checks_possible
+    """), {"u": str(upload_id), "s": str(sensor_id), "c": channel,
+           "sym": json.dumps(symptoms), "usable": shaft_usable,
+           "run": len(symptoms),
+           "possible": (SYMPTOM_CHECKS_TOTAL if shaft_usable
+                        else SYMPTOM_CHECKS_WITHOUT_SPEED)})
+
+
 def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
             channel: int, hypothesis: Any, resolution: dict,
-            completeness: dict, upload_id: UUID, mode_id: Optional[str],
+            completeness: dict, symptoms: list[dict[str, Any]],
+            upload_id: UUID, mode_id: Optional[str],
             now: datetime) -> dict[str, Any]:
     """Create or advance one finding. VIK-058 lives here.
 
@@ -101,6 +142,10 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
         "checks": json.dumps(hypothesis.confirming_checks or []),
         "resolution": json.dumps(resolution),
         "completeness": json.dumps(completeness),
+        # The channel's observations, not this fault's. A finding travels
+        # alone to whoever reads it and has to carry its own context --
+        # the same reason `resolution` is repeated on every row.
+        "symptoms": json.dumps(symptoms),
         "upload": str(upload_id),
         "mode": mode_id,
         "now": now,
@@ -112,7 +157,7 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
             (sensor_id, equipment_id, channel, fault_key, fault_name,
              score, confidence, stage, severity, mechanism,
              evidence, contradicting_evidence, confirming_checks,
-             resolution, context_completeness,
+             resolution, context_completeness, symptoms,
              first_detected_at, last_seen_at, times_seen,
              peak_score, peak_stage, first_upload_id, last_upload_id,
              mode_id, engine_version)
@@ -120,6 +165,7 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
                 :severity, :mechanism, CAST(:evidence AS jsonb),
                 CAST(:against AS jsonb), CAST(:checks AS jsonb),
                 CAST(:resolution AS jsonb), CAST(:completeness AS jsonb),
+                CAST(:symptoms AS jsonb),
                 :now, :now, 1, :score, :stage, :upload, :upload, :mode,
                 :version)
         ON CONFLICT (sensor_id, channel, fault_key) DO UPDATE SET
@@ -133,6 +179,7 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
             confirming_checks = EXCLUDED.confirming_checks,
             resolution = EXCLUDED.resolution,
             context_completeness = EXCLUDED.context_completeness,
+            symptoms = EXCLUDED.symptoms,
             last_seen_at = EXCLUDED.last_seen_at,
             times_seen = {TABLE}.times_seen + 1,
             -- The worst it has ever been, kept even as it recovers. A fault
@@ -161,6 +208,7 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
         "stage": stage.stage, "severity": stage.severity,
         "times_seen": times_seen, "rose": stage.rose,
         "new": existing is None, "reason": stage.reason,
+        "symptoms": [s["key"] for s in symptoms],
     }
 
 
@@ -177,15 +225,20 @@ def persist_findings(
     sample_rate_hz: Optional[float] = None,
     sample_count: Optional[int] = None,
     mode_id: Optional[str] = None,
+    features: Optional[dict[int, dict[str, float]]] = None,
 ) -> dict[str, Any]:
     """Rank and record the faults this capture suggests, per channel.
 
-    `channels` maps a channel index to its (frequencies, magnitudes).
+    `channels` maps a channel index to its (frequencies, magnitudes), and
+    `features` the same index to that channel's scalar features -- the crest
+    factor and kurtosis the impacting check reads, and the band energies the
+    bearing check reads. Passing them is what makes those two symptoms mean
+    anything; without them the spectrum-only symptoms still run.
     """
     now = datetime.now(timezone.utc)
     summary: dict[str, Any] = {
         "findings": [], "channels_examined": 0, "resolution": None,
-        "reason": "",
+        "symptoms": {}, "reason": "",
     }
 
     try:
@@ -207,11 +260,36 @@ def persist_findings(
         summary["reason"] = "The machine context could not be assembled."
         return summary
 
+    # Symptoms first, and for every channel, because they are a property of
+    # the capture rather than of any fault and most of this gateway's
+    # captures never reach the fault ranking below.
+    for channel, (freqs, mags) in sorted(channels.items()):
+        try:
+            observed = [s.as_dict() for s in detect_symptoms(
+                peaks_from_spectrum(
+                    freqs, mags,
+                    shaft_hz=shaft_hz if shaft_usable else None,
+                    direction=direction_for_channel(db, sensor_id, channel)),
+                (features or {}).get(channel),
+                shaft_hz if shaft_usable else None)]
+            summary["symptoms"][channel] = observed
+            _record_symptoms(db, upload_id=upload_id, sensor_id=sensor_id,
+                             channel=channel, symptoms=observed,
+                             shaft_usable=bool(shaft_usable))
+        except Exception:
+            logger.exception("Symptom detection failed on channel %s", channel)
+
     if not shaft_usable:
+        observed_total = sum(len(v) for v in summary["symptoms"].values())
         summary["reason"] = (
             "No shaft speed was established for this capture, so no order "
             "can be placed on the spectrum and no rule in the table can be "
-            "evaluated. Not a clean result -- an unmeasurable one.")
+            "evaluated. Not a clean result -- an unmeasurable one. "
+            + (f"{observed_total} symptom(s) were still observed from the "
+               f"checks that do not need a speed."
+               if observed_total else
+               "The two checks that do not need a speed -- impacting and "
+               "bearing-band energy -- found nothing either."))
         return summary
 
     seen_keys: set[tuple[int, str]] = set()
@@ -224,12 +302,18 @@ def persist_findings(
                 continue
             summary["channels_examined"] += 1
 
+            # Detected above, before the shaft-speed gate, and copied onto
+            # each finding so a finding carries its own context wherever it
+            # is read -- the same reason `resolution` is repeated.
+            symptoms = summary["symptoms"].get(channel, [])
+
             for hypothesis in match_faults(peaks, context, top_n=TOP_N,
                                            min_score=MIN_SCORE):
                 summary["findings"].append(_upsert(
                     db, sensor_id=sensor_id, equipment_id=equipment_id,
                     channel=channel, hypothesis=hypothesis,
                     resolution=resolution, completeness=completeness,
+                    symptoms=symptoms,
                     upload_id=upload_id, mode_id=mode_id, now=now))
                 seen_keys.add((channel, hypothesis.fault_key))
         except Exception:
@@ -278,6 +362,7 @@ def open_findings(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
         SELECT channel, fault_key, fault_name, score, confidence, stage,
                severity, mechanism, evidence, contradicting_evidence,
                confirming_checks, resolution, context_completeness,
+               symptoms,
                first_detected_at, last_seen_at, times_seen, peak_stage,
                acknowledged_at, acknowledged_by, analyst_verdict
           FROM {TABLE}

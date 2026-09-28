@@ -223,9 +223,36 @@ export function Dashboard() {
                           {eq.plant_name} · {eq.area}
                         </p>
                         <div className="flex items-center justify-between gap-g2 mt-g2">
-                          <span className="text-xs font-semibold text-brand">
-                            {eq.health_score != null ? `Health ${eq.health_score}` : ""}
-                          </span>
+                          {/*
+                            The score is shown out of its ceiling, never bare.
+                            A machine with no baseline tops out at 72, so "36"
+                            alone understates it and "36/72" says both how the
+                            machine is and how well it can be seen. Where
+                            nothing could be scored the reason is shown rather
+                            than an empty cell, because a blank reads as fine.
+                          */}
+                          {eq.health_score != null ? (
+                            <span
+                              className="text-xs font-semibold text-brand"
+                              title={eq.health_reason ?? undefined}
+                            >
+                              Health {eq.health_score}
+                              {eq.health_ceiling != null && eq.health_ceiling < 100
+                                ? ` / ${eq.health_ceiling}`
+                                : ""}
+                              <span className="font-normal text-muted-foreground">
+                                {" "}
+                                · {eq.health_band}
+                              </span>
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs text-helper italic"
+                              title={eq.health_reason ?? undefined}
+                            >
+                              Not scored
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground">{relativeTime(eq.last_upload_at)}</span>
                         </div>
                       </Link>

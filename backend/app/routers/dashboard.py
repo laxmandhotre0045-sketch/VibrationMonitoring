@@ -10,6 +10,7 @@ from app import crud
 from app.dependencies.auth import get_current_user
 from app.schemas.dashboard import CaptureHistoryOut, DashboardSummaryOut
 from app.services import capture_history
+from app.services.dashboard_health import attach_health
 
 router = APIRouter(
     prefix="/api/v1/dashboard",
@@ -23,7 +24,14 @@ def get_dashboard_summary(
     plant_name: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return crud.get_dashboard_summary(db, plant_name=plant_name)
+    """Fleet summary with VIK-055 health scores.
+
+    crud builds the summary and leaves the health fields empty -- scoring
+    needs the fault, alarm and baseline services and crud may not import
+    them -- so the two are composed here.
+    """
+    summary = crud.get_dashboard_summary(db, plant_name=plant_name)
+    return attach_health(db, summary)
 
 
 @router.get("/history", response_model=CaptureHistoryOut,
