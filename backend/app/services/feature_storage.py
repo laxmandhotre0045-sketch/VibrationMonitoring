@@ -33,6 +33,7 @@ from app.services.plot_generator import load_parsed_data
 from app.services.alarm_storage import persist_alarms
 from app.services.anomaly_storage import mode_of, persist_scores
 from app.services.detector_storage import persist_detectors
+from app.services.fault_storage import persist_findings
 from app.services.mode_storage import equipment_for_sensor, persist_mode
 from app.services.quality_storage import persist_quality
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
@@ -440,6 +441,39 @@ def persist_upload_features_and_trends(
             equipment_id=equipment_for_sensor(db, upload.sensor_id),
         )
         db.commit()
+
+        # VIK-053. Last, because naming a fault is the only step that needs
+        # the machine record as well as the signal, and because a finding is
+        # the thing a person reads -- everything before it is working out.
+        #
+        # One spectrum per channel, computed here rather than inside the
+        # fault code: the features already needed them, and a second set
+        # would be a second chance to disagree with what the chart shows.
+        spectra = {}
+        for name, samples in (parsed_data.get("channels") or {}).items():
+            try:
+                index = int(str(name).lstrip("ch"))
+            except ValueError:
+                continue
+            if samples and len(samples) >= 4:
+                spectra[index] = _compute_fft_magnitudes(
+                    _to_array(samples), sampling_rate_hz)
+
+        if spectra:
+            persist_findings(
+                db,
+                upload_id=upload.id,
+                sensor_id=upload.sensor_id,
+                equipment_id=equipment_for_sensor(db, upload.sensor_id),
+                channels=spectra,
+                shaft_hz=machine.hz,
+                shaft_usable=machine.usable,
+                bearing_orders=bearing_orders,
+                sample_rate_hz=sampling_rate_hz,
+                sample_count=parsed_data.get("sample_count"),
+                mode_id=mode_of(db, upload.id),
+            )
+            db.commit()
     except Exception:
         db.rollback()
         logger.exception("Anomaly scoring failed for upload %s", upload.id)
