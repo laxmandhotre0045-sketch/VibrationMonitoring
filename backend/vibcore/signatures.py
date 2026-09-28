@@ -133,6 +133,11 @@ class Evidence:
 class FaultHypothesis:
     fault_key: str
     name: str
+    #: The group an analyst would file this under. Requirement 9.2 asks for
+    #: it beside the fault name, because the family is what decides who
+    #: gets called out -- everything in a family is investigated the same
+    #: way and fixed by the same trade.
+    family: str
     score: float
     confidence: float
     evidence: list[Evidence] = field(default_factory=list)
@@ -145,6 +150,7 @@ class FaultHypothesis:
         return {
             "fault": self.name,
             "fault_key": self.fault_key,
+            "family": self.family,
             "score": round(self.score, 3),
             "confidence": round(self.confidence, 3),
             "evidence": [e.as_dict() for e in self.evidence],
@@ -397,6 +403,9 @@ def match_faults(
             FaultHypothesis(
                 fault_key=key,
                 name=rule["name"],
+                # A rule with no family is a data error, not a fault with no
+                # family, so this does not quietly default to a blank.
+                family=rule["family"],
                 score=score,
                 confidence=round(score * peak_confidence, 3),
                 evidence=evidence,

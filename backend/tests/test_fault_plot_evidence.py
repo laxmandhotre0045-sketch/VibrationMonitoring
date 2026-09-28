@@ -146,3 +146,71 @@ def test_findings_can_store_symptoms(db):
     assert column is not None, "migration 038 did not add the column"
     assert column["is_nullable"] == "NO"
     assert "[]" in (column["column_default"] or "")
+
+
+# ------------------------------- the recommended actions (requirement 9.2) --
+
+def action_rows(db):
+    return [dict(r) for r in db.execute(text("""
+        SELECT fault_key, action_now, action_planned, check_first
+          FROM fault_recommendations ORDER BY fault_key
+    """)).mappings().fetchall()]
+
+
+def test_every_fault_the_engine_can_name_has_a_recommended_action(db):
+    """Requirement 9.2's "recommended next action" and requirement 14's
+    "What should the analyst do next?". A named fault with no action is a
+    diagnosis nobody can act on, which is the same as no diagnosis."""
+    covered = {r["fault_key"] for r in action_rows(db)}
+    missing = rule_keys() - covered
+    assert not missing, f"no recommended action for {sorted(missing)}"
+
+
+def test_no_action_names_a_fault_the_engine_cannot_produce(db):
+    invented = {r["fault_key"] for r in action_rows(db)} - rule_keys()
+    assert not invented, f"{sorted(invented)} are not in the rule table"
+
+
+def test_the_urgent_and_planned_actions_are_different_advice(db):
+    """If they are the same sentence the distinction is decoration, and the
+    urgency that selects between them is doing nothing."""
+    for row in action_rows(db):
+        assert row["action_now"] != row["action_planned"], row["fault_key"]
+        assert len(row["action_now"]) > 30, row["fault_key"]
+        assert len(row["check_first"]) > 30, row["fault_key"]
+
+
+def test_a_finding_cannot_advise_shutdown_below_immediate_urgency(db):
+    """Enforced in the database, not just in Python. This is the one field
+    that stops a production line."""
+    with pytest.raises(Exception):
+        db.execute(text("""
+            INSERT INTO fault_findings
+                (sensor_id, channel, fault_key, fault_name, score,
+                 confidence, stage, severity, first_detected_at,
+                 last_seen_at, times_seen, urgency, shutdown_advised)
+            VALUES (gen_random_uuid(), 0, 'unbalance', 'Unbalance', 0.5,
+                    0.5, 'watch', 1, now(), now(), 1, 'monitor', true)
+        """))
+        db.flush()
+    db.rollback()
+
+
+def test_the_finding_carries_all_nine_required_outputs(db):
+    """Requirement 9.2 lists nine. Four were missing until they were
+    audited against the document rather than against memory."""
+    columns = {r[0] for r in db.execute(text("""
+        SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'fault_findings'
+    """)).fetchall()}
+
+    required = {
+        "fault_name": "fault name", "family": "fault family",
+        "severity": "severity", "confidence": "confidence",
+        "evidence": "evidence", "direction": "trend direction",
+        "recommended_action": "recommended next action",
+        "shutdown_advised": "shutdown or inspection",
+    }
+    missing = {col: label for col, label in required.items()
+               if col not in columns}
+    assert not missing, f"requirement 9.2 outputs not stored: {missing}"

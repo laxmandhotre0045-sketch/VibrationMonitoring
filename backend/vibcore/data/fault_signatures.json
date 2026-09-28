@@ -26,18 +26,46 @@
     "This table ranks. It does not explain - the graph attaches a textbook",
     "passage per top hypothesis using query_hint."
   ],
-
   "rules": {
     "unbalance": {
       "name": "Unbalance",
+      "family": "Rotor",
       "orders": [
-        { "ref": "1.0", "tol_order": 0.04, "weight": 1.0, "role": "dominant" },
-        { "ref": "2.0", "tol_order": 0.04, "weight": 0.5, "role": "contradicting" },
-        { "ref": "0.5", "tol_order": 0.04, "weight": 0.6, "role": "contradicting" },
-        { "ref": "1.5", "tol_order": 0.04, "weight": 0.5, "role": "contradicting" },
-        { "ref": "3.0", "tol_order": 0.04, "weight": 0.4, "role": "contradicting" }
+        {
+          "ref": "1.0",
+          "tol_order": 0.04,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "2.0",
+          "tol_order": 0.04,
+          "weight": 0.5,
+          "role": "contradicting"
+        },
+        {
+          "ref": "0.5",
+          "tol_order": 0.04,
+          "weight": 0.6,
+          "role": "contradicting"
+        },
+        {
+          "ref": "1.5",
+          "tol_order": 0.04,
+          "weight": 0.5,
+          "role": "contradicting"
+        },
+        {
+          "ref": "3.0",
+          "tol_order": 0.04,
+          "weight": 0.4,
+          "role": "contradicting"
+        }
       ],
-      "preferred_directions": ["H", "V"],
+      "preferred_directions": [
+        "H",
+        "V"
+      ],
       "mechanism": "A rotating mass eccentricity produces a once-per-revolution centrifugal force, so energy concentrates at 1x and is predominantly radial.",
       "confirming_checks": [
         "Phase is stable and repeatable at 1x.",
@@ -46,15 +74,33 @@
       ],
       "query_hint": "unbalance vibration 1x running speed radial phase diagnosis rotor"
     },
-
     "misalignment_parallel": {
       "name": "Parallel (offset) misalignment",
+      "family": "Alignment and coupling",
       "orders": [
-        { "ref": "2.0", "tol_order": 0.04, "weight": 1.0, "role": "dominant" },
-        { "ref": "1.0", "tol_order": 0.04, "weight": 0.6, "role": "required" },
-        { "ref": "3.0", "tol_order": 0.04, "weight": 0.3, "role": "supporting" }
+        {
+          "ref": "2.0",
+          "tol_order": 0.04,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "1.0",
+          "tol_order": 0.04,
+          "weight": 0.6,
+          "role": "required"
+        },
+        {
+          "ref": "3.0",
+          "tol_order": 0.04,
+          "weight": 0.3,
+          "role": "supporting"
+        }
       ],
-      "preferred_directions": ["H", "V"],
+      "preferred_directions": [
+        "H",
+        "V"
+      ],
       "mechanism": "Offset shaft centrelines load the coupling twice per revolution, so 2x radial dominates while 1x remains present.",
       "confirming_checks": [
         "Phase shifts about 180 degrees across the coupling in the radial direction.",
@@ -62,15 +108,32 @@
       ],
       "query_hint": "parallel offset misalignment 2x running speed coupling radial vibration diagnosis"
     },
-
     "misalignment_angular": {
       "name": "Angular misalignment",
+      "family": "Alignment and coupling",
       "orders": [
-        { "ref": "1.0", "tol_order": 0.04, "weight": 1.0, "role": "required" },
-        { "ref": "2.0", "tol_order": 0.04, "weight": 0.9, "role": "required" },
-        { "ref": "3.0", "tol_order": 0.04, "weight": 0.3, "role": "supporting" }
+        {
+          "ref": "1.0",
+          "tol_order": 0.04,
+          "weight": 1.0,
+          "role": "required"
+        },
+        {
+          "ref": "2.0",
+          "tol_order": 0.04,
+          "weight": 0.9,
+          "role": "required"
+        },
+        {
+          "ref": "3.0",
+          "tol_order": 0.04,
+          "weight": 0.3,
+          "role": "supporting"
+        }
       ],
-      "preferred_directions": ["A"],
+      "preferred_directions": [
+        "A"
+      ],
       "requires_axial": true,
       "mechanism": "Angled shaft centrelines bend the coupling once and twice per revolution along the shaft axis, so high 1x and 2x appear axially.",
       "confirming_checks": [
@@ -79,14 +142,26 @@
       ],
       "query_hint": "angular misalignment axial vibration 1x 2x coupling phase shift diagnosis"
     },
-
     "bent_shaft": {
       "name": "Bent shaft",
+      "family": "Rotor",
       "orders": [
-        { "ref": "1.0", "tol_order": 0.04, "weight": 1.0, "role": "dominant" },
-        { "ref": "2.0", "tol_order": 0.04, "weight": 0.5, "role": "supporting" }
+        {
+          "ref": "1.0",
+          "tol_order": 0.04,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "2.0",
+          "tol_order": 0.04,
+          "weight": 0.5,
+          "role": "supporting"
+        }
       ],
-      "preferred_directions": ["A"],
+      "preferred_directions": [
+        "A"
+      ],
       "requires_axial": true,
       "mechanism": "A bowed rotor produces a once-per-revolution axial displacement; the bend location determines whether 1x or 2x axial dominates.",
       "confirming_checks": [
@@ -96,20 +171,63 @@
       ],
       "query_hint": "bent shaft bowed rotor axial vibration 1x phase diagnosis"
     },
-
     "mechanical_looseness": {
       "name": "Mechanical looseness",
+      "family": "Looseness",
       "orders": [
-        { "ref": "0.5", "tol_order": 0.04, "weight": 1.0, "role": "required" },
-        { "ref": "1.0", "tol_order": 0.04, "weight": 0.4, "role": "supporting" },
-        { "ref": "1.5", "tol_order": 0.04, "weight": 0.6, "role": "supporting" },
-        { "ref": "2.0", "tol_order": 0.04, "weight": 0.4, "role": "supporting" },
-        { "ref": "2.5", "tol_order": 0.04, "weight": 0.5, "role": "supporting" },
-        { "ref": "3.0", "tol_order": 0.04, "weight": 0.4, "role": "supporting" },
-        { "ref": "4.0", "tol_order": 0.04, "weight": 0.3, "role": "supporting" },
-        { "ref": "5.0", "tol_order": 0.04, "weight": 0.3, "role": "supporting" }
+        {
+          "ref": "0.5",
+          "tol_order": 0.04,
+          "weight": 1.0,
+          "role": "required"
+        },
+        {
+          "ref": "1.0",
+          "tol_order": 0.04,
+          "weight": 0.4,
+          "role": "supporting"
+        },
+        {
+          "ref": "1.5",
+          "tol_order": 0.04,
+          "weight": 0.6,
+          "role": "supporting"
+        },
+        {
+          "ref": "2.0",
+          "tol_order": 0.04,
+          "weight": 0.4,
+          "role": "supporting"
+        },
+        {
+          "ref": "2.5",
+          "tol_order": 0.04,
+          "weight": 0.5,
+          "role": "supporting"
+        },
+        {
+          "ref": "3.0",
+          "tol_order": 0.04,
+          "weight": 0.4,
+          "role": "supporting"
+        },
+        {
+          "ref": "4.0",
+          "tol_order": 0.04,
+          "weight": 0.3,
+          "role": "supporting"
+        },
+        {
+          "ref": "5.0",
+          "tol_order": 0.04,
+          "weight": 0.3,
+          "role": "supporting"
+        }
       ],
-      "preferred_directions": ["H", "V"],
+      "preferred_directions": [
+        "H",
+        "V"
+      ],
       "mechanism": "A loose joint or worn fit lets the rotor move nonlinearly, clipping the response and generating half-order subharmonics plus a long harmonic series.",
       "confirming_checks": [
         "Raised noise floor across the spectrum.",
@@ -118,18 +236,50 @@
       ],
       "query_hint": "mechanical looseness subharmonic half order harmonics raised noise floor vibration diagnosis"
     },
-
     "structural_looseness": {
       "name": "Structural looseness / soft foot",
+      "family": "Looseness",
       "orders": [
-        { "ref": "1.0", "tol_order": 0.04, "weight": 1.0, "role": "dominant" },
-        { "ref": "2.0", "tol_order": 0.04, "weight": 0.5, "role": "supporting" },
-        { "ref": "3.0", "tol_order": 0.04, "weight": 0.4, "role": "supporting" },
-        { "ref": "0.5", "tol_order": 0.04, "weight": 0.8, "role": "contradicting" },
-        { "ref": "1.5", "tol_order": 0.04, "weight": 0.6, "role": "contradicting" },
-        { "ref": "2.5", "tol_order": 0.04, "weight": 0.5, "role": "contradicting" }
+        {
+          "ref": "1.0",
+          "tol_order": 0.04,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "2.0",
+          "tol_order": 0.04,
+          "weight": 0.5,
+          "role": "supporting"
+        },
+        {
+          "ref": "3.0",
+          "tol_order": 0.04,
+          "weight": 0.4,
+          "role": "supporting"
+        },
+        {
+          "ref": "0.5",
+          "tol_order": 0.04,
+          "weight": 0.8,
+          "role": "contradicting"
+        },
+        {
+          "ref": "1.5",
+          "tol_order": 0.04,
+          "weight": 0.6,
+          "role": "contradicting"
+        },
+        {
+          "ref": "2.5",
+          "tol_order": 0.04,
+          "weight": 0.5,
+          "role": "contradicting"
+        }
       ],
-      "preferred_directions": ["V"],
+      "preferred_directions": [
+        "V"
+      ],
       "mechanism": "Loose hold-down bolts or a soft foot let the machine rock on its base, amplifying 1x with harmonics, usually strongest vertically.",
       "confirming_checks": [
         "Amplitude drops sharply when hold-down bolts are tightened.",
@@ -138,13 +288,28 @@
       ],
       "query_hint": "structural looseness soft foot base foundation vibration 1x harmonics diagnosis"
     },
-
     "bearing_outer_race": {
       "name": "Rolling-element bearing — outer race defect",
+      "family": "Rolling-element bearing",
       "orders": [
-        { "ref": "@bpfo", "tol_pct": 1.5, "weight": 1.0, "role": "dominant" },
-        { "ref": "@bpfo*2", "tol_pct": 1.5, "weight": 0.5, "role": "supporting" },
-        { "ref": "@bpfo*3", "tol_pct": 1.5, "weight": 0.3, "role": "supporting" }
+        {
+          "ref": "@bpfo",
+          "tol_pct": 1.5,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "@bpfo*2",
+          "tol_pct": 1.5,
+          "weight": 0.5,
+          "role": "supporting"
+        },
+        {
+          "ref": "@bpfo*3",
+          "tol_pct": 1.5,
+          "weight": 0.3,
+          "role": "supporting"
+        }
       ],
       "non_synchronous": true,
       "mechanism": "Each rolling element striking a defect on the stationary outer race produces an impact at BPFO. Because the defect stays in the load zone, the amplitude is steady and sidebands are usually weak.",
@@ -155,12 +320,22 @@
       ],
       "query_hint": "ball pass frequency outer race BPFO bearing defect envelope spectrum diagnosis"
     },
-
     "bearing_inner_race": {
       "name": "Rolling-element bearing — inner race defect",
+      "family": "Rolling-element bearing",
       "orders": [
-        { "ref": "@bpfi", "tol_pct": 1.5, "weight": 1.0, "role": "dominant" },
-        { "ref": "@bpfi*2", "tol_pct": 1.5, "weight": 0.4, "role": "supporting" }
+        {
+          "ref": "@bpfi",
+          "tol_pct": 1.5,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "@bpfi*2",
+          "tol_pct": 1.5,
+          "weight": 0.4,
+          "role": "supporting"
+        }
       ],
       "sideband_spacing": "1.0",
       "non_synchronous": true,
@@ -171,12 +346,22 @@
       ],
       "query_hint": "ball pass frequency inner race BPFI sidebands running speed bearing defect diagnosis"
     },
-
     "bearing_ball_defect": {
       "name": "Rolling-element bearing — rolling element defect",
+      "family": "Rolling-element bearing",
       "orders": [
-        { "ref": "@bsf2x", "tol_pct": 1.5, "weight": 1.0, "role": "dominant" },
-        { "ref": "@bsf", "tol_pct": 1.5, "weight": 0.4, "role": "supporting" }
+        {
+          "ref": "@bsf2x",
+          "tol_pct": 1.5,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "@bsf",
+          "tol_pct": 1.5,
+          "weight": 0.4,
+          "role": "supporting"
+        }
       ],
       "sideband_spacing": "@ftf",
       "non_synchronous": true,
@@ -187,11 +372,16 @@
       ],
       "query_hint": "ball spin frequency BSF rolling element defect cage sidebands bearing diagnosis"
     },
-
     "bearing_cage": {
       "name": "Rolling-element bearing — cage damage",
+      "family": "Rolling-element bearing",
       "orders": [
-        { "ref": "@ftf", "tol_pct": 2.0, "weight": 1.0, "role": "dominant" }
+        {
+          "ref": "@ftf",
+          "tol_pct": 2.0,
+          "weight": 1.0,
+          "role": "dominant"
+        }
       ],
       "non_synchronous": true,
       "mechanism": "A damaged or worn cage produces a low-frequency component at the fundamental train frequency, typically 0.35-0.45x running speed. Rarely appears alone — usually accompanies advanced element or race damage.",
@@ -201,13 +391,28 @@
       ],
       "query_hint": "fundamental train frequency FTF cage defect bearing diagnosis"
     },
-
     "gear_mesh": {
       "name": "Gear mesh / gear tooth defect",
+      "family": "Gearing",
       "orders": [
-        { "ref": "@gmf", "tol_pct": 1.0, "weight": 1.0, "role": "dominant" },
-        { "ref": "@gmf*2", "tol_pct": 1.0, "weight": 0.4, "role": "supporting" },
-        { "ref": "@gmf*3", "tol_pct": 1.0, "weight": 0.2, "role": "supporting" }
+        {
+          "ref": "@gmf",
+          "tol_pct": 1.0,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "@gmf*2",
+          "tol_pct": 1.0,
+          "weight": 0.4,
+          "role": "supporting"
+        },
+        {
+          "ref": "@gmf*3",
+          "tol_pct": 1.0,
+          "weight": 0.2,
+          "role": "supporting"
+        }
       ],
       "sideband_spacing": "1.0",
       "mechanism": "Teeth mesh at N_teeth x shaft rate. A localised tooth defect modulates the mesh once per revolution of the shaft carrying it, so the sideband spacing identifies which gear is faulty.",
@@ -218,12 +423,22 @@
       ],
       "query_hint": "gear mesh frequency GMF sidebands tooth defect gearbox vibration diagnosis"
     },
-
     "blade_vane_pass": {
       "name": "Blade / vane pass",
+      "family": "Flow and hydraulics",
       "orders": [
-        { "ref": "@vane_pass", "tol_pct": 1.0, "weight": 1.0, "role": "dominant" },
-        { "ref": "@vane_pass*2", "tol_pct": 1.0, "weight": 0.3, "role": "supporting" }
+        {
+          "ref": "@vane_pass",
+          "tol_pct": 1.0,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "@vane_pass*2",
+          "tol_pct": 1.0,
+          "weight": 0.3,
+          "role": "supporting"
+        }
       ],
       "mechanism": "Each blade or vane passing the cutwater or a stationary diffuser produces a pressure pulse at N x shaft rate. Present on every machine of this type; only a rise above baseline is a fault.",
       "confirming_checks": [
@@ -233,11 +448,16 @@
       ],
       "query_hint": "blade pass vane pass frequency pump fan impeller vibration diagnosis cavitation"
     },
-
     "electrical": {
       "name": "Electrical fault",
+      "family": "Electrical",
       "orders": [
-        { "ref": "@line_2x", "tol_pct": 0.5, "weight": 1.0, "role": "dominant" }
+        {
+          "ref": "@line_2x",
+          "tol_pct": 0.5,
+          "weight": 1.0,
+          "role": "dominant"
+        }
       ],
       "mechanism": "Magnetic forces in an induction machine act twice per supply cycle, so an electrical asymmetry — rotor bar, stator eccentricity, unbalanced supply — shows at twice line frequency, not at a multiple of shaft speed.",
       "confirming_checks": [
@@ -247,11 +467,16 @@
       ],
       "query_hint": "electrical fault twice line frequency rotor bar pole pass sidebands motor vibration diagnosis"
     },
-
     "oil_whirl": {
       "name": "Oil whirl (journal bearing instability)",
+      "family": "Journal bearing",
       "orders": [
-        { "ref": "0.43", "tol_order": 0.06, "weight": 1.0, "role": "dominant" }
+        {
+          "ref": "0.43",
+          "tol_order": 0.06,
+          "weight": 1.0,
+          "role": "dominant"
+        }
       ],
       "mechanism": "In a lightly loaded journal bearing the oil wedge drags the shaft around at slightly less than half shaft speed, producing a subsynchronous peak at 0.38-0.48x.",
       "confirming_checks": [
@@ -261,13 +486,28 @@
       ],
       "query_hint": "oil whirl whip journal bearing subsynchronous 0.43x instability orbit diagnosis"
     },
-
     "belt_drive": {
       "name": "Belt drive fault",
+      "family": "Belt drive",
       "orders": [
-        { "ref": "@belt", "tol_pct": 2.0, "weight": 1.0, "role": "dominant" },
-        { "ref": "@belt*2", "tol_pct": 2.0, "weight": 0.5, "role": "supporting" },
-        { "ref": "@belt*3", "tol_pct": 2.0, "weight": 0.3, "role": "supporting" }
+        {
+          "ref": "@belt",
+          "tol_pct": 2.0,
+          "weight": 1.0,
+          "role": "dominant"
+        },
+        {
+          "ref": "@belt*2",
+          "tol_pct": 2.0,
+          "weight": 0.5,
+          "role": "supporting"
+        },
+        {
+          "ref": "@belt*3",
+          "tol_pct": 2.0,
+          "weight": 0.3,
+          "role": "supporting"
+        }
       ],
       "mechanism": "A defect in the belt itself passes each sheave once per belt revolution, producing a subsynchronous belt frequency and its harmonics.",
       "confirming_checks": [

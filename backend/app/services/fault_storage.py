@@ -37,6 +37,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.ai.fault_resolution import assess_resolution
+from app.ai.recommendation import HISTORY_LENGTH, direction_of, recommend
 from app.ai.severity import grade
 from app.ai.symptoms import detect as detect_symptoms
 from app.services.fault_context import (
@@ -51,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 TABLE = "fault_findings"
 SYMPTOMS_TABLE = "capture_symptoms"
+ACTIONS_TABLE = "fault_recommendations"
 ENGINE_VERSION = "1"
 
 #: How many checks `app.ai.symptoms.detect` runs in total. Recorded beside
@@ -105,6 +107,7 @@ def _record_symptoms(db: Session, *, upload_id: UUID, sensor_id: UUID,
 def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
             channel: int, hypothesis: Any, resolution: dict,
             completeness: dict, symptoms: list[dict[str, Any]],
+            trustworthy: Optional[bool],
             upload_id: UUID, mode_id: Optional[str],
             now: datetime) -> dict[str, Any]:
     """Create or advance one finding. VIK-058 lives here.
@@ -114,7 +117,8 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
     where it was.
     """
     existing = db.execute(text(f"""
-        SELECT id, stage, times_seen, peak_score, peak_stage, first_detected_at
+        SELECT id, stage, times_seen, peak_score, peak_stage,
+               first_detected_at, score_history
           FROM {TABLE}
          WHERE sensor_id = :s AND channel = :c AND fault_key = :k
     """), {"s": str(sensor_id), "c": channel,
@@ -124,6 +128,31 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
     stage = grade(score=hypothesis.score, confidence=hypothesis.confidence,
                   times_seen=times_seen,
                   previous_stage=existing["stage"] if existing else None)
+
+    # Requirement 9.2's "trend direction". `score` and `peak_score` cannot
+    # answer it -- one is where the finding is, the other the worst it has
+    # been, and neither says which way it is travelling.
+    history = list((existing["score_history"] or []) if existing else [])
+    history.append(round(float(hypothesis.score), 4))
+    history = history[-HISTORY_LENGTH:]
+    heading = direction_of(history)
+
+    # Requirement 9.2's "recommended next action" and "whether immediate
+    # shutdown is needed", and requirement 14's "how urgent is it".
+    action = db.execute(text(f"""
+        SELECT action_now, action_planned, check_first
+          FROM {ACTIONS_TABLE} WHERE fault_key = :k
+    """), {"k": hypothesis.fault_key}).mappings().fetchone()
+
+    advice = recommend(
+        stage=stage.stage, confidence=float(hypothesis.confidence),
+        direction=heading,
+        resolution_usable=resolution.get("usable"),
+        capture_trustworthy=trustworthy,
+        action_now=action["action_now"] if action else None,
+        action_planned=action["action_planned"] if action else None)
+    if action and action["check_first"]:
+        advice.action += " " + action["check_first"]
 
     payload = {
         "s": str(sensor_id),
@@ -140,6 +169,16 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
         "against": json.dumps(
             [e.as_dict() for e in hypothesis.contradicting_evidence]),
         "checks": json.dumps(hypothesis.confirming_checks or []),
+        "family": hypothesis.family,
+        "history": json.dumps(history),
+        "direction": heading.direction,
+        "direction_reason": heading.reason,
+        "urgency": advice.urgency,
+        "proposed_urgency": advice.proposed,
+        "urgency_capped": advice.capped,
+        "urgency_reason": advice.headline,
+        "recommended_action": advice.action,
+        "shutdown_advised": advice.shutdown_advised,
         "resolution": json.dumps(resolution),
         "completeness": json.dumps(completeness),
         # The channel's observations, not this fault's. A finding travels
@@ -155,13 +194,21 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
     db.execute(text(f"""
         INSERT INTO {TABLE}
             (sensor_id, equipment_id, channel, fault_key, fault_name,
+             family, score_history, direction, direction_reason,
+             urgency, proposed_urgency, urgency_capped, urgency_reason,
+             recommended_action, shutdown_advised,
              score, confidence, stage, severity, mechanism,
              evidence, contradicting_evidence, confirming_checks,
              resolution, context_completeness, symptoms,
              first_detected_at, last_seen_at, times_seen,
              peak_score, peak_stage, first_upload_id, last_upload_id,
              mode_id, engine_version)
-        VALUES (:s, :e, :c, :key, :name, :score, :confidence, :stage,
+        VALUES (:s, :e, :c, :key, :name,
+                :family, CAST(:history AS jsonb), :direction,
+                :direction_reason, :urgency, :proposed_urgency,
+                :urgency_capped, :urgency_reason, :recommended_action,
+                :shutdown_advised,
+                :score, :confidence, :stage,
                 :severity, :mechanism, CAST(:evidence AS jsonb),
                 CAST(:against AS jsonb), CAST(:checks AS jsonb),
                 CAST(:resolution AS jsonb), CAST(:completeness AS jsonb),
@@ -180,6 +227,16 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
             resolution = EXCLUDED.resolution,
             context_completeness = EXCLUDED.context_completeness,
             symptoms = EXCLUDED.symptoms,
+            family = EXCLUDED.family,
+            score_history = EXCLUDED.score_history,
+            direction = EXCLUDED.direction,
+            direction_reason = EXCLUDED.direction_reason,
+            urgency = EXCLUDED.urgency,
+            proposed_urgency = EXCLUDED.proposed_urgency,
+            urgency_capped = EXCLUDED.urgency_capped,
+            urgency_reason = EXCLUDED.urgency_reason,
+            recommended_action = EXCLUDED.recommended_action,
+            shutdown_advised = EXCLUDED.shutdown_advised,
             last_seen_at = EXCLUDED.last_seen_at,
             times_seen = {TABLE}.times_seen + 1,
             -- The worst it has ever been, kept even as it recovers. A fault
@@ -209,6 +266,8 @@ def _upsert(db: Session, *, sensor_id: UUID, equipment_id: Optional[UUID],
         "times_seen": times_seen, "rose": stage.rose,
         "new": existing is None, "reason": stage.reason,
         "symptoms": [s["key"] for s in symptoms],
+        "family": hypothesis.family, "direction": heading.direction,
+        "urgency": advice.urgency, "shutdown_advised": advice.shutdown_advised,
     }
 
 
@@ -292,6 +351,27 @@ def persist_findings(
                "bearing-band energy -- found nothing either."))
         return summary
 
+    # Whether this capture passed its own quality checks. It caps how
+    # urgent any finding from it is allowed to be -- a shutdown
+    # recommendation off an untrustworthy reading is the single most
+    # expensive thing this platform could get wrong.
+    trustworthy: Optional[bool] = None
+    try:
+        row = db.execute(text("""
+            SELECT level FROM data_quality_assessments
+             WHERE upload_id = :u AND channel IS NULL
+             ORDER BY assessed_at DESC LIMIT 1
+        """), {"u": str(upload_id)}).fetchone()
+        if row and row[0]:
+            # The quality engine grades high / medium / low. Only `low`
+            # counts as untrustworthy here: capping on `medium` would hold
+            # back every finding this gateway produces, and a cap that is
+            # always on is a cap nobody reads.
+            trustworthy = str(row[0]).lower() != "low"
+    except Exception:
+        logger.exception("Could not read data quality for upload %s",
+                         upload_id)
+
     seen_keys: set[tuple[int, str]] = set()
     for channel, (freqs, mags) in sorted(channels.items()):
         try:
@@ -313,7 +393,7 @@ def persist_findings(
                     db, sensor_id=sensor_id, equipment_id=equipment_id,
                     channel=channel, hypothesis=hypothesis,
                     resolution=resolution, completeness=completeness,
-                    symptoms=symptoms,
+                    symptoms=symptoms, trustworthy=trustworthy,
                     upload_id=upload_id, mode_id=mode_id, now=now))
                 seen_keys.add((channel, hypothesis.fault_key))
         except Exception:
@@ -362,7 +442,9 @@ def open_findings(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
         SELECT channel, fault_key, fault_name, score, confidence, stage,
                severity, mechanism, evidence, contradicting_evidence,
                confirming_checks, resolution, context_completeness,
-               symptoms,
+               symptoms, family, score_history, direction, direction_reason,
+               urgency, proposed_urgency, urgency_capped, urgency_reason,
+               recommended_action, shutdown_advised,
                first_detected_at, last_seen_at, times_seen, peak_stage,
                acknowledged_at, acknowledged_by, analyst_verdict
           FROM {TABLE}

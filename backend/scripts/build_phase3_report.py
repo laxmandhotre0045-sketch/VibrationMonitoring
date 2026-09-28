@@ -172,6 +172,24 @@ try:
 except Exception:
     DISTINCT = {}
 
+# Requirement 9.2's nine fault outputs, verified against the schema at
+# build time. Four of these were missing until an audit against the
+# document -- so this document checks rather than claims.
+REQUIRED_OUTPUTS = [
+    ("Fault name", "fault_name"), ("Fault family", "family"),
+    ("Severity", "severity"), ("Confidence", "confidence"),
+    ("Evidence", "evidence"), ("Related plots", None),
+    ("Trend direction", "direction"),
+    ("Recommended next action", "recommended_action"),
+    ("Shutdown or inspection", "shutdown_advised"),
+]
+_cols = {r[0] for r in _db.execute(text("""
+    select column_name from information_schema.columns
+     where table_name = 'fault_findings'
+""")).fetchall()}
+OUTPUTS = [(label, (col is None) or (col in _cols))
+           for label, col in REQUIRED_OUTPUTS]
+
 SYMPTOM_BREAKDOWN = _db.execute(text("""
     select channel, checks_run, checks_possible, shaft_usable
       from capture_symptoms order by channel
@@ -444,6 +462,47 @@ for key, what in [
     rows.append([p("<b>%s</b>" % key, CELL), p(what, CELL),
                  tone("Done", GREEN)])
 story.append(table(rows, [20 * mm, 126 * mm, 22 * mm]))
+
+# ------------------------------------------------------------- audit ----
+story.append(p("Checked against the requirement document, not against memory",
+                H2))
+story.append(p(
+    "The ten tickets above being finished is not the same claim as the "
+    "requirement being met, so Phase 3 was audited line by line against "
+    "section 9.2 of the requirement document, which lists nine things that "
+    "must appear beside every suspected fault. <b>Four were missing</b> "
+    "&#8212; and they were the four a maintenance engineer reads first: "
+    "which family the fault belongs to, whether it is getting worse, what to "
+    "do about it, and whether it needs a shutdown or only an inspection. All "
+    "four are now built. The table below is read from the database schema as "
+    "this document is generated, so it is a check rather than a claim.",
+    BODY))
+
+rows = [[p("Requirement 9.2 asks for", CELLB), p("Present", CELLB)]]
+for label, present in OUTPUTS:
+    rows.append([p(label, CELL),
+                 tone("yes", GREEN) if present else tone("MISSING", RED)])
+story.append(table(rows, [110 * mm, 58 * mm]))
+
+story.append(Spacer(1, 4))
+story.append(p(
+    "The lesson is the same one the four runtime problems taught, in a "
+    "different form: a ticket marked done records that somebody built what "
+    "the ticket described, not that the requirement behind it is satisfied. "
+    "Requirement 14 asked twice for the two that were missing &#8212; \"How "
+    "urgent is it?\" and \"What should the analyst do next?\" &#8212; and "
+    "neither had an answer anywhere in the platform.", BODY))
+
+story.append(p(
+    "<b>One decision inside that work is worth stating on its own.</b> How "
+    "urgent a fault is now depends on how well the machine can actually be "
+    "seen, not only on how bad the fault looks. A finding at the top stage "
+    "cannot recommend stopping a machine if the capture failed its own "
+    "quality checks, or if the spectrum could not separate the frequencies "
+    "the diagnosis rests on. The platform says what it would have "
+    "recommended and what held it back, so the gap gets closed rather than "
+    "overridden. On this pump every finding is currently held at \"look at "
+    "it when convenient\" for exactly that reason.", BODY))
 
 # =================================================== the central finding ==
 story.append(p("The one thing that stops Phase 3 working, in numbers", H2))
