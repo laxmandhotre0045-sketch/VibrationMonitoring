@@ -300,12 +300,18 @@ def test_escalation_is_never_claimed_without_the_alarm():
 
 def test_every_condition_is_recorded_whatever_the_outcome():
     """Recorded, not merely consulted. A finding held back at the first gate
-    still has to say how the other three stood."""
+    still has to say how the others stood.
+
+    Six, not four. Section 10.2 lists six checks and only four were ever
+    built; corroboration and acceleration were added later. They are
+    recorded here but deliberately absent from the escalation gate -- see
+    `Conditions.all_met`.
+    """
     verdict = full([95.0, 10.0, 10.0, 10.0])          # fails repetition
     assert verdict.held_back == "not_persistent"
     recorded = verdict.conditions.as_dict()
     assert set(recorded) == {"repetition", "rising", "steady_speed",
-                             "trustworthy"}
+                             "trustworthy", "corroborated", "accelerating"}
     assert recorded["repetition"] is False
     assert recorded["steady_speed"] is True, (
         "the speed was steady even though the finding did not repeat, and "
@@ -406,3 +412,65 @@ def test_conditions_report_what_is_missing_in_readable_words():
     assert Conditions(repetition=True, trustworthy=True).missing() == [
         "rising trend", "steady speed"]
     assert Conditions(True, True, True, True).missing() == []
+
+
+# ----------------------------- section 10.2's remaining two checks -------
+
+def test_corroboration_needs_more_than_one_kind_of_measurement():
+    """"The same symptom appearing in multiple plots" means measurements
+    that are computed differently and fail differently. A crest factor and
+    a kurtosis moving together is one observation twice."""
+    from app.ai.alarm import CORROBORATION_DOMAINS, corroborating_domains
+
+    assert CORROBORATION_DOMAINS >= 2
+    time_only = corroborating_domains(
+        {"crest_factor": 90.0, "kurtosis": 88.0}, exclude="crest_factor")
+    assert len(time_only) < CORROBORATION_DOMAINS
+
+    across = corroborating_domains(
+        {"crest_factor": 90.0, "kurtosis": 88.0, "envelope_rms": 80.0},
+        exclude="crest_factor")
+    assert len(across) >= CORROBORATION_DOMAINS
+
+
+def test_a_quiet_peer_does_not_corroborate():
+    from app.ai.alarm import corroborating_domains
+
+    assert corroborating_domains(
+        {"envelope_rms": 12.0, "amplitude_1x": 8.0}) == set()
+
+
+def test_corroboration_is_unknown_rather_than_false_without_peers():
+    """A capture whose other features were not scored has not established
+    that nothing agrees -- it has not looked."""
+    verdict = full([95.0, 95.0, 95.0, 95.0])
+    assert verdict.conditions.corroborated is None
+
+
+def test_acceleration_is_unknown_on_too_short_a_run():
+    verdict = full([95.0, 94.0])
+    assert verdict.conditions.accelerating is None
+
+
+def test_acceleration_reads_the_run_in_the_right_direction():
+    """`recent_scores` arrives newest first. Read in the given order, every
+    accelerating fault reports as decelerating."""
+    from app.ai.alarm import _accelerating
+
+    # Newest first: the climb steepened most recently.
+    assert _accelerating([95.0, 80.0, 68.0, 60.0, 55.0, 52.0]) is True
+    # The same run reversed is a fault that is levelling off.
+    assert _accelerating([52.0, 55.0, 60.0, 68.0, 80.0, 95.0]) is False
+
+
+def test_the_two_new_checks_do_not_gate_escalation():
+    """They say how sure and how fast, not whether the finding is real.
+    Requiring them would make escalation harder on a gateway where it is
+    already dormant, and would do it by demanding evidence that says
+    nothing about whether the reading is true."""
+    from app.ai.alarm import Conditions
+
+    conditions = Conditions(repetition=True, rising=True, steady_speed=True,
+                            trustworthy=True, corroborated=None,
+                            accelerating=None)
+    assert conditions.all_met is True

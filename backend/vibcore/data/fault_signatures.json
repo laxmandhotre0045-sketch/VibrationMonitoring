@@ -516,6 +516,88 @@
         "Strobe the belt to see the defect directly."
       ],
       "query_hint": "belt frequency sheave pulley defect harmonics vibration diagnosis"
+    },
+    "cavitation": {
+      "name": "Cavitation",
+      "family": "Flow and hydraulics",
+      "orders": [],
+      "features": [
+        {
+          "code": "spectral_entropy",
+          "min": 0.9,
+          "weight": 1.0,
+          "role": "dominant",
+          "statement": "The spectrum is close to featureless -- energy spread evenly rather than concentrated in lines, which is random excitation rather than rotation"
+        },
+        {
+          "code": "harmonic_energy_ratio",
+          "max": 0.12,
+          "weight": 0.9,
+          "role": "required",
+          "statement": "Almost none of the energy sits in discrete harmonics, which is what separates cavitation from every rotational fault"
+        },
+        {
+          "code": "rms",
+          "min": 0.0002,
+          "weight": 0.8,
+          "role": "required",
+          "statement": "There is enough signal for the broadband energy to mean something -- a stopped machine also has a featureless spectrum"
+        },
+        {
+          "code": "crest_factor",
+          "max": 5.0,
+          "weight": 0.9,
+          "role": "required",
+          "statement": "The waveform is not impulsive. This is the discriminator that matters most: a bearing defect also lifts the high-frequency floor and also looks broadband, and the only thing separating it from cavitation is that a defect strikes repeatedly while collapsing bubbles do not. Left as merely supporting, a bearing fault with a crest factor of 9 still scored 0.84 as cavitation"
+        }
+      ],
+      "mechanism": "Low suction pressure lets vapour bubbles form and then collapse violently against the impeller. Each collapse is an independent impact, so the energy is random and broadband rather than tied to any rotational frequency -- which is why cavitation has no peak to find and is recognised by the absence of one.",
+      "confirming_checks": [
+        "Listen at the pump: cavitation sounds like gravel passing through it.",
+        "Check suction conditions first -- strainers, valve position, level, and net positive suction head.",
+        "Throttling the discharge should change the noise; a bearing fault will not care.",
+        "Cavitation erodes impellers, so a long-running case usually shows as a rising vane-pass amplitude as well.",
+        "On a gateway whose signal sits at the converter's own floor, a dead channel and a cavitating pump both produce a featureless spectrum. Check the capture has real amplitude before acting on this."
+      ],
+      "query_hint": "cavitation pump broadband noise suction NPSH vibration diagnosis"
+    },
+    "rotor_bar": {
+      "name": "Rotor bar defect",
+      "family": "Electrical",
+      "orders": [
+        {
+          "ref": "1.0",
+          "tol_order": 0.04,
+          "weight": 0.6,
+          "role": "required"
+        },
+        {
+          "ref": "@1x_minus_pole_pass",
+          "tol_order": 0.03,
+          "weight": 1.0,
+          "role": "required"
+        },
+        {
+          "ref": "@1x_plus_pole_pass",
+          "tol_order": 0.03,
+          "weight": 1.0,
+          "role": "required"
+        },
+        {
+          "ref": "@line_2x",
+          "tol_pct": 1.0,
+          "weight": 0.4,
+          "role": "supporting"
+        }
+      ],
+      "mechanism": "A cracked or broken rotor bar carries no current, so the rotor's magnetic field becomes asymmetric and the torque pulses once per pole pass. That modulates running speed, putting sidebands at running speed plus and minus the pole-pass frequency -- and pole pass is slip times the pole count, so the spacing is tiny and needs a long record to resolve.",
+      "confirming_checks": [
+        "Both sidebands should be present and roughly symmetric about running speed; one alone is more often a nearby unrelated peak.",
+        "Confirm the pole count and measure the actual speed; the sideband spacing is derived from slip and is wrong if either is guessed.",
+        "Current signature analysis is the definitive test and is cheaper than dismantling the motor.",
+        "The sidebands grow with load, because slip does."
+      ],
+      "query_hint": "rotor bar defect pole pass sideband slip motor current signature analysis vibration"
     }
   }
 }

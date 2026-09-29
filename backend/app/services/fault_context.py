@@ -147,7 +147,8 @@ def machine_context(
     try:
         row = db.execute(text("""
             SELECT motor_pole_count, pump_vanes, fan_blades, gear_teeth,
-                   gearbox_ratio, foundation_type, bearing_number_de
+                   gearbox_ratio, foundation_type, bearing_number_de,
+                   rated_rpm
               FROM equipment_masters WHERE id = :e
         """), {"e": str(equipment_id)}).fetchone()
     except Exception:
@@ -155,6 +156,15 @@ def machine_context(
         return context
     if row is None:
         return context
+
+    # The motor, for the rotor-bar rule. Its sidebands sit either side of
+    # running speed at the pole-pass frequency, which is slip times poles --
+    # so the rule needs the pole count and the synchronous speed, and is
+    # skipped rather than guessed when either is absent.
+    if row.motor_pole_count:
+        context.motor_pole_count = int(row.motor_pole_count)
+        # Synchronous speed from the supply: 120 f / poles.
+        context.sync_rpm = 120.0 * line_frequency_hz / int(row.motor_pole_count)
 
     # Vane or blade pass: the count of vanes or blades, in orders of running
     # speed. A pump has vanes, a fan has blades, and a machine recorded with
@@ -196,6 +206,7 @@ def context_completeness(context: MachineContext) -> dict[str, Any]:
     """
     available = {
         "shaft_speed": context.shaft_rpm is not None,
+        "motor_slip": context.pole_pass_order is not None,
         "bearing_orders": bool(context.bearing_orders),
         "vane_or_blade_pass": context.vane_pass_order is not None,
         "gear_mesh": bool(context.gear_mesh_orders),

@@ -130,11 +130,13 @@ def _store(db: Session, sensor_id: UUID, upload_id: UUID,
         INSERT INTO {ALARMS}
             (sensor_id, channel, feature_code, alarming, escalating,
              cond_repetition, cond_rising, cond_steady_speed, cond_trustworthy,
+             cond_corroborated, cond_accelerating,
              stability, run_length, required,
              score, band, confidence, held_back, reason, last_upload_id,
              first_alarmed_at, last_alarmed_at, updated_at)
         VALUES (:s, :channel, :code, :alarming, :escalating,
                 :c_rep, :c_rise, :c_steady, :c_trust,
+                :c_corrob, :c_accel,
                 :stability, :run, :required, :score,
                 :band, :confidence, :held_back, :reason, :upload,
                 CASE WHEN :alarming THEN :now ELSE NULL END,
@@ -146,6 +148,8 @@ def _store(db: Session, sensor_id: UUID, upload_id: UUID,
             cond_rising = EXCLUDED.cond_rising,
             cond_steady_speed = EXCLUDED.cond_steady_speed,
             cond_trustworthy = EXCLUDED.cond_trustworthy,
+            cond_corroborated = EXCLUDED.cond_corroborated,
+            cond_accelerating = EXCLUDED.cond_accelerating,
             stability = EXCLUDED.stability,
             run_length = EXCLUDED.run_length,
             required = EXCLUDED.required,
@@ -184,6 +188,11 @@ def _store(db: Session, sensor_id: UUID, upload_id: UUID,
         "c_rise": verdict.conditions.rising,
         "c_steady": verdict.conditions.steady_speed,
         "c_trust": verdict.conditions.trustworthy,
+        # None where the check could not run, stored as NULL rather
+        # than false -- "not established" and "established as no" are
+        # different answers and only one of them is reassuring.
+        "c_corrob": verdict.conditions.corroborated,
+        "c_accel": verdict.conditions.accelerating,
         "stability": verdict.stability,
         "run": verdict.run_length, "required": verdict.required,
         "score": verdict.score, "band": verdict.band,
@@ -246,7 +255,7 @@ def active_alarms(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
                required, first_alarmed_at, last_alarmed_at, acknowledged_at,
                acknowledged_by, reason, escalating, stability,
                cond_repetition, cond_rising, cond_steady_speed,
-               cond_trustworthy
+               cond_trustworthy, cond_corroborated, cond_accelerating
           FROM {ALARMS}
          WHERE sensor_id = :s AND alarming
          ORDER BY escalating DESC, score DESC NULLS LAST

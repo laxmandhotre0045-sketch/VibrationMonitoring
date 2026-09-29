@@ -387,8 +387,14 @@ def persist_findings(
             # is read -- the same reason `resolution` is repeated.
             symptoms = summary["symptoms"].get(channel, [])
 
+            # Features as well as peaks. Cavitation has no line anywhere
+            # in the spectrum -- it is recognised by broadband energy and
+            # the absence of harmonics -- so an order-only call can never
+            # produce it.
             for hypothesis in match_faults(peaks, context, top_n=TOP_N,
-                                           min_score=MIN_SCORE):
+                                           min_score=MIN_SCORE,
+                                           features=(features or {}).get(
+                                               channel)):
                 summary["findings"].append(_upsert(
                     db, sensor_id=sensor_id, equipment_id=equipment_id,
                     channel=channel, hypothesis=hypothesis,

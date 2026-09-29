@@ -28,6 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.ai.health import assess
+from app.ai.reliability import assess as assess_reliability
 from app.ai.recommendation import acceleration_of
 from app.services.alarm_storage import ALARMS, active_alarms
 from app.services.baseline_lifecycle import _IN_FORCE_SQL
@@ -38,6 +39,7 @@ FINDINGS = "fault_findings"
 SCORES = "feature_anomaly_scores"
 PLOTS = "fault_plot_evidence"
 CAPTURE_SYMPTOMS = "capture_symptoms"
+FEEDBACK_TABLE = "analyst_feedback"
 VERSIONS = "baseline_versions"
 
 #: Alarm bands that count as the worst level for health. The alarm table
@@ -222,6 +224,112 @@ def capture_symptoms(db: Session, sensor_id: UUID,
 
     return {"sensor_id": str(sensor_id), "upload_id": str(upload_id),
             "channels": rows, "observations": fired, "reason": reason}
+
+
+def sensor_reliability(db: Session, sensor_id: UUID, *,
+                       criticality: Optional[str] = None,
+                       last_maintenance=None) -> dict[str, Any]:
+    """Section 12.2: how dependable this machine's record is.
+
+    Distinct from `sensor_health`, which says how it is now. Every input
+    here is about what the machine has done over time, because an asset's
+    record is not erased by a good morning.
+    """
+    span = db.execute(text("""
+        SELECT COUNT(*), MIN(created_at), MAX(created_at)
+          FROM sensor_data_uploads WHERE sensor_id = :s
+    """), {"s": str(sensor_id)}).fetchone()
+    captures = int(span[0] or 0)
+    history_days = None
+    if span[1] and span[2]:
+        history_days = (span[2] - span[1]).total_seconds() / 86400.0
+
+    # Alarm episodes: features currently ringing plus those that have rung
+    # and stood down. `first_alarmed_at` survives a dip below the line, so
+    # a row that has ever alarmed is an episode.
+    episodes = db.execute(text(f"""
+        SELECT COUNT(*) FROM {ALARMS}
+         WHERE sensor_id = :s AND first_alarmed_at IS NOT NULL
+    """), {"s": str(sensor_id)}).scalar() or 0
+
+    rows = [dict(r) for r in db.execute(text(f"""
+        SELECT first_detected_at, resolved_at, peak_stage, score_history
+          FROM {FINDINGS} WHERE sensor_id = :s
+    """), {"s": str(sensor_id)}).mappings().fetchall()]
+
+    now = datetime.now(timezone.utc)
+    open_days = []
+    failures = 0
+    history: list[float] = []
+    for row in rows:
+        if row["peak_stage"] in ("severe", "critical"):
+            failures += 1
+        history.extend(float(v) for v in (row["score_history"] or []))
+        if row["resolved_at"] is None and row["first_detected_at"]:
+            started = row["first_detected_at"]
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            open_days.append((now - started).total_seconds() / 86400.0)
+
+    repairs = db.execute(text(f"""
+        SELECT COUNT(*) FROM {FEEDBACK_TABLE}
+         WHERE sensor_id = :s AND verdict = 'maintenance_confirmed'
+    """), {"s": str(sensor_id)}).scalar() or 0
+
+    # Operating stress: how much observed running was outside the machine's
+    # normal mode. Each capture stands for the interval it represents, so
+    # this is a share of captures rather than of clock time.
+    outside = observed = None
+    try:
+        # There is no "this is the normal mode" flag anywhere, so the
+        # label carries it. Only captures whose mode was actually
+        # identified are counted: a capture the detector could not place is
+        # not evidence of stress, it is evidence of not knowing, and
+        # folding those in would report every gateway with poor mode
+        # detection as a plant under strain.
+        modes = db.execute(text("""
+            SELECT COUNT(*) FILTER (WHERE label NOT ILIKE '%normal%'),
+                   COUNT(*),
+                   COUNT(*) FILTER (WHERE is_unknown)
+              FROM capture_operating_modes m
+              JOIN sensor_data_uploads u ON u.id = m.upload_id
+             WHERE u.sensor_id = :s AND NOT m.is_unknown
+        """), {"s": str(sensor_id)}).fetchone()
+        if modes and modes[1]:
+            outside, observed = float(modes[0] or 0), float(modes[1])
+
+        unplaced = db.execute(text("""
+            SELECT COUNT(*) FROM capture_operating_modes m
+              JOIN sensor_data_uploads u ON u.id = m.upload_id
+             WHERE u.sensor_id = :s AND m.is_unknown
+        """), {"s": str(sensor_id)}).scalar() or 0
+        if unplaced:
+            unplaced_note = (
+                f"{unplaced} capture(s) could not be placed in any operating "
+                f"mode and are excluded from the operating-stress figure "
+                f"rather than counted as stress.")
+        else:
+            unplaced_note = None
+    except Exception:
+        logger.exception("Operating stress unavailable for %s", sensor_id)
+        unplaced_note = None
+
+    verdict = assess_reliability(
+        current_health=sensor_health(db, sensor_id).get("score"),
+        captures=captures, history_days=history_days,
+        alarm_episodes=int(episodes), open_fault_days=open_days,
+        repairs=int(repairs), previous_failures=failures,
+        last_maintenance=last_maintenance, score_history=history,
+        hours_outside_normal_mode=outside, hours_observed=observed,
+        criticality=criticality)
+
+    payload = verdict.as_dict()
+    if unplaced_note:
+        payload["unknowns"] = [*payload.get("unknowns", []), unplaced_note]
+    payload["sensor_id"] = str(sensor_id)
+    payload["captures"] = captures
+    payload["history_days"] = round(history_days, 1) if history_days else None
+    return payload
 
 
 def plots_for(db: Session, fault_key: str) -> list[dict[str, Any]]:

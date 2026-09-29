@@ -31,12 +31,14 @@ from app.ai.iso_grade import grade_spectrum
 from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.services.fault_storage import open_findings
+from app.services.fleet_storage import fleet as fleet_summary
 from app.services.health_storage import (
     capture_symptoms,
     latest_upload,
     plot_evidence_table,
     plots_for,
     sensor_health,
+    sensor_reliability,
 )
 
 logger = logging.getLogger(__name__)
@@ -126,6 +128,55 @@ def health(
                             criticality=machine.get("machine_criticality"))
     verdict["machine_name"] = machine.get("machine_name")
     return verdict
+
+
+@router.get("/reliability",
+            summary="How dependable this machine's record is (12.2)")
+def reliability(
+    sensor_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Section 12.2, and deliberately not the same number as health.
+
+    Health says how the machine is now; reliability says how much it can be
+    leaned on. A pump repaired four times this year can read perfectly
+    healthy this morning and still be the one you would not stake a
+    shutdown window on.
+
+    A machine with a short record is reported as unproven with its ceiling
+    stated, rather than as reliable -- every history-based input reads
+    perfectly on an asset nobody has watched yet.
+    """
+    _require_sensor(db, sensor_id)
+    machine = _machine_for(db, sensor_id)
+    row = db.execute(text("""
+        SELECT e.last_maintenance_date
+          FROM sensor_configurations s
+          LEFT JOIN equipment_masters e ON e.id = s.equipment_id
+         WHERE s.id = :s
+    """), {"s": str(sensor_id)}).fetchone()
+
+    verdict = sensor_reliability(
+        db, sensor_id, criticality=machine.get("machine_criticality"),
+        last_maintenance=row[0] if row else None)
+    verdict["machine_name"] = machine.get("machine_name")
+    return verdict
+
+
+@router.get("/fleet", summary="The whole site in one picture (19.3)")
+def fleet(
+    plant_name: Optional[str] = Query(
+        None, description="Restrict to one plant."),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Section 19.3's management view, and fleet-level intelligence.
+
+    Machines that cannot be scored are excluded from the site averages
+    rather than counted as healthy, and the list of them travels with the
+    number. An average computed from nine of twenty machines that does not
+    say so is worse than no average.
+    """
+    return fleet_summary(db, plant_name=plant_name)
 
 
 @router.get("/iso", summary="ISO 10816-3 zone, or every zone it could be")

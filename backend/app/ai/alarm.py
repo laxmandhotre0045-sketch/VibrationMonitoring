@@ -159,9 +159,56 @@ def resolve(profile: Optional[str],
 RISING_MARGIN = 3.0
 
 
+#: Which view a feature belongs to, for the corroboration check.
+#:
+#: "The same symptom appearing in multiple plots" means the abnormality
+#: shows up in measurements that are computed differently and fail
+#: differently -- not that several closely related numbers all moved. A
+#: crest factor and a kurtosis rising together is one observation twice;
+#: a crest factor and an envelope band energy rising together is two.
+FEATURE_DOMAINS: dict[str, str] = {
+    # Shape of the waveform in time.
+    "rms": "time", "peak": "time", "peak_to_peak": "time",
+    "crest_factor": "time", "kurtosis": "time", "skewness": "time",
+    "std_dev": "time", "shape_factor": "time", "impulse_factor": "time",
+    "clearance_factor": "time", "zero_crossing_rate": "time",
+    "dc_offset": "time", "burst_count": "time", "shock_index": "time",
+    # Where the energy sits in frequency.
+    "amplitude_1x": "spectrum", "amplitude_2x": "spectrum",
+    "amplitude_3x": "spectrum", "dominant_frequency": "spectrum",
+    "dominant_prominence": "spectrum", "spectral_centroid": "spectrum",
+    "spectral_entropy": "spectrum", "spectral_spread": "spectrum",
+    "harmonic_count": "spectrum", "harmonic_energy_ratio": "spectrum",
+    "noise_floor": "spectrum", "broadband_noise": "spectrum",
+    "fft_band_energy_0_500": "spectrum", "narrowband_ratio": "spectrum",
+    "resonance_band_energy": "spectrum", "haystack_score": "spectrum",
+    # Demodulated -- what the high-frequency ringing is modulated at.
+    "envelope_rms": "envelope", "envelope_peak": "envelope",
+    "envelope_kurtosis": "envelope", "bpfo_band_energy": "envelope",
+    "bpfi_band_energy": "envelope", "bsf_band_energy": "envelope",
+    "ftf_band_energy": "envelope", "bearing_harmonic_energy": "envelope",
+    "demodulated_peak_prominence": "envelope", "modulation_index": "envelope",
+    "sideband_energy_ratio": "envelope", "sideband_spacing": "envelope",
+    "repetition_impact_frequency": "envelope",
+    # How it has moved.
+    "rms_change_short": "trend", "rms_change_long": "trend",
+    "peak_drift": "trend",
+}
+
+#: Distinct views that must show the abnormality before it counts as
+#: corroborated. Two, not three: three would require every fault to be
+#: visible in the envelope, and a looseness never is.
+CORROBORATION_DOMAINS = 2
+
+#: Score at or above which another feature counts as corroborating. The
+#: band boundary for "abnormal" -- below it a feature is drifting, not
+#: agreeing.
+CORROBORATION_SCORE = 61.0
+
+
 @dataclass
 class Conditions:
-    """The four things escalation needs, each recorded on its own.
+    """The six things section 10.2 asks about, each recorded on its own.
 
     The ticket asks for exactly this: "Escalation needs repetition, a rising
     trend, steady speed and trustworthy data. Record each condition
@@ -176,9 +223,25 @@ class Conditions:
     rising: bool = False
     steady_speed: bool = False
     trustworthy: bool = False
+    #: Section 10.2's fifth and sixth checks. Optional because "could not
+    #: be established" is a real answer for both and must not read as
+    #: False -- a trend nobody had enough readings to test is not a trend
+    #: that was tested and found flat.
+    corroborated: Optional[bool] = None
+    accelerating: Optional[bool] = None
 
     @property
     def all_met(self) -> bool:
+        """The four conditions escalation turns on.
+
+        Corroboration and acceleration are deliberately not here. Those two
+        say how sure and how fast; these four say whether the finding is
+        real and worsening, which is the question escalation asks. Adding
+        them to the gate would make escalation harder on a platform where
+        it is already dormant for want of a longer capture, and would do it
+        by demanding evidence that says nothing about whether the reading
+        is true.
+        """
         return (self.repetition and self.rising
                 and self.steady_speed and self.trustworthy)
 
@@ -188,10 +251,44 @@ class Conditions:
             ("steady speed", self.steady_speed),
             ("trustworthy data", self.trustworthy)) if not met]
 
-    def as_dict(self) -> dict[str, bool]:
+    def strengths(self) -> list[str]:
+        """The two that support a finding without gating it."""
+        found = []
+        if self.corroborated:
+            found.append("the same abnormality shows in more than one view")
+        if self.accelerating:
+            found.append("the deterioration is speeding up")
+        return found
+
+    def as_dict(self) -> dict[str, Any]:
         return {"repetition": self.repetition, "rising": self.rising,
                 "steady_speed": self.steady_speed,
-                "trustworthy": self.trustworthy}
+                "trustworthy": self.trustworthy,
+                "corroborated": self.corroborated,
+                "accelerating": self.accelerating}
+
+
+def corroborating_domains(
+    scores_by_feature: dict[str, Optional[float]],
+    exclude: str = "",
+) -> set[str]:
+    """Which distinct views also show something abnormal on this channel.
+
+    Section 10.2's "is the same symptom appearing in multiple plots". A
+    feature with no domain recorded is ignored rather than counted, because
+    a new feature nobody has classified should not silently corroborate
+    everything.
+    """
+    domains = set()
+    for code, score in scores_by_feature.items():
+        if code == exclude or score is None:
+            continue
+        if float(score) < CORROBORATION_SCORE:
+            continue
+        domain = FEATURE_DOMAINS.get(code)
+        if domain:
+            domains.add(domain)
+    return domains
 
 
 @dataclass
@@ -280,6 +377,24 @@ def consecutive_run(scores: Sequence[Optional[float]], threshold: float) -> int:
     return run
 
 
+def _accelerating(recent_scores: Sequence[Optional[float]]) -> Optional[bool]:
+    """Whether the climb is itself getting steeper. Section 10.2's sixth.
+
+    `recent_scores` arrives newest first, so it is reversed before the
+    slopes are compared -- reading it in the given order would report every
+    accelerating fault as decelerating and vice versa.
+
+    Returns None below the run length the comparison needs, because "not
+    accelerating" is a reassuring answer and must not be given for a fault
+    nobody has watched long enough.
+    """
+    from app.ai.recommendation import acceleration_of
+
+    values = [float(s) for s in reversed(list(recent_scores)) if s is not None]
+    verdict = acceleration_of(values)
+    return bool(verdict["accelerating"]) if verdict else None
+
+
 def evaluate(
     channel: int,
     feature_code: str,
@@ -289,13 +404,17 @@ def evaluate(
     band: Optional[str],
     sensitivity: Sensitivity,
     stability: Optional[str] = None,
+    peer_scores: Optional[dict[str, Optional[float]]] = None,
 ) -> AlarmVerdict:
     """Decide whether this feature should ring, and whether it is escalating.
 
     `recent_scores` is newest first and includes the current capture.
     `stability` is how the shaft speed behaved during this capture, from the
     quality engine: "steady", "variable", "unstable", or None when nothing
-    could assess it.
+    could assess it. `peer_scores` is every other feature's score on the
+    same channel this capture, which is what section 10.2's "is the same
+    symptom appearing in multiple plots" is asked of -- omit it and that
+    condition reports as unknown rather than as false.
 
     **Ringing and escalating are separate claims.** An alarm needs the
     finding to have repeated and the baseline behind it to be worth
@@ -342,6 +461,14 @@ def evaluate(
         steady_speed=stability == "steady",
         trustworthy=(confidence is None
                      or confidence >= sensitivity.min_confidence),
+        # Section 10.2's fifth and sixth checks. Both are None when they
+        # could not be established -- a trend nobody had enough readings to
+        # test is not a trend that was tested and found flat.
+        corroborated=(
+            len(corroborating_domains(peer_scores, feature_code))
+            >= CORROBORATION_DOMAINS
+            if peer_scores else None),
+        accelerating=_accelerating(recent_scores),
     )
 
     if verdict.run_length == 0:
@@ -380,6 +507,13 @@ def evaluate(
         f"machine's {sensitivity.profile} setting. A single high reading is "
         f"chance; this one has not gone away.")
 
+    # The two checks that strengthen a finding without gating it. Stated on
+    # the alarm because an analyst deciding how fast to move should be told
+    # that three different measurements agree, or that it is speeding up.
+    strengths = verdict.conditions.strengths()
+    if strengths:
+        verdict.reason += (" Also: " + ", and ".join(strengths) + ".")
+
     if verdict.escalating:
         verdict.reason += (
             " It is also climbing, on a machine whose speed held steady --"
@@ -407,6 +541,13 @@ def evaluate_capture(
     score alone would bury it under a higher reading that has been flat for
     a month.
     """
+    # This capture's scores, grouped by channel, so each feature can be
+    # asked whether anything else on the same point agrees with it --
+    # section 10.2's "is the same symptom appearing in multiple plots".
+    by_channel: dict[int, dict[str, Optional[float]]] = {}
+    for (channel, code), row in current.items():
+        by_channel.setdefault(channel, {})[code] = (row or {}).get("score")
+
     verdicts = []
     for key, scores in sorted(histories.items()):
         channel, code = key
@@ -414,7 +555,8 @@ def evaluate_capture(
         verdicts.append(evaluate(
             channel, code, scores,
             confidence=row.get("confidence"), band=row.get("band"),
-            sensitivity=sensitivity, stability=stability))
+            sensitivity=sensitivity, stability=stability,
+            peer_scores=by_channel.get(channel)))
     verdicts.sort(key=lambda v: (not v.alarming, not v.escalating,
                                  -(v.score or 0.0)))
     return verdicts
