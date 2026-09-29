@@ -1,11 +1,12 @@
 import {
-  LayoutDashboard,
-  Cpu,
   Activity,
+  Cpu,
   Database,
-  Sparkles,
   Gauge,
+  LayoutDashboard,
+  ListChecks,
   Settings,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +65,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Gauge,
     active: true,
     matchPaths: ["/ai-insights"],
+    roles: ["super_admin", "admin", "user"],
+  },
+  {
+    path: "/triage",
+    label: "Priority Queue",
+    icon: ListChecks,
+    active: true,
+    matchPaths: ["/triage"],
     roles: ["super_admin", "admin", "user"],
   },
   {

@@ -21,6 +21,7 @@ import pytest
 
 from app.ai.feedback import (
     AGREEMENT_NEEDED,
+    SUPPRESSION_DAYS,
     FEEDBACK_HALF_LIFE_DAYS,
     MAX_ADJUSTMENT,
     NEGATIVE,
@@ -285,3 +286,34 @@ def test_the_two_kinds_of_negative_feedback_are_kept_apart():
     assert VERDICTS["false_alarm"]["learns"] != \
         VERDICTS["fault_not_found"]["learns"]
     assert set(POSITIVE) == {"correct_detection", "maintenance_confirmed"}
+
+
+def test_a_finding_at_the_top_of_the_scale_can_still_be_muted():
+    """Found by driving the screen's own calls end to end.
+
+    The breakout score was the current score plus a margin, clamped to 1.0.
+    A finding already scoring 1.0 therefore got a breakout of 1.0, its own
+    score satisfied the comparison immediately, and the mute was void the
+    instant it was granted -- the analyst pressed the button and the
+    finding stayed in the queue.
+
+    At the top of the scale there is no "materially worse" left to reach,
+    so there is no escape score. The expiry still applies.
+    """
+    mute = suppress(current_score=1.0, analyst="a", reason="known", now=NOW)
+
+    assert mute.breakout_score is None
+    assert mute.active_at(1.0, NOW) is True
+    assert "no higher score" in mute.reason
+    # And it still ends when it is supposed to.
+    assert mute.active_at(1.0, NOW + timedelta(days=SUPPRESSION_DAYS + 1)) \
+        is False
+
+
+def test_the_breakout_is_strictly_above_the_score_it_was_granted_at():
+    """Otherwise a finding sitting exactly on its own breakout is not
+    muted, which is the same bug one decimal place lower."""
+    mute = suppress(current_score=0.40, analyst="a", reason="known", now=NOW)
+    assert mute.breakout_score is not None
+    assert mute.active_at(mute.breakout_score, NOW) is True
+    assert mute.active_at(mute.breakout_score + 0.01, NOW) is False

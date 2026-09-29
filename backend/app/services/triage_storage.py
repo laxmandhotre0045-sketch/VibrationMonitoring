@@ -123,7 +123,8 @@ def score_findings(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
     now = datetime.now(timezone.utc)
 
     rows = [dict(r) for r in db.execute(text(f"""
-        SELECT id, channel, fault_key, fault_name, family, score, confidence,
+        SELECT id, sensor_id, channel, fault_key, fault_name, family, score,
+               confidence,
                stage, severity, times_seen, direction, score_history,
                first_detected_at, last_seen_at, recommended_action, urgency,
                shutdown_advised, assigned_to, triage_status,
@@ -146,8 +147,11 @@ def score_findings(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
             if until.tzinfo is None:
                 until = until.replace(tzinfo=timezone.utc)
             breakout = row["suppressed_at_score"]
+            # Strictly greater, matching `Suppression.active_at`. With
+            # `>=` a finding whose breakout equals its own score -- which
+            # is what happens at the top of the scale -- is never muted.
             muted = now < until and not (
-                breakout is not None and float(row["score"]) >= breakout)
+                breakout is not None and float(row["score"]) > breakout)
 
         verdict = rank(
             severity=int(row["severity"] or 0),
@@ -235,6 +239,9 @@ def queue(db: Session, *, limit: int = 50,
             break
         rows.append({
             "rank": position,
+            # Every action a screen can take -- feedback, assignment -- is
+            # addressed by finding id, so a queue without it is read-only.
+            "finding_id": str(row["id"]),
             "machine_name": row.get("machine_name"),
             "sensor_id": str(row.get("sensor_id") or ""),
             "channel": row["channel"],

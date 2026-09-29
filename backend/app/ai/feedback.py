@@ -245,7 +245,7 @@ class Suppression:
             until = until.replace(tzinfo=timezone.utc)
         if when >= until:
             return False
-        if self.breakout_score is not None and score >= self.breakout_score:
+        if self.breakout_score is not None and score > self.breakout_score:
             return False
         return True
 
@@ -261,14 +261,32 @@ def suppress(*, current_score: float, analyst: str, reason: str,
     thinks to set a review date.
     """
     now = now or datetime.now(timezone.utc)
+    until = now + timedelta(days=days)
+    headroom = current_score + SUPPRESSION_BREAKOUT
+
+    # A finding already at the top of the scale has no "materially worse"
+    # left to reach, so there is no score that can break it out. Clamping
+    # the breakout to 1.0 instead made the mute void the instant it was
+    # granted -- the score was already 1.0, the comparison fired, and the
+    # finding never left the queue. Saying there is no escape score is the
+    # honest version, and the expiry still applies.
+    if headroom > 1.0:
+        return Suppression(
+            until=until, breakout_score=None,
+            reason=(
+                f"Muted by {analyst} until {until.date()} because: "
+                f"{reason.rstrip('.')}. This finding is already at the top "
+                f"of the scale, so there is no higher score that could "
+                f"bring it back early -- the mute holds until it expires, "
+                f"and nothing else will interrupt it."))
+
     return Suppression(
-        until=now + timedelta(days=days),
-        breakout_score=round(min(current_score + SUPPRESSION_BREAKOUT, 1.0), 4),
+        until=until,
+        breakout_score=round(headroom, 4),
         reason=(
-            f"Muted by {analyst} until {(now + timedelta(days=days)).date()} "
-            f"because: {reason}. It will come back on its own if the score "
-            f"rises above {min(current_score + SUPPRESSION_BREAKOUT, 1.0):.2f} "
-            f"before then."))
+            f"Muted by {analyst} until {until.date()} because: "
+            f"{reason.rstrip('.')}. It will come back on its own if the "
+            f"score rises above {headroom:.2f} before then."))
 
 
 def describe(verdict: str) -> dict[str, str]:
