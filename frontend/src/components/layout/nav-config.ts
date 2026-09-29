@@ -1,8 +1,10 @@
 import {
   Activity,
+  Building2,
   Cpu,
   Database,
   Gauge,
+  HardHat,
   LayoutDashboard,
   ListChecks,
   Settings,
@@ -74,6 +76,22 @@ export const NAV_ITEMS: NavItem[] = [
     active: true,
     matchPaths: ["/triage"],
     roles: ["super_admin", "admin", "user"],
+  },
+  {
+    path: "/operator",
+    label: "Operator View",
+    icon: HardHat,
+    active: true,
+    matchPaths: ["/operator"],
+    roles: ["super_admin", "admin", "user"],
+  },
+  {
+    path: "/management",
+    label: "Management View",
+    icon: Building2,
+    active: true,
+    matchPaths: ["/management"],
+    roles: ["super_admin", "admin"],
   },
   {
     path: "/settings",

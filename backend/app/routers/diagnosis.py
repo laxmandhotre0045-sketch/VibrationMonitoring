@@ -32,6 +32,7 @@ from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.services.fault_storage import open_findings
 from app.services.fleet_storage import fleet as fleet_summary
+from app.services.fleet_storage import operator_view
 from app.services.health_storage import (
     capture_symptoms,
     latest_upload,
@@ -161,6 +162,21 @@ def reliability(
         last_maintenance=row[0] if row else None)
     verdict["machine_name"] = machine.get("machine_name")
     return verdict
+
+
+@router.get("/operator", summary="Is it running, and is it alright (19.1)")
+def operator(
+    plant_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Section 19.1, for somebody walking the plant rather than sitting
+    with it. One short action sentence per machine.
+
+    Temperature is one of the six fields asked for and nothing on this
+    platform measures one, so it is returned as unavailable with the reason
+    rather than omitted.
+    """
+    return operator_view(db, plant_name=plant_name)
 
 
 @router.get("/fleet", summary="The whole site in one picture (19.3)")

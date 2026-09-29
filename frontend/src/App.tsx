@@ -15,6 +15,8 @@ import { SensorDataPage } from "@/pages/SensorData";
 import { AiAnalysisPage } from "@/pages/AiAnalysis";
 import { AiInsightsPage } from "@/pages/AiInsights";
 import { TriagePage } from "@/pages/Triage";
+import { OperatorDashboard } from "@/pages/OperatorDashboard";
+import { ManagementDashboard } from "@/pages/ManagementDashboard";
 import { LoginPage } from "@/pages/Login";
 import { UnauthorizedPage } from "@/pages/Unauthorized";
 import { ChangePasswordPage } from "@/pages/ChangePassword";
@@ -115,6 +117,22 @@ export default function App() {
                   element={
                     <ProtectedRoute roles={[...ALL_ROLES]}>
                       <TriagePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/operator"
+                  element={
+                    <ProtectedRoute roles={[...ALL_ROLES]}>
+                      <OperatorDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/management"
+                  element={
+                    <ProtectedRoute roles={[...ALL_ROLES]}>
+                      <ManagementDashboard />
                     </ProtectedRoute>
                   }
                 />

@@ -150,12 +150,12 @@ def fleet(db: Session, *, plant_name: Optional[str] = None) -> dict[str, Any]:
         "unmeasured_machines": unmeasured,
         "feedback": alarm_quality(db),
         "maintenance": maintenance_status(db),
+        # The names are carried in `unmeasured_machines` rather than here,
+        # so a caller that renders both does not print them twice.
         "reason": (
             f"{len(scored)} of {len(machines)} machine(s) could be scored."
-            + (f" {len(unmeasured)} could not and are excluded from the site "
-               f"averages rather than counted as healthy: "
-               f"{', '.join(unmeasured[:4])}"
-               f"{'...' if len(unmeasured) > 4 else ''}."
+            + (f" {len(unmeasured)} could not, and are excluded from the "
+               f"site averages rather than counted as healthy."
                if unmeasured else "")),
     }
 
@@ -247,4 +247,111 @@ def maintenance_status(db: Session) -> dict[str, Any]:
             f"{sum(rows.values())} open finding(s): {unassigned} not yet "
             f"assigned to anyone."
             if rows else "Nothing is currently open."),
+    }
+
+
+def operator_view(db: Session, *,
+                  plant_name: Optional[str] = None) -> dict[str, Any]:
+    """Section 19.1's operator dashboard: is it running, and is it alright.
+
+    Six fields are asked for and one of them cannot be supplied: nothing in
+    the platform receives a temperature. It is reported as not measured
+    rather than left off the screen, because an operator who has been shown
+    five fields will assume the sixth was fine.
+
+    The action message is deliberately one short sentence. This screen is
+    read by somebody walking the plant, not sitting with it.
+    """
+    rows = _machines(db)
+    if plant_name:
+        rows = [r for r in rows
+                if (r["plant_name"] or "").lower() == plant_name.lower()]
+
+    machines = []
+    for row in rows:
+        entry = {
+            "equipment_id": str(row["equipment_id"]),
+            "machine_name": row["machine_name"],
+            "plant_name": row["plant_name"], "area": row["area"],
+            "sensor_id": str(row["sensor_id"]) if row["sensor_id"] else None,
+            "running_state": "unknown", "rms_g": None,
+            "temperature_c": None,
+            "temperature_note": ("No temperature is measured anywhere on "
+                                 "this platform -- the gateway does not "
+                                 "send one."),
+            "alarms": 0, "worst_alarm_band": None,
+            "status": "no_data", "action": "", "last_seen": None,
+        }
+
+        if not row["sensor_id"]:
+            entry["action"] = "No sensor fitted. Nothing is being watched."
+            machines.append(entry)
+            continue
+
+        latest = db.execute(text("""
+            SELECT id, created_at FROM sensor_data_uploads
+             WHERE sensor_id = :s ORDER BY created_at DESC LIMIT 1
+        """), {"s": str(row["sensor_id"])}).mappings().fetchone()
+
+        if not latest:
+            entry["action"] = "No reading has ever arrived from this machine."
+            machines.append(entry)
+            continue
+
+        entry["last_seen"] = latest["created_at"]
+
+        rms = db.execute(text("""
+            SELECT AVG(value) FROM measurement_channel_features
+             WHERE upload_id = :u AND feature_code = 'rms'
+        """), {"u": str(latest["id"])}).scalar()
+        entry["rms_g"] = round(float(rms), 5) if rms is not None else None
+
+        mode = db.execute(text("""
+            SELECT label, is_unknown FROM capture_operating_modes
+             WHERE upload_id = :u LIMIT 1
+        """), {"u": str(latest["id"])}).mappings().fetchone()
+        if mode and not mode["is_unknown"]:
+            entry["running_state"] = mode["label"]
+        elif mode:
+            entry["running_state"] = "not recognised"
+
+        alarms = db.execute(text(f"""
+            SELECT COUNT(*), MAX(CASE band
+                     WHEN 'critical' THEN 5 WHEN 'high' THEN 4
+                     WHEN 'abnormal' THEN 3 WHEN 'watch' THEN 2 ELSE 1 END)
+              FROM {ALARMS} WHERE sensor_id = :s AND alarming
+        """), {"s": str(row["sensor_id"])}).fetchone()
+        entry["alarms"] = int(alarms[0] or 0)
+        entry["worst_alarm_band"] = {5: "critical", 4: "high", 3: "abnormal",
+                                     2: "watch"}.get(alarms[1])
+
+        if entry["alarms"] and entry["worst_alarm_band"] in ("critical",
+                                                             "high"):
+            entry["status"] = "attention"
+            entry["action"] = ("Tell the reliability team. Something on this "
+                               "machine is ringing at a high level.")
+        elif entry["alarms"]:
+            entry["status"] = "watch"
+            entry["action"] = "Being watched. No action needed from you."
+        else:
+            entry["status"] = "ok"
+            entry["action"] = "Nothing ringing."
+        machines.append(entry)
+
+    return {
+        "machines": machines,
+        "counts": {
+            "total": len(machines),
+            "attention": sum(1 for m in machines
+                             if m["status"] == "attention"),
+            "watch": sum(1 for m in machines if m["status"] == "watch"),
+            "ok": sum(1 for m in machines if m["status"] == "ok"),
+            "no_data": sum(1 for m in machines if m["status"] == "no_data"),
+        },
+        "temperature_available": False,
+        "reason": (
+            "Temperature is asked for on this screen and is not measured "
+            "anywhere on the platform, so it is shown as unavailable rather "
+            "than left off -- an operator shown five of six fields will "
+            "assume the sixth was fine."),
     }
