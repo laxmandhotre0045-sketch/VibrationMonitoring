@@ -111,9 +111,17 @@ def _context(db: Session, sensor_id: UUID) -> dict[str, Any]:
         SELECT COUNT(*) FROM {ALARMS} WHERE sensor_id = :s AND alarming
     """), {"s": str(sensor_id)}).scalar() or 0
 
+    # Section 15.1's "alarm history", separate from the live count.
+    # `first_alarmed_at` survives a dip below the line, so a row that has
+    # ever alarmed is an episode even if it is quiet now.
+    history = db.execute(text(f"""
+        SELECT COUNT(*) FROM {ALARMS}
+         WHERE sensor_id = :s AND first_alarmed_at IS NOT NULL
+    """), {"s": str(sensor_id)}).scalar() or 0
+
     return {"anomaly_score": float(peak) if peak is not None else None,
             "symptom_count": int(symptoms), "data_quality": quality,
-            "active_alarms": int(alarms)}
+            "active_alarms": int(alarms), "alarm_history": int(history)}
 
 
 def score_findings(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
@@ -162,6 +170,7 @@ def score_findings(db: Session, sensor_id: UUID) -> list[dict[str, Any]]:
             direction=row["direction"],
             symptom_count=shared["symptom_count"],
             active_alarms=shared["active_alarms"],
+            alarm_history=shared["alarm_history"],
             data_quality=shared["data_quality"],
             criticality=machine.get("machine_criticality"),
             safety_impact=machine.get("safety_impact"),

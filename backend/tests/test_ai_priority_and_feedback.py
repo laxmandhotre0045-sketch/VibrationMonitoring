@@ -317,3 +317,45 @@ def test_the_breakout_is_strictly_above_the_score_it_was_granted_at():
     assert mute.breakout_score is not None
     assert mute.active_at(mute.breakout_score, NOW) is True
     assert mute.active_at(mute.breakout_score + 0.01, NOW) is False
+
+
+def test_alarm_history_is_read_not_merely_accepted():
+    """Section 15.1 lists it, and it was a parameter the body never read —
+    a declared input that did nothing, which is worse than an absent one
+    because the signature claims otherwise and every caller believes it."""
+    base = dict(severity=3, confidence=0.9, **SEEN_WELL, **CRITICAL_MACHINE)
+    quiet = rank(alarm_history=0, **base)
+    troubled = rank(alarm_history=40, **base)
+
+    assert troubled.score > quiet.score
+    assert "alarm_history" in quiet.inputs
+
+
+def test_alarm_history_is_separate_from_what_is_ringing_now():
+    """They answer different questions: one is this moment, the other is
+    the machine's record."""
+    import inspect
+
+    from app.ai.priority import rank as rank_fn
+
+    params = inspect.signature(rank_fn).parameters
+    assert "active_alarms" in params and "alarm_history" in params
+
+
+def test_alarm_history_saturates():
+    """A machine that has alarmed thirty times and one that has alarmed
+    sixty are both machines with a long history of alarming."""
+    from app.ai.priority import ALARM_HISTORY_SATURATION
+
+    base = dict(severity=3, confidence=0.9, **SEEN_WELL, **CRITICAL_MACHINE)
+    at = rank(alarm_history=ALARM_HISTORY_SATURATION, **base)
+    beyond = rank(alarm_history=ALARM_HISTORY_SATURATION * 5, **base)
+    assert at.score == beyond.score
+
+
+def test_the_condition_weights_still_sum_to_one():
+    """They are shares of 'as bad as this engine can say', so the score
+    stops being readable as a percentage the moment they do not."""
+    from app.ai.priority import CONDITION_WEIGHTS
+
+    assert sum(CONDITION_WEIGHTS.values()) == pytest.approx(1.0, abs=1e-9)

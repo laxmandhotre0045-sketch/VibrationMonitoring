@@ -48,13 +48,24 @@ from typing import Any, Optional, Sequence
 #: These sum to 1.0 so the condition score is readable as a percentage of
 #: "as bad as this engine can say".
 CONDITION_WEIGHTS = {
-    "severity": 0.34,
-    "anomaly": 0.20,
-    "acceleration": 0.16,
-    "persistence": 0.12,
-    "alarms": 0.10,
-    "symptoms": 0.08,
+    "severity": 0.32,
+    "anomaly": 0.19,
+    "acceleration": 0.15,
+    "persistence": 0.11,
+    "alarms": 0.09,
+    "symptoms": 0.07,
+    # Section 15.1's "alarm history": how often this machine has rung at
+    # all, as opposed to what is ringing now. Light, because the record is
+    # mostly the reliability score's job and the feedback loop already
+    # discounts a machine whose alarms keep being rejected -- weighting it
+    # heavily here would charge the same history three times.
+    "alarm_history": 0.07,
 }
+
+#: Historic alarm episodes at which that input saturates. A machine that
+#: has alarmed thirty times and one that has alarmed sixty are both
+#: machines with a long history of alarming.
+ALARM_HISTORY_SATURATION = 20
 
 #: Machine criticality, as the equipment record spells it.
 CRITICALITY = {"critical": 1.0, "high": 0.8, "medium": 0.55, "low": 0.3}
@@ -137,7 +148,10 @@ def rank(
     accelerating: Optional[bool] = None,
     direction: Optional[str] = None,
     symptom_count: int = 0,
+    #: What is ringing on this machine now.
     active_alarms: int = 0,
+    #: How many features have *ever* rung on it. Section 15.1 lists this
+    #: separately from the live count and they answer different questions.
     alarm_history: int = 0,
     data_quality: Optional[str] = None,
     criticality: Optional[str] = None,
@@ -178,6 +192,9 @@ def rank(
         PERSISTENCE_SATURATION
     parts["alarms"] = min(active_alarms, 3) / 3.0
     parts["symptoms"] = min(symptom_count, 5) / 5.0
+    parts["alarm_history"] = (
+        min(alarm_history, ALARM_HISTORY_SATURATION)
+        / ALARM_HISTORY_SATURATION)
 
     condition = sum(parts[k] * w for k, w in CONDITION_WEIGHTS.items())
 
