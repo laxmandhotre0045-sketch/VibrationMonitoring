@@ -30,13 +30,17 @@ import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.ai.versions import version_of
 from app.ai.detectors import MIN_TRAINING_SAMPLES, run_detectors
 from app.services.feature_catalog import INFORMATIONAL
 
 logger = logging.getLogger(__name__)
 
 TABLE = "capture_detector_scores"
-ENGINE_VERSION = "1"
+# Declared in `app.ai.versions`, not here. Five modules each
+# holding their own constant is five places to forget, and
+# section 22 turns on no version changing silently.
+ENGINE_VERSION = version_of("detectors")
 
 #: Captures to train on. Enough for the model to have seen the shape of the
 #: machine's behaviour without reaching back past the last time somebody

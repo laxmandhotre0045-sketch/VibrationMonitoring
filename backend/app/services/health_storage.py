@@ -353,3 +353,83 @@ def plot_evidence_table(db: Session) -> dict[str, list[dict[str, Any]]]:
         entry = dict(row)
         table.setdefault(entry.pop("fault_key"), []).append(entry)
     return table
+
+
+#: The feature RUL is tracked against, and the level that counts as the end
+#: of useful life.
+#:
+#: Envelope RMS because a bearing is the failure mode this platform can
+#: actually see developing, and the envelope is where it shows first. The
+#: threshold is deliberately a multiple of the machine's own learned
+#: baseline rather than an absolute number -- an absolute g level means
+#: different things on different machines, and the whole platform is built
+#: on comparing a machine to itself.
+RUL_FEATURE = "envelope_rms"
+RUL_THRESHOLD_MULTIPLE = 4.0
+
+
+def sensor_rul(db: Session, sensor_id: UUID) -> dict[str, Any]:
+    """Section 13: remaining useful life, or why it cannot be estimated.
+
+    Tracks one feature against a threshold set from the machine's own
+    baseline. Returns the refusal far more often than an estimate, which is
+    the correct proportion on a gateway with five days of history.
+    """
+    from app.ai.rul import estimate
+
+    rows = db.execute(text("""
+        SELECT u.created_at, f.value
+          FROM measurement_channel_features f
+          JOIN sensor_data_uploads u ON u.id = f.upload_id
+         WHERE u.sensor_id = :s AND f.feature_code = :c
+         ORDER BY u.created_at
+    """), {"s": str(sensor_id), "c": RUL_FEATURE}).fetchall()
+
+    history = [(r[0], float(r[1])) for r in rows if r[1] is not None]
+
+    # The threshold, from this machine's own learned normal.
+    # Median, not mean. The baselines are built on robust statistics
+    # throughout, and mixing in a mean here would compare this machine
+    # against a different normal from the one every other score uses.
+    baseline = db.execute(text("""
+        SELECT median FROM feature_baseline_stats
+         WHERE sensor_id = :s AND feature_code = :c
+         ORDER BY computed_at DESC LIMIT 1
+    """), {"s": str(sensor_id), "c": RUL_FEATURE}).scalar()
+
+    if baseline is None or float(baseline) <= 0:
+        return {
+            "available": False, "sensor_id": str(sensor_id),
+            "points": len(history),
+            "reason": (
+                "RUL prediction not available: this machine has no learned "
+                "baseline for " + RUL_FEATURE + ", so there is no level "
+                "that counts as the end of its useful life. A threshold "
+                "taken from anywhere else would be describing a different "
+                "machine."),
+            "missing_inputs": [], "confidence": "none", "reliable": False,
+        }
+
+    threshold = float(baseline) * RUL_THRESHOLD_MULTIPLE
+    hours = db.execute(text("""
+        SELECT COUNT(*) FROM sensor_data_uploads WHERE sensor_id = :s
+    """), {"s": str(sensor_id)}).scalar() or 0
+
+    verdict = estimate(
+        history=history, threshold=threshold,
+        feature_name="envelope RMS",
+        # Captures are not running hours, and pretending otherwise would
+        # invent a number. Left absent so the estimate says it is missing.
+        operating_hours=None,
+        maintenance_history=None, failure_history=None,
+        has_temperature=False, has_load=False)
+
+    payload = verdict.as_dict()
+    payload["sensor_id"] = str(sensor_id)
+    payload["feature"] = RUL_FEATURE
+    payload["threshold"] = round(threshold, 6)
+    payload["threshold_basis"] = (
+        f"{RUL_THRESHOLD_MULTIPLE:g}x this machine's own learned median of "
+        f"{float(baseline):.6g}")
+    payload["captures"] = int(hours)
+    return payload

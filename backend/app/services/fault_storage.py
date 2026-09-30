@@ -36,6 +36,7 @@ import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.ai.versions import version_of
 from app.ai.fault_resolution import assess_resolution
 from app.ai.recommendation import HISTORY_LENGTH, direction_of, recommend
 from app.ai.severity import grade
@@ -53,7 +54,10 @@ logger = logging.getLogger(__name__)
 TABLE = "fault_findings"
 SYMPTOMS_TABLE = "capture_symptoms"
 ACTIONS_TABLE = "fault_recommendations"
-ENGINE_VERSION = "1"
+# Declared in `app.ai.versions`, not here. Five modules each
+# holding their own constant is five places to forget, and
+# section 22 turns on no version changing silently.
+ENGINE_VERSION = version_of("fault")
 
 #: How many checks `app.ai.symptoms.detect` runs in total. Recorded beside
 #: each result so an empty list can be told from a list that could only

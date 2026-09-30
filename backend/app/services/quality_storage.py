@@ -21,6 +21,7 @@ import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.ai.versions import version_of
 from app.ai.quality import assess_capture
 from app.ai.signal_unit import sensitivity_for_channel
 
@@ -30,7 +31,10 @@ TABLE = "data_quality_assessments"
 
 #: Bumped whenever a threshold changes. Without it, an assessment from
 #: before a recalibration cannot be told from one after it.
-ENGINE_VERSION = "1"
+# Declared in `app.ai.versions`, not here. Five modules each
+# holding their own constant is five places to forget, and
+# section 22 turns on no version changing silently.
+ENGINE_VERSION = version_of("quality")
 
 #: The Beckhoff EL3632 is +/-5 V, 16-bit signed. Converted to g by whatever
 #: sensitivity the PLC applied -- which is 100 mV/g on every channel, as the

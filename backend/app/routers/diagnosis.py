@@ -33,6 +33,7 @@ from app.dependencies.auth import get_current_user
 from app.services.fault_storage import open_findings
 from app.services.fleet_storage import fleet as fleet_summary
 from app.services.fleet_storage import operator_view
+from app.services import reports as report_service
 from app.services.health_storage import (
     capture_symptoms,
     latest_upload,
@@ -40,6 +41,7 @@ from app.services.health_storage import (
     plots_for,
     sensor_health,
     sensor_reliability,
+    sensor_rul,
 )
 
 logger = logging.getLogger(__name__)
@@ -179,6 +181,27 @@ def operator(
     return operator_view(db, plant_name=plant_name)
 
 
+@router.get("/rul", summary="Remaining useful life, or why not (13)")
+def rul(
+    sensor_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Section 13, which opens with the condition rather than the sum:
+    "RUL should be provided only when enough historical trend data is
+    available."
+
+    Expect the refusal. This gateway has five days of history against the
+    thirty the shortest credible extrapolation needs, and a failure date
+    fitted to five days is arithmetic anybody can do and nobody should
+    trust. `available` is false and `reason` says what is missing.
+    """
+    _require_sensor(db, sensor_id)
+    verdict = sensor_rul(db, sensor_id)
+    machine = _machine_for(db, sensor_id)
+    verdict["machine_name"] = machine.get("machine_name")
+    return verdict
+
+
 @router.get("/fleet", summary="The whole site in one picture (19.3)")
 def fleet(
     plant_name: Optional[str] = Query(
@@ -280,6 +303,57 @@ def symptoms(
     """
     _require_sensor(db, sensor_id)
     return capture_symptoms(db, sensor_id, upload_id)
+
+
+@router.get("/reports", summary="The nine report types (17.2)")
+def report_types() -> dict[str, Any]:
+    """Section 17.2's list, with what each covers."""
+    return {"reports": report_service.available_reports()}
+
+
+@router.get("/reports/machine", summary="One machine's report (17.1)")
+def machine_report(
+    sensor_id: UUID = Query(...),
+    report_type: str = Query("weekly_machine_health"),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Section 17.1's eighteen items for one machine.
+
+    Sections that could not be filled are present with the reason rather
+    than omitted. A report that silently drops what it could not gather
+    reads as a clean bill of health, and on this gateway most of it cannot
+    be gathered.
+    """
+    _require_sensor(db, sensor_id)
+    try:
+        return report_service.machine_report(
+            db, sensor_id=sensor_id, report_type=report_type)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.get("/reports/fleet", summary="A fleet-scoped report (17.2)")
+def fleet_report(
+    report_type: str = Query("fleet_health"),
+    plant_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    try:
+        return report_service.fleet_report(
+            db, report_type=report_type, plant_name=plant_name)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.get("/governance", summary="Model, baseline and feature versions (22)")
+def governance(db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Section 22, including whether its closing line is being honoured.
+
+    `compliant` is false when the code is running a version the registry
+    has never heard of -- which is precisely "a model changed silently".
+    """
+    from app.services.governance import summary as governance_summary
+    return governance_summary(db)
 
 
 @router.get("/plot-evidence",

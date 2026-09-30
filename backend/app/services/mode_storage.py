@@ -25,13 +25,17 @@ import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.ai.versions import version_of
 from app.ai.operating_mode import UNKNOWN, ModeVerdict, detect_mode
 from app.services.operating_mode_setup import load_bands
 
 logger = logging.getLogger(__name__)
 
 TABLE = "capture_operating_modes"
-ENGINE_VERSION = "1"
+# Declared in `app.ai.versions`, not here. Five modules each
+# holding their own constant is five places to forget, and
+# section 22 turns on no version changing silently.
+ENGINE_VERSION = version_of("operating_mode")
 
 
 def overall_level(channels: dict[str, list[float]]) -> Optional[float]:

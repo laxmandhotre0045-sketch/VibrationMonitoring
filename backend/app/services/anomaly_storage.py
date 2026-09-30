@@ -25,6 +25,7 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.ai.versions import version_of
 from app.ai.anomaly import Score, score_capture, worst
 from app.services.baseline_engine import load_baseline_map
 from app.services.feature_catalog import INFORMATIONAL
@@ -32,7 +33,10 @@ from app.services.feature_catalog import INFORMATIONAL
 logger = logging.getLogger(__name__)
 
 TABLE = "feature_anomaly_scores"
-ENGINE_VERSION = "1"
+# Declared in `app.ai.versions`, not here. Five modules each
+# holding their own constant is five places to forget, and
+# section 22 turns on no version changing silently.
+ENGINE_VERSION = version_of("anomaly")
 
 
 def quality_factors(db: Session, upload_id: UUID) -> dict[int, float]:
