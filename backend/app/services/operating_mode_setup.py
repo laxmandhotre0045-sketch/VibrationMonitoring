@@ -167,3 +167,169 @@ def load_bands(db: Session, equipment_id: UUID) -> list[ModeBand]:
         load_max=float(r["load_max"]) if r["load_max"] is not None else None,
         source=r["source"],
     ) for r in rows]
+
+
+#: Section 6.1 lists low, medium and high load as modes. They can only
+#: exist if somebody configured a band called that, and "medium load" never
+#: was -- so it was unreachable rather than undetected.
+#:
+#: These are derived from the machine's own recorded load range rather than
+#: invented: the plant already told us the range, and thirds of a stated
+#: range is a defensible reading of it. A machine with no load range gets
+#: no load bands, which is the same rule as everywhere else -- the engine
+#: does not manufacture the one thing it was not given.
+LOAD_BAND_LABELS = ("low_load", "medium_load", "high_load")
+
+
+def derive_load_bands(db, equipment_id) -> list[dict]:
+    """Thirds of the machine's stated load range, as bands.
+
+    Returns an empty list when the range is unknown or degenerate. A
+    machine that runs at one load has one mode, and splitting that into
+    three would put nearly identical captures into three baselines and make
+    each of them thinner.
+    """
+    from sqlalchemy import text
+
+    row = db.execute(text("""
+        SELECT load_range_min, load_range_max, rated_rpm
+          FROM equipment_masters WHERE id = :e
+    """), {"e": str(equipment_id)}).fetchone()
+    if row is None or row[0] is None or row[1] is None:
+        return []
+
+    low, high = float(row[0]), float(row[1])
+    if high <= low:
+        return []
+
+    step = (high - low) / 3.0
+    bands = []
+    for index, label in enumerate(LOAD_BAND_LABELS):
+        bands.append({
+            "label": label,
+            "load_min": round(low + step * index, 3),
+            "load_max": round(low + step * (index + 1), 3),
+            "source": "derived",
+            "notes": (
+                f"Derived as a third of this machine's stated load range "
+                f"{low:g}-{high:g}. Not measured from its behaviour -- if "
+                f"the machine actually runs in two clusters rather than "
+                f"three even bands, mode discovery will say so."),
+        })
+    return bands
+
+
+#: Captures needed before mode discovery is worth running. Below this the
+#: clusters are describing scatter.
+DISCOVERY_MIN_CAPTURES = 60
+
+#: Most modes discovery will propose. More than four bands on one machine
+#: is almost always the clustering finding structure in noise.
+DISCOVERY_MAX_MODES = 4
+
+
+def discover_modes(db, sensor_id, max_modes: int = DISCOVERY_MAX_MODES):
+    """Section 11.2's "clustering for mode discovery".
+
+    Proposes bands for a machine nobody has configured, from how it has
+    actually been running. Deliberately the last resort and never automatic:
+    the module docstring for `app.ai.operating_mode` says banding beats
+    clustering because a band a plant engineer writes down encodes what the
+    machine is *for*, and a cluster only encodes what it has been doing --
+    including, if it has been running badly, the fault.
+
+    So this returns *proposals* with the evidence behind them for somebody
+    to accept or reject. Writing them straight into the bands table would
+    let a machine that has spent a month degrading acquire a mode called
+    "normal" that is anything but.
+    """
+    from sqlalchemy import text
+
+    rows = db.execute(text("""
+        SELECT m.shaft_hz, m.overall_level
+          FROM capture_operating_modes m
+          JOIN sensor_data_uploads u ON u.id = m.upload_id
+         WHERE u.sensor_id = :s AND m.shaft_hz IS NOT NULL
+           AND m.overall_level IS NOT NULL
+    """), {"s": str(sensor_id)}).fetchall()
+
+    points = [(float(a), float(b)) for a, b in rows if a and b]
+    if len(points) < DISCOVERY_MIN_CAPTURES:
+        return {
+            "proposed": [], "captures": len(points),
+            "reason": (
+                f"Mode discovery needs about {DISCOVERY_MIN_CAPTURES} "
+                f"captures and this machine has {len(points)}. Below that "
+                f"the clusters describe scatter, and a proposed band built "
+                f"from scatter is worse than no band -- somebody would "
+                f"accept it."),
+        }
+
+    try:
+        import numpy as np
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+    except Exception:
+        return {"proposed": [], "captures": len(points),
+                "reason": "Clustering is unavailable in this environment."}
+
+    data = np.asarray(points, dtype=float)
+    # Scaled, because shaft speed is tens and level is thousandths --
+    # unscaled, the clustering would be entirely about speed and the level
+    # axis would contribute nothing.
+    scaled = StandardScaler().fit_transform(data)
+
+    best = None
+    for k in range(2, min(max_modes, len(points) // 20) + 1):
+        model = KMeans(n_clusters=k, n_init=10, random_state=20260930)
+        labels = model.fit_predict(scaled)
+        # Separation against spread: a split worth proposing puts the
+        # clusters further apart than the points within them are.
+        spread = float(np.mean([
+            np.linalg.norm(scaled[labels == i]
+                           - model.cluster_centers_[i], axis=1).mean()
+            for i in range(k) if (labels == i).any()]))
+        gaps = [np.linalg.norm(model.cluster_centers_[i]
+                               - model.cluster_centers_[j])
+                for i in range(k) for j in range(i + 1, k)]
+        separation = float(min(gaps)) if gaps else 0.0
+        score = separation / spread if spread > 0 else 0.0
+        if best is None or score > best["score"]:
+            best = {"k": k, "labels": labels, "score": score}
+
+    if best is None or best["score"] < 1.5:
+        return {
+            "proposed": [], "captures": len(points),
+            "reason": (
+                "This machine's captures do not separate into distinct "
+                "operating points -- the clusters sit closer together than "
+                "the spread within them. One mode is the honest reading."),
+        }
+
+    proposed = []
+    for index in range(best["k"]):
+        member = data[best["labels"] == index]
+        if not len(member):
+            continue
+        rpm = member[:, 0] * 60.0
+        proposed.append({
+            "label": f"discovered_{index + 1}",
+            "rpm_min": round(float(np.percentile(rpm, 5)), 1),
+            "rpm_max": round(float(np.percentile(rpm, 95)), 1),
+            "captures": int(len(member)),
+            "median_level_g": round(float(np.median(member[:, 1])), 6),
+            "source": "discovered",
+        })
+
+    proposed.sort(key=lambda b: b["rpm_min"])
+    return {
+        "proposed": proposed, "captures": len(points),
+        "separation": round(best["score"], 2),
+        "reason": (
+            f"{best['k']} operating points found across {len(points)} "
+            f"captures, separated by {best['score']:.1f} times their own "
+            f"spread. These are proposals from how the machine has been "
+            f"running, not from what it is for -- review them before "
+            f"accepting. A machine that has spent the period degrading "
+            f"will offer you a cluster that looks like a mode."),
+    }

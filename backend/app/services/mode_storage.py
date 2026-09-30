@@ -93,6 +93,25 @@ def persist_mode(
     """Decide and store the operating mode for one capture."""
     try:
         bands = load_bands(db, equipment_id) if equipment_id else []
+
+        # The two inputs the transient modes need. Both already existed --
+        # the previous capture is a row away and the rated speed is on the
+        # equipment record -- they were simply never passed, which is why
+        # startup, shutdown and idle were undetectable rather than wrong.
+        previous = db.execute(text("""
+            SELECT m.shaft_hz
+              FROM capture_operating_modes m
+              JOIN sensor_data_uploads u ON u.id = m.upload_id
+             WHERE u.sensor_id = :s AND u.id <> :u AND m.shaft_hz IS NOT NULL
+             ORDER BY u.created_at DESC LIMIT 1
+        """), {"s": str(sensor_id), "u": str(upload_id)}).scalar()
+
+        rated_rpm = None
+        if equipment_id:
+            rated_rpm = db.execute(text(
+                "SELECT rated_rpm FROM equipment_masters WHERE id = :e"),
+                {"e": str(equipment_id)}).scalar()
+
         verdict = detect_mode(
             bands,
             shaft_hz=shaft_hz,
@@ -100,6 +119,8 @@ def persist_mode(
             shaft_source=shaft_source,
             overall_level_g=overall_level(channels),
             stability=stability_from_quality(quality_summary),
+            previous_shaft_hz=float(previous) if previous else None,
+            rated_shaft_hz=(float(rated_rpm) / 60.0) if rated_rpm else None,
         )
     except Exception:
         logger.exception("Mode detection failed for upload %s", upload_id)

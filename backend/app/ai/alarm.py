@@ -74,13 +74,48 @@ class Sensitivity:
     #: Days of history a baseline is built from. Conservative learns from a
     #: longer window, which makes its normal broader and its alarms rarer.
     baseline_days: Optional[int] = None
+    #: Section 4.2's "mode separation logic": whether a reading is compared
+    #: only against captures from its own operating mode, or against the
+    #: machine's whole history.
+    #:
+    #: Strict is right and is the default, because a pump at low load and
+    #: the same pump at high load are different normals. Loose exists for
+    #: machines with too little history per mode to build one, where the
+    #: choice is a broad baseline or none at all -- and a broad baseline
+    #: that says so beats no baseline that says nothing.
+    mode_separation: str = "strict"
+    #: Section 4.2's "frequency band rules": which feature families count
+    #: towards an alarm. Empty means all of them.
+    #:
+    #: A plant that knows its gearbox mesh always looks alarming can scope
+    #: alarms to the bands it trusts, instead of the two alternatives people
+    #: actually reach for -- raising the threshold until nothing rings, or
+    #: ignoring the screen.
+    frequency_bands: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {"profile": self.profile,
                 "score_threshold": self.score_threshold,
                 "persistence": self.persistence,
                 "min_confidence": self.min_confidence,
-                "baseline_days": self.baseline_days}
+                "baseline_days": self.baseline_days,
+                "mode_separation": self.mode_separation,
+                "frequency_bands": list(self.frequency_bands)}
+
+    def covers(self, feature_code: str) -> bool:
+        """Whether this feature is in scope for alarming.
+
+        Out-of-scope features are still scored and still stored -- only the
+        alarm is suppressed. Dropping the score as well would hide the
+        reading from the trend that would later prove the band was worth
+        watching after all.
+        """
+        if not self.frequency_bands:
+            return True
+        from app.ai.alarm import FEATURE_DOMAINS
+        domain = FEATURE_DOMAINS.get(feature_code)
+        return feature_code in self.frequency_bands or (
+            domain is not None and domain in self.frequency_bands)
 
 
 #: The three preset profiles. Expert is built from a person's own numbers
@@ -133,7 +168,23 @@ def resolve(profile: Optional[str],
         "persistence": base.persistence,
         "min_confidence": base.min_confidence,
         "baseline_days": base.baseline_days,
+        "mode_separation": base.mode_separation,
+        "frequency_bands": base.frequency_bands,
     }
+
+    # The two settings that are not numbers. `EXPERT_BOUNDS` clamps the
+    # numeric knobs into a safe range; these need their own validation
+    # because an unrecognised value must not silently widen what a reading
+    # is compared against.
+    separation = (overrides or {}).get("mode_separation")
+    if isinstance(separation, str) and separation.strip().lower() in (
+            "strict", "loose"):
+        values["mode_separation"] = separation.strip().lower()
+
+    bands = (overrides or {}).get("frequency_bands")
+    if isinstance(bands, (list, tuple)):
+        values["frequency_bands"] = tuple(
+            str(b) for b in bands if isinstance(b, str) and b.strip())
     for key, raw in (overrides or {}).items():
         if key not in EXPERT_BOUNDS or raw is None:
             continue
@@ -144,8 +195,17 @@ def resolve(profile: Optional[str],
             continue
         values[key] = min(max(value, low), high)
 
-    return Sensitivity(EXPERT, values["score_threshold"], values["persistence"],
-                       values["min_confidence"], values["baseline_days"])
+    # Constructed by keyword. Positionally, the two new settings would have
+    # been silently dropped -- which is what happened: `resolve` validated
+    # them, put them in `values`, and then built the object from the four
+    # it already knew about.
+    return Sensitivity(profile=EXPERT,
+                       score_threshold=values["score_threshold"],
+                       persistence=values["persistence"],
+                       min_confidence=values["min_confidence"],
+                       baseline_days=values["baseline_days"],
+                       mode_separation=values["mode_separation"],
+                       frequency_bands=values["frequency_bands"])
 
 
 #: How much higher the recent half of a run must sit above its older half

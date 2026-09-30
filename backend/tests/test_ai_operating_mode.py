@@ -199,3 +199,109 @@ def test_the_evidence_travels_with_the_verdict():
     assert payload["shaft_hz"] == pytest.approx(25.0)
     assert payload["overall_level"] == RUNNING
     assert payload["stability"] == "steady"
+
+
+# ------------------------------- section 6.1's transient states ----------
+
+def test_a_machine_coming_up_to_speed_is_not_filed_as_a_steady_band():
+    """The reason these needed adding at all.
+
+    A machine on its way up passes through every band below its target. A
+    matcher that compares one capture against a static range files that ramp
+    as a steady state and then averages it into that mode's baseline —
+    which is exactly the contamination this module exists to prevent.
+    """
+    from app.ai.operating_mode import STARTUP
+
+    band = ModeBand("m", "normal_running", 1400.0, 1550.0)
+    verdict = detect_mode([band], shaft_hz=RPM(1480.0), shaft_usable=True,
+                          overall_level_g=RUNNING, stability="steady",
+                          previous_shaft_hz=RPM(700.0))
+
+    assert verdict.label == STARTUP
+    assert verdict.is_unknown is False
+    assert "coming up to speed" in verdict.reason
+
+
+def test_a_machine_running_down_is_told_from_one_coming_up():
+    """Nothing looking at a single capture can separate these: the same
+    700 rpm on the way up and on the way down."""
+    from app.ai.operating_mode import SHUTDOWN, STARTUP
+
+    band = ModeBand("m", "normal_running", 1400.0, 1550.0)
+    rising = detect_mode([band], shaft_hz=RPM(700.0), shaft_usable=True,
+                         overall_level_g=RUNNING, stability="steady",
+                         previous_shaft_hz=RPM(300.0))
+    falling = detect_mode([band], shaft_hz=RPM(700.0), shaft_usable=True,
+                          overall_level_g=RUNNING, stability="steady",
+                          previous_shaft_hz=RPM(1480.0))
+
+    assert rising.label == STARTUP
+    assert falling.label == SHUTDOWN
+
+
+def test_ordinary_speed_regulation_is_not_a_ramp():
+    """A loaded machine's speed wanders by a couple of per cent. Calling
+    that a startup would put most captures in a transient state."""
+    band = ModeBand("m", "normal_running", 1400.0, 1550.0)
+    verdict = detect_mode([band], shaft_hz=RPM(1490.0), shaft_usable=True,
+                          overall_level_g=RUNNING, stability="steady",
+                          previous_shaft_hz=RPM(1470.0))
+    assert verdict.label == "normal_running"
+
+
+def test_speed_moving_within_the_capture_is_its_own_mode():
+    from app.ai.operating_mode import VARIABLE_SPEED
+
+    band = ModeBand("m", "high_load", 1450.0, 1550.0)
+    verdict = detect_mode([band], shaft_hz=RPM(1500.0), shaft_usable=True,
+                          overall_level_g=RUNNING, stability="variable",
+                          previous_shaft_hz=RPM(1500.0))
+    assert verdict.label == VARIABLE_SPEED
+    assert "smeared" in verdict.reason
+
+
+def test_variable_speed_and_unstable_operation_stay_separate():
+    """Section 6.1 lists both. An unstable capture still matches its band
+    and carries a reduced confidence — "high load, and shakily" — rather
+    than having the band discarded."""
+    from app.ai.operating_mode import VARIABLE_SPEED
+
+    band = ModeBand("m", "high_load", 1450.0, 1550.0)
+    unstable = detect_mode([band], shaft_hz=RPM(1500.0), shaft_usable=True,
+                           overall_level_g=RUNNING, stability="unstable",
+                           previous_shaft_hz=RPM(1500.0))
+    assert unstable.label == "high_load"
+    assert unstable.label != VARIABLE_SPEED
+    assert unstable.confidence < 1.0
+
+
+def test_a_machine_turning_but_not_working_is_idling():
+    from app.ai.operating_mode import IDLE
+
+    band = ModeBand("m", "normal_running", 1400.0, 1550.0)
+    verdict = detect_mode([band], shaft_hz=RPM(400.0), shaft_usable=True,
+                          overall_level_g=RUNNING, stability="steady",
+                          previous_shaft_hz=RPM(400.0),
+                          rated_shaft_hz=RPM(1480.0))
+    assert verdict.label == IDLE
+    assert "not doing its job" in verdict.reason
+
+
+def test_idle_needs_a_rated_speed_to_compare_against():
+    """Without one there is no "slow for this machine", only a number."""
+    band = ModeBand("m", "normal_running", 1400.0, 1550.0)
+    verdict = detect_mode([band], shaft_hz=RPM(400.0), shaft_usable=True,
+                          overall_level_g=RUNNING, stability="steady",
+                          previous_shaft_hz=RPM(400.0))
+    assert verdict.label != "idle"
+
+
+def test_a_transient_state_is_decided_before_the_bands():
+    """Otherwise a ramp matches whichever band it is passing through."""
+    import inspect
+
+    from app.ai import operating_mode
+
+    source = inspect.getsource(operating_mode.detect_mode)
+    assert source.index("STARTUP") < source.index("usable = [b for b in bands")

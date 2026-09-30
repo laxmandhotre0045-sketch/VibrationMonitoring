@@ -42,6 +42,38 @@ from typing import Any, Optional
 UNKNOWN = "unknown"
 OFF = "off"
 
+#: Section 6.1's transient states. A machine is *doing* these rather than
+#: sitting in them, so none can be decided from one capture against a
+#: static band -- they need how the speed moved within the capture and what
+#: it was on the one before.
+IDLE = "idle"
+STARTUP = "startup"
+SHUTDOWN = "shutdown"
+VARIABLE_SPEED = "variable_speed"
+
+#: Fractional speed change between consecutive captures above which the
+#: machine is coming up or running down rather than holding.
+#:
+#: 15% because ordinary speed regulation on a loaded machine is a couple of
+#: per cent, and a VFD ramp is tens. Below this the two are not separable
+#: and the honest answer is the band the capture actually sits in.
+RAMP_FRACTION = 0.15
+
+#: Speed, as a fraction of the machine's normal running speed, below which
+#: a turning machine is idling rather than working. A pump spinning at a
+#: third of its rated speed is not doing its job.
+IDLE_SPEED_FRACTION = 0.40
+
+#: How much two candidate bands' speed match must differ before the shape
+#: of the signal is allowed to break the tie.
+#:
+#: Only a tie-breaker, never a decider. Harmonic content and broadband
+#: energy shift with load, but they also shift with a developing fault --
+#: so letting them choose a mode outright would file a machine's
+#: deterioration as a change of operating point, and the fault would
+#: disappear into a baseline built around it.
+SHAPE_TIEBREAK_MARGIN = 0.10
+
 #: Vibration level below which the machine is not running at all, in g RMS.
 #:
 #: Measured against this gateway: the quietest real channel on the running
@@ -147,6 +179,10 @@ def detect_mode(
     shaft_source: Optional[str] = None,
     overall_level_g: Optional[float] = None,
     stability: Optional[str] = None,
+    previous_shaft_hz: Optional[float] = None,
+    rated_shaft_hz: Optional[float] = None,
+    harmonic_energy_ratio: Optional[float] = None,
+    time_domain_energy: Optional[float] = None,
 ) -> ModeVerdict:
     """Decide the operating mode for one capture.
 
@@ -159,6 +195,13 @@ def detect_mode(
     common = {"shaft_hz": shaft_hz, "shaft_source": shaft_source,
               "overall_level": overall_level_g, "stability": stability}
 
+    # Section 6.2's shape inputs. Recorded on the verdict whether or not
+    # they break a tie, so a reader can see what the decision had to work
+    # with -- a mode chosen from speed alone and one confirmed by the
+    # signal's shape are different levels of evidence.
+    shape = {"harmonic_energy_ratio": harmonic_energy_ratio,
+             "time_domain_energy": time_domain_energy}
+
     # Stopped, which is decidable without anybody configuring a band for it.
     if (overall_level_g is not None and overall_level_g < OFF_LEVEL_G
             and (not shaft_usable or not shaft_hz or shaft_hz < OFF_SHAFT_HZ)):
@@ -169,6 +212,72 @@ def detect_mode(
                     f"running, and no shaft speed was established. The "
                     f"machine is stopped."),
             **common)
+
+    # ------------------------------------------------ transient states --
+    # Checked before the bands, because a machine on its way up genuinely
+    # passes through every band below its target and matching one of them
+    # would file a ramp as a steady state -- and then average it into that
+    # mode's baseline, which is the whole failure this module exists to
+    # prevent.
+    if shaft_usable and shaft_hz and shaft_hz > 0:
+        if previous_shaft_hz and previous_shaft_hz > 0:
+            change = (shaft_hz - previous_shaft_hz) / previous_shaft_hz
+            if change > RAMP_FRACTION:
+                return ModeVerdict(
+                    label=STARTUP, is_unknown=False,
+                    confidence=min(1.0, abs(change) / RAMP_FRACTION * 0.5),
+                    reason=(
+                        f"Shaft speed rose from {previous_shaft_hz:.2f} to "
+                        f"{shaft_hz:.2f} Hz since the last capture, "
+                        f"{change:+.0%}. The machine is coming up to speed, "
+                        f"so this capture belongs to no steady band and "
+                        f"must not be averaged into one."),
+                    **common)
+            if change < -RAMP_FRACTION:
+                return ModeVerdict(
+                    label=SHUTDOWN, is_unknown=False,
+                    confidence=min(1.0, abs(change) / RAMP_FRACTION * 0.5),
+                    reason=(
+                        f"Shaft speed fell from {previous_shaft_hz:.2f} to "
+                        f"{shaft_hz:.2f} Hz since the last capture, "
+                        f"{change:+.0%}. The machine is running down."),
+                    **common)
+
+        # Speed moving *within* the capture. Distinct from a ramp between
+        # captures: the machine is being driven up and down rather than
+        # going somewhere, and every order in the spectrum is smeared.
+        # `variable` only, not `unstable`. Section 6.1 lists variable speed
+        # and unstable operation as separate modes, and they already were:
+        # an unstable capture still matches its band and carries a reduced
+        # confidence, which says "this is high load, and shakily" rather
+        # than discarding the band. Folding the two together replaced a
+        # usable match with a label and broke a test that was right.
+        if stability == "variable":
+            return ModeVerdict(
+                label=VARIABLE_SPEED, is_unknown=False, confidence=0.7,
+                reason=(
+                    f"The shaft speed moved during the capture itself "
+                    f"(stability: {stability}). Orders are smeared across "
+                    f"neighbouring lines, so this capture is poor evidence "
+                    f"for any frequency-based finding and does not belong "
+                    f"in a fixed-speed baseline."),
+                **common)
+
+        # Turning, but not working.
+        if rated_shaft_hz and rated_shaft_hz > 0:
+            share = shaft_hz / rated_shaft_hz
+            if share < IDLE_SPEED_FRACTION:
+                return ModeVerdict(
+                    label=IDLE, is_unknown=False,
+                    confidence=min(1.0, (IDLE_SPEED_FRACTION - share)
+                                   / IDLE_SPEED_FRACTION + 0.5),
+                    reason=(
+                        f"The shaft is turning at {shaft_hz:.2f} Hz, "
+                        f"{share:.0%} of this machine's rated "
+                        f"{rated_shaft_hz:.2f} Hz. It is spinning but not "
+                        f"doing its job, which is a different normal from "
+                        f"running under load."),
+                    **common)
 
     usable = [b for b in bands if b.bounded]
     if not usable:

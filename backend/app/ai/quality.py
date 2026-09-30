@@ -139,6 +139,27 @@ LOOSE_MIN_EXCURSIONS = 5
 #: extreme spikes of an impact rather than for ordinary impulsiveness.
 LOOSE_EXCURSION_SIGMA = 8.0
 
+#: Distinct sample values below which a channel has too little signal to
+#: analyse, whatever its amplitude.
+#:
+#: This is the check that describes this gateway. The pump's eight channels
+#: contain between twelve and seventy-three distinct values across a whole
+#: record, so almost everything in the spectrum is the converter rounding
+#: up and down. The noise-floor check asks whether the signal beats the
+#: rounding; this asks whether there is enough of it to do arithmetic on,
+#: which is why a capture can pass one and fail the other.
+MIN_DISTINCT_VALUES = 40
+
+#: How far the measured shaft speed may sit from the machine's rated speed
+#: before the speed is treated as wrong rather than merely different. Wide,
+#: because a VFD machine legitimately runs away from nameplate -- this is
+#: meant to catch a speed that cannot be right, not one that is unusual.
+RPM_DISAGREEMENT_FRACTION = 0.5
+
+#: Gap between consecutive captures, as a multiple of the median gap,
+#: above which readings went missing in transit.
+PACKET_GAP_MULTIPLE = 3.0
+
 
 @dataclass
 class Check:
@@ -577,8 +598,11 @@ def assess_channel(
     full_scale_g: float = 0.0,
     quantisation_step_g: Optional[float] = None,
     shaft_hz: Optional[float] = None,
+    rated_rpm: Optional[float] = None,
+    declared_state: Optional[str] = None,
+    temperature_c: Optional[float] = None,
 ) -> QualityAssessment:
-    """Run all eight checks on one channel.
+    """Run every section 21.1 check on one channel.
 
     `full_scale_g` and `quantisation_step_g` describe the converter. Both are
     optional and the checks that need them say so rather than guessing: a
@@ -599,7 +623,10 @@ def assess_channel(
     # channel reading 1e308 overflows inside np.std before any of it runs.
     with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
         checks = _run_checks(missing, x, sampling_rate_hz, full_scale_g,
-                             quantisation_step_g, shaft_hz)
+                             quantisation_step_g, shaft_hz,
+                             rated_rpm=rated_rpm,
+                             declared_state=declared_state,
+                             temperature_c=temperature_c)
 
     level = HIGH
     for check in checks:
@@ -608,18 +635,220 @@ def assess_channel(
     return QualityAssessment(level=level, checks=checks)
 
 
+def _check_low_signal(x: np.ndarray, full_scale_g: float) -> Check:
+    """Whether there is enough signal to analyse at all — section 21.1.
+
+    Two ways to have too little, and they need different words. A channel
+    can be finely resolved and tiny, or coarsely resolved and reasonably
+    large; the second is this gateway. Counting distinct values catches it
+    where an amplitude threshold does not, because the amplitude looks fine
+    until you notice it is made of thirteen numbers.
+    """
+    distinct = int(np.unique(x).size)
+    if distinct < MIN_DISTINCT_VALUES:
+        return Check(
+            "low_signal", False, LOW, float(distinct),
+            float(MIN_DISTINCT_VALUES),
+            f"The channel contains only {distinct} distinct sample values "
+            f"across the whole record, against the {MIN_DISTINCT_VALUES} "
+            f"needed. Nearly everything in the spectrum is the converter "
+            f"rounding rather than the machine, so amplitudes taken from it "
+            f"are arithmetic on noise. Raising the channel gain, or "
+            f"correcting the sensitivity the PLC applies, is what fixes it.")
+
+    # Deliberately not also testing amplitude against the converter range.
+    # A first version did, at 0.1% of full scale, and graded a perfectly
+    # healthy 0.036 g signal as poor -- because this hardware's range is
+    # +/-50 g, so healthy is 0.07% of it. The threshold was a guess and the
+    # test it failed was right.
+    #
+    # Nothing is lost by dropping it: a signal small against its range is
+    # small against its *step* too, and that is what shows up here as few
+    # distinct values. This counts the consequence rather than guessing at
+    # the cause.
+    used = (float(np.std(x)) / full_scale_g) if full_scale_g > 0 else 0.0
+    return _passed("low_signal", float(distinct), float(MIN_DISTINCT_VALUES),
+                   f"{distinct} distinct sample values"
+                   + (f", using {used * 100:.2f}% of the converter range."
+                      if full_scale_g > 0 else "."))
+
+
+def _check_wrong_rpm(shaft_hz: Optional[float],
+                     rated_rpm: Optional[float]) -> Check:
+    """Whether the measured speed can be right for this machine.
+
+    Not whether it is unusual -- a variable-speed drive legitimately runs
+    far from nameplate. This catches a speed that cannot be true, which
+    usually means the shaft estimate locked onto the wrong peak, and every
+    order in the diagnosis is then wrong by the ratio.
+    """
+    if shaft_hz is None or not rated_rpm:
+        return _not_applicable(
+            "wrong_rpm",
+            "Either no shaft speed was established or the machine has no "
+            "rated speed on record, so the two cannot be compared. Not the "
+            "same as the speed being right.")
+
+    measured_rpm = shaft_hz * 60.0
+    drift = abs(measured_rpm - rated_rpm) / rated_rpm
+    if drift > RPM_DISAGREEMENT_FRACTION:
+        return Check(
+            "wrong_rpm", False, LOW, drift, RPM_DISAGREEMENT_FRACTION,
+            f"The measured speed is {measured_rpm:.0f} rpm against a rated "
+            f"{rated_rpm:.0f} -- {drift:.0%} away. A gap this size usually "
+            f"means the shaft estimate locked onto the wrong peak, and if "
+            f"it did then every order in the diagnosis is wrong by that "
+            f"ratio.")
+    return _passed("wrong_rpm", drift, RPM_DISAGREEMENT_FRACTION,
+                   f"Measured {measured_rpm:.0f} rpm against a rated "
+                   f"{rated_rpm:.0f}.")
+
+
+def _check_wrong_machine_state(x: np.ndarray, declared_state: Optional[str],
+                               full_scale_g: float) -> Check:
+    """Whether the machine is doing what the record says it is.
+
+    A capture tagged "running" from a stopped machine poisons the baseline
+    it feeds, and nothing downstream can tell afterwards.
+    """
+    if not declared_state:
+        return _not_applicable(
+            "wrong_machine_state",
+            "No machine state was supplied with this capture, so there is "
+            "nothing to check the vibration against.")
+
+    level = float(np.std(x))
+    # "Turning at all", from the platform's own off-level, rather than a
+    # fraction of a converter range that is five hundred times the signal.
+    running = level > 2e-4
+    claims_running = declared_state.strip().lower() not in (
+        "off", "stopped", "idle", "shutdown")
+
+    if claims_running and not running:
+        return Check(
+            "wrong_machine_state", False, LOW, level, 0.0,
+            f"The capture is tagged {declared_state!r} but the vibration is "
+            f"{level:.6g} g -- the machine was not turning. A stopped "
+            f"capture fed into a running baseline drags it down and nothing "
+            f"downstream can tell afterwards.")
+    if not claims_running and running:
+        return Check(
+            "wrong_machine_state", False, MEDIUM, level, 0.0,
+            f"The capture is tagged {declared_state!r} but there is "
+            f"{level:.6g} g of vibration, so something was turning.")
+    return _passed("wrong_machine_state", level, 0.0,
+                   f"Vibration agrees with the declared state "
+                   f"{declared_state!r}.")
+
+
+def _check_sensor_temperature(temperature_c: Optional[float]) -> Check:
+    """Section 21.1 asks for it and nothing here measures one.
+
+    Reported as not assessed rather than omitted. A check that silently
+    does not exist is indistinguishable from a check that passed, and the
+    whole point of this module is that those are different.
+    """
+    if temperature_c is None:
+        return _not_applicable(
+            "sensor_temperature",
+            "No temperature is measured anywhere on this platform -- the "
+            "gateway does not send one -- so an abnormal sensor temperature "
+            "cannot be detected. Listed rather than dropped, because a "
+            "check that is silently absent reads as a check that passed.")
+    if temperature_c > 80.0 or temperature_c < -20.0:
+        return Check("sensor_temperature", False, MEDIUM, temperature_c, 80.0,
+                     f"The sensor reports {temperature_c:.0f} C, outside the "
+                     f"range an accelerometer's calibration holds over.")
+    return _passed("sensor_temperature", temperature_c, 80.0,
+                   f"Sensor at {temperature_c:.0f} C.")
+
+
 def _run_checks(missing, x, sampling_rate_hz, full_scale_g,
-                quantisation_step_g, shaft_hz) -> list[Check]:
+                quantisation_step_g, shaft_hz, rated_rpm=None,
+                declared_state=None, temperature_c=None) -> list[Check]:
     return [
         missing,
         _check_clipping(x, full_scale_g, quantisation_step_g),
         _check_saturation(x, full_scale_g),
+        _check_low_signal(x, full_scale_g),
         _check_noise_floor(x, quantisation_step_g),
         _check_bias_drift(x),
         _check_dc_offset(x, full_scale_g),
         _check_unstable_speed(x, sampling_rate_hz, shaft_hz),
         _check_loose_sensor(x),
+        _check_wrong_rpm(shaft_hz, rated_rpm),
+        _check_wrong_machine_state(x, declared_state, full_scale_g),
+        _check_sensor_temperature(temperature_c),
     ]
+
+
+def check_delivery(gaps_seconds: Optional[list[float]] = None,
+                   expected_gap_seconds: Optional[float] = None
+                   ) -> list[Check]:
+    """Packet loss and communication issues — section 21.1.
+
+    Neither is a property of a channel's samples, which is why both were
+    missing: every other check takes a sample array. They are properties of
+    how the captures arrived, so they are assessed once per capture from
+    the gaps between arrival times.
+
+    A gateway that goes quiet produces no capture at all, so the evidence
+    is always in the record of what did arrive. This one has gone silent
+    for days at a time and nothing anywhere noticed.
+    """
+    if not gaps_seconds:
+        return [
+            _not_applicable(
+                "packet_loss",
+                "Only one capture is on record for this machine, so there "
+                "are no gaps between arrivals to judge."),
+            _not_applicable(
+                "communication",
+                "Not enough arrival history to tell a quiet machine from a "
+                "quiet link."),
+        ]
+
+    ordered = sorted(float(g) for g in gaps_seconds if g is not None and g > 0)
+    if not ordered:
+        return [_not_applicable("packet_loss", "No usable arrival gaps."),
+                _not_applicable("communication", "No usable arrival gaps.")]
+
+    median = ordered[len(ordered) // 2]
+    expected = expected_gap_seconds or median
+    worst = ordered[-1]
+
+    checks = []
+    missed = sum(1 for g in ordered if g > expected * PACKET_GAP_MULTIPLE)
+    if missed:
+        checks.append(Check(
+            "packet_loss", False, MEDIUM, float(missed), 0.0,
+            f"{missed} gap(s) between captures are more than "
+            f"{PACKET_GAP_MULTIPLE:g} times the usual {expected:.0f} s. "
+            f"Readings went missing in transit, so any trend across those "
+            f"gaps has holes the arithmetic cannot see."))
+    else:
+        checks.append(_passed(
+            "packet_loss", 0.0, 0.0,
+            f"Captures arrive about every {expected:.0f} s with no gap "
+            f"beyond {PACKET_GAP_MULTIPLE:g} times that."))
+
+    # A link that has stopped entirely, as opposed to one dropping the odd
+    # reading. Judged against the machine's own cadence, because a gateway
+    # sending hourly and one sending every two minutes fail differently.
+    silence = worst / expected if expected > 0 else 0.0
+    if silence > 20.0:
+        checks.append(Check(
+            "communication", False, LOW, worst, expected * 20.0,
+            f"The longest silence is {worst / 3600.0:.1f} hours against a "
+            f"usual {expected:.0f} s between captures. The link was down "
+            f"rather than dropping readings, and nothing on this machine "
+            f"was being watched for that period."))
+    else:
+        checks.append(_passed(
+            "communication", worst, expected * 20.0,
+            f"The longest silence is {worst:.0f} s, within normal variation "
+            f"of the {expected:.0f} s cadence."))
+    return checks
 
 
 def assess_capture(
@@ -649,18 +878,33 @@ def assess_capture(
             index = int(str(name).lstrip("ch"))
         except ValueError:
             continue
-        settings = {**kwargs, **overrides.get(index, {})}
+        settings = {k: v for k, v in
+                    {**kwargs, **overrides.get(index, {})}.items()
+                    if k not in ("arrival_gaps_seconds",
+                                 "expected_gap_seconds")}
         per_channel[index] = assess_channel(samples, sampling_rate_hz, **settings)
 
     level = HIGH
     for assessment in per_channel.values():
         level = _worst(level, assessment.level)
 
+    # Delivery is about the capture, not any one channel, so it is assessed
+    # once and folded into the capture's level.
+    delivery = check_delivery(kwargs.get("arrival_gaps_seconds"),
+                              kwargs.get("expected_gap_seconds"))
+    for check in delivery:
+        if check.applicable and not check.passed:
+            level = _worst(level, check.level)
+
     return {
         "level": level,
         "confidence_factor": CONFIDENCE_FACTOR[level],
         "channels": {i: a.as_dict() for i, a in sorted(per_channel.items())},
-        "failed_checks": sorted({c for a in per_channel.values() for c in a.failed}),
-        "not_assessed": sorted({c for a in per_channel.values()
-                                for c in a.not_assessed}),
+        "delivery": [c.as_dict() for c in delivery],
+        "failed_checks": sorted(
+            {c for a in per_channel.values() for c in a.failed}
+            | {c.name for c in delivery if c.applicable and not c.passed}),
+        "not_assessed": sorted(
+            {c for a in per_channel.values() for c in a.not_assessed}
+            | {c.name for c in delivery if not c.applicable}),
     }
