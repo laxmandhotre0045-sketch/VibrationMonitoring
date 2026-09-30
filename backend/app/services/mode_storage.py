@@ -92,6 +92,21 @@ def persist_mode(
 ) -> ModeVerdict:
     """Decide and store the operating mode for one capture."""
     try:
+        # Section 4.1's switch. Checked here rather than at the caller so
+        # there is one place it can be forgotten, and a disabled engine
+        # still records *why* nothing was decided.
+        from app.services.general_settings import settings_for
+        general = settings_for(db, equipment_id)
+        if not general.mode_detection_enabled:
+            return ModeVerdict(
+                is_unknown=True, confidence=0.0,
+                reason=(
+                    f"Mode detection is switched off for this machine "
+                    f"({general.source} setting)"
+                    + (f": {general.notes}" if general.notes else ".")
+                    + " No mode was decided, which is different from a "
+                      "capture that could not be placed in one."))
+
         bands = load_bands(db, equipment_id) if equipment_id else []
 
         # The two inputs the transient modes need. Both already existed --

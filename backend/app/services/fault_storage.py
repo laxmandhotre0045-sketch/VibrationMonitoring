@@ -304,6 +304,24 @@ def persist_findings(
         "symptoms": {}, "reason": "",
     }
 
+    # Section 4.1's switch. A machine being commissioned produces findings
+    # that are true of a machine nobody is trying to diagnose, and they
+    # reach the same queue as everything else.
+    try:
+        from app.services.general_settings import settings_for
+        general = settings_for(db, equipment_id)
+        if not general.fault_detection_enabled:
+            summary["reason"] = (
+                f"Fault detection is switched off for this machine "
+                f"({general.source} setting)"
+                + (f": {general.notes}" if general.notes else ".")
+                + " Nothing was looked for, which is not the same as "
+                  "nothing being found.")
+            return summary
+    except Exception:
+        logger.exception("Could not read general settings for %s",
+                         equipment_id)
+
     try:
         context = machine_context(
             db, equipment_id,
