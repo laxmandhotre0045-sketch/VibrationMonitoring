@@ -43,7 +43,10 @@ from sqlalchemy import text                                      # noqa: E402
 from app import crud                                             # noqa: E402
 from app.database import SessionLocal                            # noqa: E402
 from app.models.measurement import SensorDataUpload              # noqa: E402
-from app.services.feature_storage import machine_shaft_speed     # noqa: E402
+from app.services.feature_storage import (                       # noqa: E402
+    _stored_channel_map,
+    machine_shaft_speed,
+)
 from app.services.quality_storage import persist_quality         # noqa: E402
 
 from recompute_features import parsed_for                        # noqa: E402
@@ -115,6 +118,11 @@ def main() -> int:
                     sensitivity_mv_per_g=(float(sensor.sensitivity)
                                           if sensor is not None and sensor.sensitivity
                                           else None),
+                    # Per channel, matching the ingest path. Without this a
+                    # re-grade would judge a 500 mV/g channel at the
+                    # sensor-wide 100 and disagree with the grade ingest
+                    # gave the same capture.
+                    channel_map=_stored_channel_map(db, upload.sensor_id),
                     shaft_hz=machine.hz if machine.usable else None,
                 )
                 db.commit()

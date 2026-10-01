@@ -9,6 +9,9 @@ from app.config import settings
 from app.database import SessionLocal, engine
 from app.routers.acquisition import router as acquisition_router
 from app.routers.ai import router as ai_router
+from app.routers.anomaly import router as anomaly_router
+from app.routers.diagnosis import router as diagnosis_router
+from app.routers.triage import router as triage_router
 from app.routers.auth import router as auth_router
 from app.routers.baselines import router as baselines_router
 from app.routers.bearings import router as bearings_router
@@ -19,6 +22,7 @@ from app.routers.ingest import router as ingest_router
 from app.routers.learned_baselines import router as learned_baselines_router
 from app.routers.integrations import router as integrations_router
 from app.routers.lookups import router as lookups_router
+from app.routers.operating_modes import router as operating_modes_router
 from app.routers.measurements import router as measurements_router
 from app.routers.plants import router as plants_router
 from app.routers.status import router as status_router
@@ -96,13 +100,17 @@ app.add_middleware(
 
 app.include_router(acquisition_router)
 app.include_router(ai_router)
+app.include_router(anomaly_router)
 app.include_router(auth_router)
 app.include_router(baselines_router)
 app.include_router(bearings_router)
 app.include_router(dashboard_router)
+app.include_router(diagnosis_router)
+app.include_router(triage_router)
 app.include_router(equipment_router)
 app.include_router(exports_router)
 app.include_router(learned_baselines_router)
+app.include_router(operating_modes_router)
 app.include_router(ingest_router)
 app.include_router(integrations_router)
 app.include_router(lookups_router)

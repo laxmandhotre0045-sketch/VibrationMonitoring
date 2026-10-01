@@ -19,8 +19,26 @@ the table is retained.
 
 Purely additive: one new table, nothing altered, nothing dropped.
 
-Revision ID: 021
-Revises: 020
+**Why this is 030 and not 021.** It was written as 021, inserted ahead of
+the migration that already held that number, which was renamed to 021a to
+make room. That works on a database built from scratch and silently does
+nothing on every database that already exists.
+
+Alembic records only where a database is now, not the path it took. A
+database already at 028 is never walked backwards to pick up a revision
+inserted behind it: `upgrade head` computes 028 -> 029 and stops. The table
+is never created, alembic still reports head, and the first thing to notice
+is the worker failing with `relation "processing_jobs" does not exist` --
+which is what it did on the development database here.
+
+So a new migration goes at the end of the chain, always. The end is the only
+place every database, however old, is guaranteed to pass through.
+
+`_has_table` makes this safe either way: a database that already ran this as
+021 finds the table present and this becomes a no-op.
+
+Revision ID: 030
+Revises: 029
 """
 from typing import Sequence, Union
 
@@ -28,8 +46,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision: str = "021"
-down_revision: Union[str, None] = "020"
+revision: str = "030"
+down_revision: Union[str, None] = "029"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

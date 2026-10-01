@@ -1,3 +1,25 @@
+"""Fleet summary. The health score is VIK-055's, not a status lookup.
+
+What this used to do: `{normal: 100, warning: 60, critical: 20}`. That is
+the status written in a different font -- it moves in steps of forty, it
+cannot tell a machine that went to warning ten minutes ago from one that
+has been there six weeks, and its 100 is indistinguishable from the 100 of
+a machine nobody has managed to take a reading from.
+
+`app.ai.health` replaces it with a score built from severity, unusualness,
+symptoms, trend, alarms, data quality, criticality and history, where poor
+data lowers the ceiling rather than the score. The scoring itself is not
+done here: it needs the fault, alarm and baseline services, and crud may
+not import those. This module leaves the health fields empty and
+`app.services.dashboard_health` fills them for the router.
+
+The status word is left exactly as it was. It comes from the threshold
+evaluator, other screens and the alert webhooks agree with it, and changing
+what it means was not asked for. Health and status now answer different
+questions, which is the point of having both.
+"""
+
+import logging
 from typing import Dict, List, Optional
 from uuid import UUID
 
@@ -17,7 +39,8 @@ from app.services.threshold_evaluator import (
     STATUS_NORMAL,
 )
 
-_HEALTH_SCORE = {STATUS_NORMAL: 100.0, STATUS_WARNING: 60.0, STATUS_CRITICAL: 20.0}
+logger = logging.getLogger(__name__)
+
 _ALERT_STATUSES = (STATUS_WARNING, STATUS_CRITICAL)
 _STATUS_RANK = {STATUS_CRITICAL: 3, STATUS_WARNING: 2, STATUS_NORMAL: 1, "no_baseline": 0}
 
@@ -84,6 +107,13 @@ def get_dashboard_summary(
                 "machine_type": equipment.machine_type,
                 "status": "no_data",
                 "health_score": None,
+                "health_band": "unknown",
+                "health_reason": (
+                    "No capture has ever been taken from this machine. It "
+                    "has no health score -- which is not the same as being "
+                    "healthy."),
+                "health_ceiling": None,
+                "data_quality": None,
                 "last_upload_at": None,
                 "worst_feature_name": None,
             })
@@ -104,7 +134,6 @@ def get_dashboard_summary(
 
         if worst_status in (STATUS_CRITICAL, STATUS_WARNING, STATUS_NORMAL):
             counts[worst_status] += 1
-            health_scores.append(_HEALTH_SCORE[worst_status])
         else:
             counts["no_data"] += 1
 
@@ -117,7 +146,15 @@ def get_dashboard_summary(
             "line": equipment.line,
             "machine_type": equipment.machine_type,
             "status": worst_status,
-            "health_score": _HEALTH_SCORE.get(worst_status),
+            # Filled by `app.services.dashboard_health`, which the router
+            # layers on top. Scoring needs the fault, alarm and baseline
+            # services, and crud is not allowed to reach into those -- the
+            # architecture test enforces it, and caught this.
+            "health_score": None,
+            "health_band": "unknown",
+            "health_reason": None,
+            "health_ceiling": None,
+            "data_quality": None,
             "last_upload_at": best_upload.created_at,
             "worst_feature_name": feature_names.get(worst_row.feature_code) if worst_row else None,
         })

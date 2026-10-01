@@ -644,3 +644,50 @@ def test_the_shape_is_carried_into_the_serialised_form():
     payload = build_baseline("sensor", 0, "rms", shaped(clean(20), NEW_SHAPE)).as_dict()
     assert payload["acquisition_sample_rate_hz"] == 25_000.0
     assert payload["acquisition_sample_count"] == 20_000
+
+
+# --------------------------------- the converter setting as scope ------
+
+from app.ai.baseline import STEP_TOLERANCE, _same_step   # noqa: E402
+
+STEP_100 = 5.0 / 32768 / 0.100
+STEP_500 = 5.0 / 32768 / 0.500
+
+
+def test_two_converter_settings_are_not_the_same_setting():
+    """100 and 500 mV/g differ by five times. Treating them as one baseline
+    mixes a signal resolved in one and a half steps with the same signal
+    resolved in eight."""
+    assert _same_step(STEP_100, STEP_500) is False
+    assert _same_step(STEP_100, STEP_100) is True
+
+
+def test_rounding_in_the_stored_value_is_not_a_setting_change():
+    """The step is measured from samples and the stored CSV rounds, so two
+    captures at the same setting can differ in the last digit. A tolerance
+    that treated that as a change would rebuild the baseline every capture."""
+    nudged = STEP_100 * (1 + STEP_TOLERANCE / 2)
+    assert _same_step(STEP_100, nudged) is True
+    assert _same_step(STEP_100, STEP_100 * 1.5) is False
+
+
+def test_a_known_setting_never_matches_an_unknown_one():
+    """The asymmetry that keeps this safe. A capture from before the step was
+    recorded cannot be shown to match one taken at 500 mV/g, and a comparison
+    that might be measuring a settings change is not one to act on."""
+    assert _same_step(STEP_100, None) is False
+    assert _same_step(None, STEP_100) is False
+
+
+def test_two_unrecorded_settings_count_as_the_same():
+    """Backwards compatibility, and deliberate. Every capture taken before
+    the step was stored has None; treating those as mutually incomparable
+    would have destroyed every existing baseline on the day this shipped."""
+    assert _same_step(None, None) is True
+
+
+def test_a_nonsense_step_matches_nothing():
+    """Zero or negative cannot have come from a converter, so it is not
+    evidence that two captures share a setting."""
+    assert _same_step(0.0, 0.0) is False
+    assert _same_step(-1.0, STEP_100) is False

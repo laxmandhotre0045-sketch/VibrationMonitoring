@@ -63,6 +63,15 @@ def load_history(
                -- baseline that mixed two shapes would find every capture
                -- anomalous for a settings change.
                c.sample_rate_hz, c.sample_count,
+               -- and the converter setting the channel was measured at, so
+               -- a baseline learned at 100 mV/g is not compared with one at
+               -- 500. Measured from the samples, not declared.
+               q.quantisation_step_g,
+               -- and which operating mode the machine was in. A pump at low
+               -- load and the same pump at high load produce different
+               -- vibration while both are healthy, so a normal that spans
+               -- them describes neither (VIK-040).
+               m.mode_id AS mode_id,
                -- 'unknown', never 'high'. A capture nobody assessed is not
                -- a capture that passed, and defaulting it to the best grade
                -- is how the nine synthetic uploads on this platform -- which
@@ -74,6 +83,12 @@ def load_history(
           LEFT JOIN raw_vibration_captures c ON c.upload_id = f.upload_id
           LEFT JOIN data_quality_assessments q
                  ON q.upload_id = f.upload_id AND q.channel = f.channel
+          -- `NOT is_unknown` is belt and braces: a check constraint already
+          -- forbids a row that is unknown and still names a mode, so the
+          -- mode_id on such a row is null either way. Kept because the
+          -- intent should be readable here rather than only in the schema.
+          LEFT JOIN capture_operating_modes m
+                 ON m.upload_id = f.upload_id AND NOT m.is_unknown
          WHERE f.sensor_id = :sensor {window}
          ORDER BY u.created_at
     """), {"sensor": str(sensor_id), **({"days": days} if days else {})}).fetchall()
@@ -85,7 +100,10 @@ def load_history(
             float(row.value), row.created_at, row.quality_level,
             AcquisitionShape(
                 float(row.sample_rate_hz) if row.sample_rate_hz else None,
-                int(row.sample_count) if row.sample_count else None)))
+                int(row.sample_count) if row.sample_count else None,
+                float(row.quantisation_step_g)
+                if row.quantisation_step_g else None),
+            str(row.mode_id) if row.mode_id else None))
 
     if limit_captures:
         for key, observations in history.items():
@@ -93,7 +111,8 @@ def load_history(
     return history
 
 
-def store(db: Session, stats: BaselineStats, version: int) -> bool:
+def store(db: Session, stats: BaselineStats, version: int,
+          mode_id: Optional[str] = None) -> bool:
     """Write one baseline. Refusals are not written.
 
     A row that says "no baseline" would have to carry zeros in columns the
@@ -111,12 +130,13 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
              window_start, window_end, baseline_version,
              acquisition_sample_rate_hz, acquisition_sample_count,
              confidence, excluded_count, distinct_count, mixed_population,
-             other_shape_count)
-        VALUES (:sensor_id, :channel, :feature_code, NULL, :median, :mad,
+             other_shape_count, acquisition_step_g, other_step_count)
+        VALUES (:sensor_id, :channel, :feature_code, :mode_id, :median, :mad,
                 :robust_sigma, :p05, :p50, :p95, :ewma, :sample_count,
                 :window_start, :window_end, :version,
                 :rate_hz, :samples,
-                :confidence, :excluded, :distinct, :mixed, :other_shape)
+                :confidence, :excluded, :distinct, :mixed, :other_shape,
+                :step_g, :other_step)
         ON CONFLICT (sensor_id, channel, feature_code, mode_id, baseline_version)
         DO UPDATE SET
             median = EXCLUDED.median, mad = EXCLUDED.mad,
@@ -132,8 +152,11 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
             distinct_count = EXCLUDED.distinct_count,
             mixed_population = EXCLUDED.mixed_population,
             other_shape_count = EXCLUDED.other_shape_count,
+            acquisition_step_g = EXCLUDED.acquisition_step_g,
+            other_step_count = EXCLUDED.other_step_count,
             computed_at = now()
     """), {
+        "mode_id": mode_id,
         "sensor_id": stats.sensor_id, "channel": stats.channel,
         "feature_code": stats.feature_code, "median": stats.median,
         "mad": stats.mad, "robust_sigma": stats.robust_sigma,
@@ -153,6 +176,8 @@ def store(db: Session, stats: BaselineStats, version: int) -> bool:
         "distinct": stats.distinct_count,
         "mixed": stats.mixed_population,
         "other_shape": stats.other_shape_count,
+        "step_g": stats.shape.step_g,
+        "other_step": stats.other_step_count,
     })
     return True
 
@@ -188,8 +213,13 @@ def compute_into_version(
                {"s": str(sensor_id), "v": version})
 
     stored = refused = 0
+    mode_stored = 0
     refusals: dict[str, int] = {}
     for (channel, code), observations in sorted(history.items()):
+        # The all-conditions baseline, built from everything usable. It keeps
+        # `mode_id` null, which is what a null there has always meant, and it
+        # is the fallback for a capture whose mode is unknown -- which is
+        # every capture on a machine nobody has configured modes for.
         stats = build_baseline(str(sensor_id), channel, code, observations,
                                min_samples=min_samples)
         if store(db, stats, version):
@@ -198,11 +228,33 @@ def compute_into_version(
             refused += 1
             refusals[code] = refusals.get(code, 0) + 1
 
+        # And one per mode that has enough history of its own (VIK-040).
+        # Additive: a mode-specific normal is offered where it can be built
+        # and the all-conditions one still exists where it cannot, so this
+        # can never leave a feature with less than it had before.
+        by_mode: dict[str, list] = {}
+        for observation in observations:
+            if observation.mode_id:
+                by_mode.setdefault(observation.mode_id, []).append(observation)
+        for mode_id, scoped in by_mode.items():
+            # An optimisation, not a guard: `build_baseline` refuses below
+            # the floor on its own and `store` declines a refusal, so
+            # removing this changes nothing but the work done. Said plainly
+            # because a line that looks like a safety check and is not one
+            # is how the next person comes to rely on it.
+            if len(scoped) < min_samples:
+                continue
+            mode_stats = build_baseline(str(sensor_id), channel, code, scoped,
+                                        min_samples=min_samples)
+            if store(db, mode_stats, version, mode_id=mode_id):
+                mode_stored += 1
+
     logger.info("Baselines for sensor %s v%d: %d stored, %d refused",
                 sensor_id, version, stored, refused)
     return {
         "sensor_id": str(sensor_id), "version": version,
         "stored": stored, "refused": refused,
+        "mode_scoped": mode_stored,
         "captures_in_window": max((len(o) for o in history.values()), default=0),
         "refused_features": sorted(refusals),
     }
@@ -271,8 +323,14 @@ def reset_baseline(db: Session, sensor_id: UUID, *,
 
 
 def load_baseline_map(db: Session, sensor_id: UUID,
-                      version: Optional[int] = None) -> dict[tuple[int, str], dict]:
+                      version: Optional[int] = None,
+                      mode_id: Optional[str] = None) -> dict[tuple[int, str], dict]:
     """The baselines in force, keyed the way a feature row is.
+
+    `mode_id` selects the normal for the operating mode a capture was taken
+    in. Where one exists it wins; where it does not, the all-conditions
+    baseline is returned instead, so a feature never loses its normal just
+    because that mode has too little history yet.
 
     An explicit `version` reads that one whatever its state, which is how a
     finding recorded against a retired baseline is explained later. With no
@@ -286,12 +344,23 @@ def load_baseline_map(db: Session, sensor_id: UUID,
         version = record["version"]
 
     rows = db.execute(text(f"""
-        SELECT channel, feature_code, median, mad, robust_sigma,
+        SELECT channel, feature_code, mode_id, median, mad, robust_sigma,
                p05, p50, p95, ewma, sample_count, baseline_version,
                acquisition_sample_rate_hz, acquisition_sample_count,
                confidence, excluded_count, distinct_count, mixed_population,
-               other_shape_count
+               other_shape_count, acquisition_step_g, other_step_count
           FROM {TABLE}
          WHERE sensor_id = :s AND baseline_version = :v
-    """), {"s": str(sensor_id), "v": version}).mappings().fetchall()
-    return {(row["channel"], row["feature_code"]): dict(row) for row in rows}
+           AND (mode_id IS NULL OR mode_id = :mode)
+    """), {"s": str(sensor_id), "v": version,
+           "mode": str(mode_id) if mode_id else None}).mappings().fetchall()
+
+    # A mode-specific normal beats the all-conditions one for the same
+    # feature. That is the point of VIK-040: a machine at two loads has two
+    # normals, and the average of them describes neither.
+    chosen: dict[tuple[int, str], dict] = {}
+    for row in rows:
+        key = (row["channel"], row["feature_code"])
+        if key not in chosen or row["mode_id"] is not None:
+            chosen[key] = dict(row)
+    return chosen

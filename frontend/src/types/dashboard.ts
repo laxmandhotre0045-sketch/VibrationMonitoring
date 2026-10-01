@@ -1,5 +1,22 @@
 export type EquipmentHealthStatus = "critical" | "warning" | "normal" | "no_baseline" | "no_data";
 
+/** Deliberately not the fault-stage vocabulary: a band describes a machine,
+ *  a stage describes one finding on one channel. */
+/** Requirement 12.1's bands, verbatim: 90+ / 75+ / 60+ / 40+ / 20+ / below.
+ *  Capitalised because the document names them that way and the screen is
+ *  checked against it. */
+export type HealthBand =
+  | "Excellent"
+  | "Good"
+  | "Watch"
+  | "Poor"
+  | "High risk"
+  | "Critical"
+  | "unknown";
+
+/** How well the machine can be seen at all. Caps `health_ceiling`. */
+export type DataQuality = "good" | "limited" | "poor" | "blind";
+
 export interface FleetCounts {
   total: number;
   critical: number;
@@ -18,7 +35,22 @@ export interface EquipmentHealth {
   line: string;
   machine_type: string;
   status: EquipmentHealthStatus;
+  /**
+   * VIK-055. Null where nothing on this machine could be scored -- which is
+   * not the same as healthy, and is why `health_reason` travels with it.
+   */
   health_score: number | null;
+  health_band: HealthBand;
+  health_reason: string | null;
+  /**
+   * The best score this machine was allowed to reach. Below 100 when the
+   * data is poor: a machine with no baseline, or whose spectrum cannot
+   * resolve its own bearing frequencies, cannot be certified at 100 -- so
+   * the limit is reported rather than the shortfall being blamed on the
+   * machine's condition.
+   */
+  health_ceiling: number | null;
+  data_quality: DataQuality | null;
   last_upload_at: string | null;
   worst_feature_name: string | null;
 }

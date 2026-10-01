@@ -105,12 +105,39 @@ class MachineContext:
     vane_pass_order: float | None = None
     line_freq_hz: float | None = None
     belt_order: float | None = None
+    #: Poles on the motor, for the rotor-bar rule. Its sidebands sit at
+    #: running speed plus and minus the pole-pass frequency, and pole pass
+    #: is slip times poles -- so without this the rule is untestable rather
+    #: than failing.
+    motor_pole_count: int | None = None
+    #: Synchronous speed in rpm, from the supply frequency and pole count.
+    #: Slip is the gap between this and the measured shaft speed.
+    sync_rpm: float | None = None
     has_journal_bearings: bool = False
     has_rolling_bearings: bool = True
 
     @property
     def shaft_hz(self) -> float | None:
         return self.shaft_rpm / 60.0 if self.shaft_rpm else None
+
+    @property
+    def pole_pass_order(self) -> float | None:
+        """Pole-pass frequency as an order of running speed.
+
+        Pole pass is slip multiplied by the pole count, where slip is how
+        far the rotor lags the rotating field. A motor at synchronous speed
+        has no slip, no pole pass, and therefore no rotor-bar sidebands to
+        look for -- so this returns None rather than zero, and the rule is
+        skipped instead of matching everything at 1x.
+        """
+        if not (self.motor_pole_count and self.sync_rpm and self.shaft_rpm):
+            return None
+        slip_rpm = self.sync_rpm - self.shaft_rpm
+        if slip_rpm <= 0:
+            return None
+        pole_pass_hz = (slip_rpm / 60.0) * self.motor_pole_count
+        order = pole_pass_hz / self.shaft_hz if self.shaft_hz else None
+        return order if order and order > 0 else None
 
 
 @dataclass
@@ -133,6 +160,11 @@ class Evidence:
 class FaultHypothesis:
     fault_key: str
     name: str
+    #: The group an analyst would file this under. Requirement 9.2 asks for
+    #: it beside the fault name, because the family is what decides who
+    #: gets called out -- everything in a family is investigated the same
+    #: way and fixed by the same trade.
+    family: str
     score: float
     confidence: float
     evidence: list[Evidence] = field(default_factory=list)
@@ -145,6 +177,7 @@ class FaultHypothesis:
         return {
             "fault": self.name,
             "fault_key": self.fault_key,
+            "family": self.family,
             "score": round(self.score, 3),
             "confidence": round(self.confidence, 3),
             "evidence": [e.as_dict() for e in self.evidence],
@@ -203,6 +236,15 @@ def _resolve_ref(ref: str, ctx: MachineContext) -> list[float] | None:
         return [value * multiplier] if value else None
     if key == "gmf":
         return [g * multiplier for g in ctx.gear_mesh_orders] or None
+    if key == "pole_pass":
+        value = ctx.pole_pass_order
+        return [value * multiplier] if value else None
+    if key in ("1x_minus_pole_pass", "1x_plus_pole_pass"):
+        value = ctx.pole_pass_order
+        if not value:
+            return None
+        offset = -value if key.startswith("1x_minus") else value
+        return [(1.0 + offset) * multiplier]
     if key in ("vane_pass", "blade_pass"):
         return [ctx.vane_pass_order * multiplier] if ctx.vane_pass_order else None
     if key == "line_2x":
@@ -249,13 +291,23 @@ def match_faults(
     context: MachineContext | None = None,
     top_n: int = 5,
     min_score: float = 0.05,
+    features: dict[str, float] | None = None,
 ) -> list[FaultHypothesis]:
-    """Rank fault hypotheses against a peak list.
+    """Rank fault hypotheses against a peak list, and against features.
 
     Scoring: matched dominant/required/supporting weights, minus half the
     weight of any contradicting order that is present, over the total available
     weight. A missing dominant or required order disqualifies the rule.
+
+    **`features` exists because some faults have no order at all.** Cavitation
+    is thousands of unsynchronised bubble collapses: it raises the broadband
+    floor and produces no line anywhere. An order-only engine cannot express
+    that, so cavitation had no rule rather than a bad one. A rule may now
+    carry a `features` block evaluated the same way its orders are, and a
+    rule whose features cannot be read is skipped rather than scored on half
+    its evidence.
     """
+    measured = features or {}
     ctx = context or MachineContext()
     usable = [p for p in peaks if p.order is not None]
     if not usable:
@@ -353,6 +405,45 @@ def match_faults(
                 )
             )
 
+        # Feature conditions, scored on the same scale as the orders.
+        for spec in rule.get("features", []):
+            code = spec["code"]
+            weight = float(spec["weight"])
+            role = spec["role"]
+            value = measured.get(code)
+
+            if value is None:
+                # Not measured is not "absent". A dominant feature the
+                # capture never produced makes the rule untestable, which
+                # is a different outcome from the feature being low.
+                if role in ("dominant", "required"):
+                    unresolvable = True
+                    break
+                continue
+
+            minimum = spec.get("min")
+            maximum = spec.get("max")
+            hit = ((minimum is None or value >= float(minimum))
+                   and (maximum is None or value <= float(maximum)))
+
+            if role == "contradicting":
+                if hit:
+                    contradiction_weight += weight
+                    contradicting.append(Evidence(
+                        statement=f"{spec.get('statement', code)} "
+                                  f"(measured {value:.4g})."))
+                continue
+
+            available_weight += weight
+            if hit:
+                matched_weight += weight
+                evidence.append(Evidence(
+                    statement=f"{spec.get('statement', code)} "
+                              f"(measured {value:.4g})."))
+            elif role in ("dominant", "required"):
+                disqualified = True
+                break
+
         if disqualified or unresolvable or available_weight <= 0:
             continue
 
@@ -397,6 +488,9 @@ def match_faults(
             FaultHypothesis(
                 fault_key=key,
                 name=rule["name"],
+                # A rule with no family is a data error, not a fault with no
+                # family, so this does not quietly default to a blank.
+                family=rule["family"],
                 score=score,
                 confidence=round(score * peak_confidence, 3),
                 evidence=evidence,

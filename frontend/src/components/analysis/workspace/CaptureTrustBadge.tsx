@@ -62,6 +62,16 @@ export const CHECK_LABELS: Record<string, string> = {
   bias_drift: "Bias drift",
   noise_floor: "High noise floor",
   dc_offset: "DC offset",
+  // Section 21.1's remaining checks, added to the engine after an audit
+  // against the requirement. A test here fails when the backend can report
+  // a check this map has no words for — which is how these arrived, rather
+  // than by anybody noticing the screen had started showing raw slugs.
+  low_signal: "Too little signal",
+  wrong_rpm: "Speed disagrees with nameplate",
+  wrong_machine_state: "State disagrees with vibration",
+  sensor_temperature: "Sensor temperature",
+  packet_loss: "Readings lost in transit",
+  communication: "Gateway link down",
 };
 
 export function formatCheckName(name: string): string {

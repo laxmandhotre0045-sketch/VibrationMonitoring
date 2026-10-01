@@ -30,6 +30,11 @@ from app.services.feature_extraction import (
     extract_all_channels,
 )
 from app.services.plot_generator import load_parsed_data
+from app.services.alarm_storage import persist_alarms
+from app.services.anomaly_storage import mode_of, persist_scores
+from app.services.detector_storage import persist_detectors
+from app.services.fault_storage import persist_findings
+from app.services.mode_storage import equipment_for_sensor, persist_mode
 from app.services.quality_storage import persist_quality
 from app.services.threshold_evaluator import ThresholdRule, evaluate_feature
 from app.services.webhook_service import build_alert_payload, dispatch_alert
@@ -188,6 +193,23 @@ def _machine_type_of(db: Session, sensor: Any) -> str | None:
     return getattr(equipment, "machine_type", None)
 
 
+def _stored_channel_map(db, sensor_id) -> list[dict]:
+    """The per-channel acquisition settings, or an empty list.
+
+    Never raises and never guesses. A sensor with no stored map falls back
+    to the sensor-wide sensitivity, which is the honest answer -- inventing
+    a map here would put a number on channels nobody has configured.
+    """
+    try:
+        from app.crud import measurement as measurement_crud
+        config = measurement_crud.get_plot_config_by_sensor(db, sensor_id)
+        stored = getattr(config, "channel_map", None) if config else None
+        return stored if isinstance(stored, list) else []
+    except Exception:
+        logger.exception("Could not read the channel map for sensor %s", sensor_id)
+        return []
+
+
 def persist_upload_features_and_trends(
     db: Session,
     upload: SensorDataUpload,
@@ -247,8 +269,30 @@ def persist_upload_features_and_trends(
         sensitivity_mv_per_g=(float(sensor.sensitivity)
                               if sensor is not None and sensor.sensitivity
                               else None),
+        # Per channel, because the converter setting is per channel. The
+        # sensor-wide figure above is the fallback for channels the map does
+        # not name, not a default that overrides it.
+        channel_map=_stored_channel_map(db, upload.sensor_id),
         shaft_hz=machine.hz if machine.usable else None,
     )
+
+    # VIK-039, after the quality verdict because the steadiness check is one
+    # of its inputs, and before the features because a baseline is scoped by
+    # mode. Never raises: a capture whose mode could not be decided is
+    # recorded as unknown, which is a real answer rather than a failure.
+    mode = persist_mode(
+        db,
+        upload_id=upload.id,
+        sensor_id=upload.sensor_id,
+        equipment_id=equipment_for_sensor(db, upload.sensor_id),
+        channels=(parsed_data.get("channels") or {}),
+        shaft_hz=machine.hz,
+        shaft_usable=machine.usable,
+        shaft_source=machine.source,
+        quality_summary=quality,
+    )
+    logger.info("Operating mode for upload %s: %s (confidence %.2f)",
+                upload.id, mode.label, mode.confidence)
     if quality["level"] != "high":
         logger.info(
             "Data quality for upload %s: %s (x%.2f) -- failing %s%s",
@@ -346,6 +390,105 @@ def persist_upload_features_and_trends(
     if trend_rows:
         db.bulk_save_objects(trend_rows)
     db.commit()
+
+    # VIK-042, last: scoring compares the features that were just written
+    # against the learned normal for the mode this capture was in, so it
+    # needs both of those to exist first. Never raises -- a capture whose
+    # features could not be scored is still a capture worth keeping, and
+    # every feature it could not score says so rather than scoring zero.
+    try:
+        persist_scores(
+            db,
+            upload_id=upload.id,
+            sensor_id=upload.sensor_id,
+            features={(int(channel), code): float(payload["value"])
+                      for channel, features in scalars.items()
+                      for code, payload in features.items()
+                      if payload.get("value") is not None},
+        )
+        db.commit()
+
+        # VIK-043. Per channel rather than per feature: these two look at
+        # the whole feature vector at once, which is how they catch a
+        # combination that no single feature would flag -- every number
+        # inside its own range while the relationship between them stops
+        # making sense.
+        scored_features = {
+            (int(channel), code): float(payload["value"])
+            for channel, features in scalars.items()
+            for code, payload in features.items()
+            if payload.get("value") is not None
+        }
+        persist_detectors(
+            db,
+            upload_id=upload.id,
+            sensor_id=upload.sensor_id,
+            features=scored_features,
+            mode_id=mode_of(db, upload.id),
+        )
+        db.commit()
+
+        # VIK-044/046, after the scores are committed because the alarm
+        # decision reads this capture's score alongside the previous ones.
+        # A single high score is not an alarm -- at this threshold chance
+        # alone puts about one feature per capture past the line -- so this
+        # is what stands between the platform and seven hundred alarms a day
+        # on a healthy machine.
+        persist_alarms(
+            db,
+            upload_id=upload.id,
+            sensor_id=upload.sensor_id,
+            equipment_id=equipment_for_sensor(db, upload.sensor_id),
+        )
+        db.commit()
+
+        # VIK-053. Last, because naming a fault is the only step that needs
+        # the machine record as well as the signal, and because a finding is
+        # the thing a person reads -- everything before it is working out.
+        #
+        # One spectrum per channel, computed here rather than inside the
+        # fault code: the features already needed them, and a second set
+        # would be a second chance to disagree with what the chart shows.
+        spectra = {}
+        for name, samples in (parsed_data.get("channels") or {}).items():
+            try:
+                index = int(str(name).lstrip("ch"))
+            except ValueError:
+                continue
+            if samples and len(samples) >= 4:
+                spectra[index] = _compute_fft_magnitudes(
+                    _to_array(samples), sampling_rate_hz)
+
+        if spectra:
+            persist_findings(
+                db,
+                upload_id=upload.id,
+                sensor_id=upload.sensor_id,
+                equipment_id=equipment_for_sensor(db, upload.sensor_id),
+                channels=spectra,
+                shaft_hz=machine.hz,
+                shaft_usable=machine.usable,
+                bearing_orders=bearing_orders,
+                sample_rate_hz=sampling_rate_hz,
+                sample_count=parsed_data.get("sample_count"),
+                mode_id=mode_of(db, upload.id),
+                # The same scalars the features were stored from, flattened
+                # to plain numbers. The impacting and bearing-band symptoms
+                # read these; without them those two checks would be
+                # deciding on an empty dict and reporting nothing found,
+                # which is the failure this whole phase is about.
+                features={
+                    channel: {code: float(item.get("value"))
+                              for code, item in values.items()
+                              if isinstance(item, dict)
+                              and item.get("value") is not None}
+                    for channel, values in scalars.items()
+                },
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Anomaly scoring failed for upload %s", upload.id)
 
     # Fired only after the commit, so a webhook can never describe an alert that
     # was rolled back. Dispatch is backgrounded and never raises into ingestion.

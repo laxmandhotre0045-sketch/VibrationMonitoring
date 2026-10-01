@@ -102,6 +102,31 @@ MIN_DISTINCT_VALUES = 3
 CONTAMINATION_SIGMAS = 6.0
 
 
+#: How close two measured converter steps must be to count as the same
+#: setting. They are measured from samples, and the stored CSV rounds, so
+#: two captures at 100 mV/g can differ in the last digit. One percent
+#: separates that from a real change: the smallest switch anyone would make
+#: is 100 to 500, which is a factor of five.
+STEP_TOLERANCE = 0.01
+
+
+def _same_step(a: Optional[float], b: Optional[float]) -> bool:
+    """Whether two captures were quantised at the same setting.
+
+    Two unknowns count as the same, so captures from before the step was
+    recorded still form a baseline together. A known and an unknown do not:
+    that pair cannot be shown to match, and a comparison that might be
+    measuring a settings change is not one to act on.
+    """
+    if a is None and b is None:
+        return True
+    if a is None or b is None:
+        return False
+    if a <= 0 or b <= 0:
+        return False
+    return abs(a - b) / max(a, b) <= STEP_TOLERANCE
+
+
 @dataclass(frozen=True)
 class AcquisitionShape:
     """How a capture was taken: the sample rate and the record length.
@@ -115,6 +140,18 @@ class AcquisitionShape:
     """
     sample_rate_hz: Optional[float] = None
     sample_count: Optional[int] = None
+    #: What the converter was quantised in, in g -- the third setting in
+    #: this group and the one that moves when a channel is switched between
+    #: 100 and 500 mV/g. At 100 the step is 0.0015 g and this pump's quietest
+    #: channel spans one and a half of them; at 500 it is 0.0003 g and the
+    #: same channel spans eight. Kurtosis and crest factor are describing
+    #: rounding in the first case and the machine in the second, so a
+    #: baseline learned at one step means nothing at the other.
+    #:
+    #: Measured from the samples rather than taken from the declaration,
+    #: because the two disagree on this gateway and only one of them is what
+    #: the device did.
+    step_g: Optional[float] = None
 
     @property
     def known(self) -> bool:
@@ -156,6 +193,8 @@ class BaselineStats:
     shape: AcquisitionShape = field(default_factory=AcquisitionShape)
     #: Captures dropped because they were taken at a different shape.
     other_shape_count: int = 0
+    #: Captures dropped because the converter was at a different setting.
+    other_step_count: int = 0
     #: True when the top of the window does not belong with its middle. The
     #: median and spread are still usable; the percentiles are not.
     mixed_population: bool = False
@@ -173,6 +212,8 @@ class BaselineStats:
         comparison anyone should act on.
         """
         if not self.shape.known or not shape.known:
+            return False
+        if not _same_step(self.shape.step_g, shape.step_g):
             return False
         return (self.shape.sample_rate_hz == shape.sample_rate_hz
                 and self.shape.sample_count == shape.sample_count)
@@ -201,6 +242,8 @@ class BaselineStats:
             "acquisition_sample_rate_hz": self.shape.sample_rate_hz,
             "acquisition_sample_count": self.shape.sample_count,
             "other_shape_count": self.other_shape_count,
+            "other_step_count": self.other_step_count,
+            "acquisition_step_g": self.shape.step_g,
             "mixed_population": self.mixed_population,
             "available": self.available, "confidence": self.confidence,
             "reason": self.reason,
@@ -215,6 +258,9 @@ class Observation:
     observed_at: datetime
     quality_level: str = "high"
     shape: AcquisitionShape = field(default_factory=AcquisitionShape)
+    #: The operating mode this capture was taken in, or None when it could
+    #: not be decided. A normal spanning two loads describes neither.
+    mode_id: Optional[str] = None
 
     @property
     def usable(self) -> bool:
@@ -293,16 +339,28 @@ def build_baseline(
                     if o.shape.sample_rate_hz == newest.sample_rate_hz
                     and o.shape.sample_count == newest.sample_count]
         stats.other_shape_count = len(ordered) - len(matching)
-        ordered = matching
+
+        # And the converter setting, which is the third thing in this group.
+        # Switching a channel from 100 mV/g to 500 changes the step from
+        # 0.0015 g to 0.0003 g; anything measuring the shape of the signal
+        # moves with it, because a signal resolved in one and a half steps
+        # has its shape defined by rounding and the same signal in
+        # forty-seven steps does not.
+        with_step = [o for o in matching
+                     if _same_step(o.shape.step_g, newest.step_g)]
+        stats.other_step_count = len(matching) - len(with_step)
+        ordered = with_step
         stats.shape = newest
         if len(ordered) < min_samples:
             stats.reason = (
                 f"{len(ordered)} captures at {newest.describe()}, and "
                 f"{min_samples} are needed. {stats.other_shape_count} more "
-                f"were taken at a different acquisition shape and cannot be "
-                f"mixed in: half the features here move by a quarter or more "
-                f"when the sample rate or record length changes, so a "
-                f"baseline spanning both would find every capture anomalous."
+                f"were taken at a different acquisition shape and "
+                f"{stats.other_step_count} at a different converter setting; "
+                f"neither can be mixed in, because half the features here "
+                f"move by a quarter or more when the sample rate, the record "
+                f"length or the resolution changes, and a baseline spanning "
+                f"both would find every capture anomalous."
             )
             stats.sample_count = 0
             return stats

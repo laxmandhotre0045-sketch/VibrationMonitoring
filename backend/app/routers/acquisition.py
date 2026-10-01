@@ -130,8 +130,16 @@ def _merge_channel_map(existing, incoming) -> list[dict]:
     sensor-level default.
 
     A caller that omits a field keeps the stored value. A caller that sends
-    one replaces it. `label` is legitimately nullable, so an explicit null
-    still clears it.
+    one replaces it, including sending an explicit null to clear a nullable
+    field such as `label`.
+
+    That distinction is `exclude_unset`, and getting it wrong reintroduced
+    the same class of bug this function exists to fix. `model_dump()` emits
+    every field, filling the ones the caller never mentioned with the
+    schema's defaults -- so switching one channel to 500 mV/g, which is a
+    one-field request, also cleared that channel's label and stamped
+    `machine_axis` and `signal_type` with defaults nobody chose. Only
+    `exclude_unset=True` distinguishes "not mentioned" from "set to null".
     """
     stored: dict[int, dict] = {}
     current = getattr(existing, "channel_map", None) if existing else None
@@ -140,12 +148,11 @@ def _merge_channel_map(existing, incoming) -> list[dict]:
             stored[int(entry["channel_index"])] = dict(entry)
 
     for entry in incoming:
-        sent = entry.model_dump()
-        index = int(sent["channel_index"])
+        sent = entry.model_dump(exclude_unset=True)
+        index = int(entry.channel_index)
         merged = stored.get(index, {})
-        merged.update({k: v for k, v in sent.items() if v is not None})
-        if "label" in sent:
-            merged["label"] = sent["label"]
+        merged.update(sent)
+        merged["channel_index"] = index
         stored[index] = merged
 
     return [stored[i] for i in sorted(stored)]

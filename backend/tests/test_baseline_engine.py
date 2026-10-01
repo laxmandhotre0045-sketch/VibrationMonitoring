@@ -396,3 +396,241 @@ def test_a_built_but_unactivated_baseline_is_not_reported_as_the_answer(db, sens
     # It still appears in the history, because it exists and somebody has to
     # be able to see that it is waiting.
     assert [v["version"] for v in health["history"]] == [built["version"]]
+
+
+# ------------------------------- switching the converter setting -------
+#
+# Making sensitivity configurable is only safe if changing it starts a new
+# normal. At 100 mV/g the step is 0.0015 g and this pump's quietest channel
+# spans one and a half of them; at 500 it is 0.0003 g and the same channel
+# spans eight. Kurtosis and crest factor are describing rounding in the
+# first case and the machine in the second, so a baseline that mixed them
+# would be built from two different measurements of two different things.
+
+STEP_AT_100 = 5.0 / 32768 / 0.100        # 0.0015 g
+STEP_AT_500 = 5.0 / 32768 / 0.500        # 0.0003 g
+
+
+def set_step(db, sensor_id, step, *, after=None):
+    """Stamp a converter step onto the stored quality assessments."""
+    clause = " AND u.created_at > :after" if after else ""
+    db.execute(text(f"""
+        UPDATE data_quality_assessments q SET quantisation_step_g = :step
+          FROM sensor_data_uploads u
+         WHERE u.id = q.upload_id AND q.sensor_id = :s {clause}
+    """), {"s": str(sensor_id), "step": step,
+           **({"after": after} if after else {})})
+    db.flush()
+
+
+def test_a_baseline_will_not_mix_two_converter_settings(db, sensor_id):
+    """The whole point of scoping by step. Twenty captures at 100 mV/g and
+    twenty at 500 are not forty samples of one normal."""
+    from datetime import datetime, timedelta, timezone
+
+    add_captures(db, sensor_id, 20, start_days_ago=40.0, seed=1)
+    set_step(db, sensor_id, STEP_AT_100)
+
+    switched_at = datetime.now(timezone.utc) - timedelta(days=10)
+    add_captures(db, sensor_id, 20, start_days_ago=9.0, seed=2)
+    set_step(db, sensor_id, STEP_AT_500, after=switched_at)
+
+    reset_baseline(db, sensor_id, reason="after switching to 500 mV/g")
+    row = load_baseline_map(db, sensor_id)[(0, "rms")]
+
+    assert row["sample_count"] == 20, (
+        "the baseline must be built from one setting's captures, not both"
+    )
+    assert row["other_step_count"] == 20, (
+        "and it must say how many it left out, not drop them silently"
+    )
+    assert row["acquisition_step_g"] == pytest.approx(STEP_AT_500, rel=1e-6), (
+        "the newest setting wins, so the baseline describes the machine as "
+        "it is being measured now"
+    )
+
+
+def test_too_few_captures_at_the_new_setting_refuses_rather_than_mixes(db, sensor_id):
+    """Right after a switch there is not enough history at the new setting.
+    Refusing is correct: a baseline spanning the change would report the
+    settings change as a fault on every capture."""
+    from datetime import datetime, timedelta, timezone
+
+    add_captures(db, sensor_id, 30, start_days_ago=40.0, seed=1)
+    set_step(db, sensor_id, STEP_AT_100)
+
+    switched_at = datetime.now(timezone.utc) - timedelta(days=2)
+    add_captures(db, sensor_id, 3, start_days_ago=1.0, seed=2)
+    set_step(db, sensor_id, STEP_AT_500, after=switched_at)
+
+    result = reset_baseline(db, sensor_id, reason="just switched", activate=False)
+    assert result["stored"] == 0, (
+        "three captures at the new setting is not a baseline, and the "
+        "thirty at the old one cannot be borrowed"
+    )
+
+
+def test_a_capture_is_not_compared_across_a_setting_change(db, sensor_id):
+    """The read side of the same rule."""
+    from app.ai.baseline import AcquisitionShape, BaselineStats
+
+    learned = BaselineStats(
+        sensor_id=str(sensor_id), channel=0, feature_code="rms",
+        available=True,
+        shape=AcquisitionShape(RATE, SAMPLES, STEP_AT_100))
+
+    same = AcquisitionShape(RATE, SAMPLES, STEP_AT_100)
+    switched = AcquisitionShape(RATE, SAMPLES, STEP_AT_500)
+
+    assert learned.comparable_with(same) is True
+    assert learned.comparable_with(switched) is False, (
+        "comparing across a converter change measures the change, not the "
+        "machine"
+    )
+
+
+def test_captures_from_before_the_step_was_recorded_still_form_a_baseline(db, sensor_id):
+    """Backwards compatibility. Rows written before the step was stored have
+    None, and two Nones are the same unknown -- otherwise this change would
+    have wiped every existing baseline."""
+    add_captures(db, sensor_id, 20, seed=1)
+    set_step(db, sensor_id, None)
+
+    reset_baseline(db, sensor_id, reason="history with no step recorded")
+    row = load_baseline_map(db, sensor_id)[(0, "rms")]
+    assert row["sample_count"] == 20
+    assert row["other_step_count"] == 0
+    assert row["acquisition_step_g"] is None
+
+
+# ------------------------------------- a separate normal per mode ------
+#
+# VIK-040. A pump at low load and the same pump at high load produce
+# different vibration while both are healthy. One baseline across the two is
+# the average of neither, so every capture sits some distance from a normal
+# that describes no state the machine has ever been in -- and the distance
+# looks exactly like a fault.
+
+def add_mode(db, equipment_id, label, rpm_min, rpm_max):
+    row = db.execute(text("""
+        INSERT INTO operating_modes (equipment_id, label, rpm_min, rpm_max, source)
+        VALUES (:e, :l, :lo, :hi, 'configured') RETURNING id
+    """), {"e": str(equipment_id), "l": label, "lo": rpm_min, "hi": rpm_max})
+    db.flush()
+    return str(row.scalar())
+
+
+def set_mode(db, sensor_id, mode_id, label, *, after=None):
+    """Stamp a mode onto the stored captures, as the detector would."""
+    clause = " AND u.created_at > :after" if after else ""
+    rows = db.execute(text(f"""
+        SELECT u.id FROM sensor_data_uploads u
+         WHERE u.sensor_id = :s {clause}
+    """), {"s": str(sensor_id), **({"after": after} if after else {})}).fetchall()
+    for (upload_id,) in rows:
+        db.execute(text("DELETE FROM capture_operating_modes WHERE upload_id = :u"),
+                   {"u": str(upload_id)})
+        db.execute(text("""
+            INSERT INTO capture_operating_modes
+                (upload_id, sensor_id, mode_id, label, is_unknown, confidence)
+            VALUES (:u, :s, :m, :l, :unknown, 1.0)
+        """), {"u": str(upload_id), "s": str(sensor_id), "m": mode_id,
+               "l": label, "unknown": mode_id is None})
+    db.flush()
+    return len(rows)
+
+
+def equipment_of(db, sensor_id):
+    return db.execute(text(
+        "SELECT equipment_id FROM sensor_configurations WHERE id = :s"),
+        {"s": str(sensor_id)}).scalar()
+
+
+def test_two_modes_get_two_different_normals(db, sensor_id):
+    """The headline. The same feature has a different normal at each load,
+    and neither is the average."""
+    from datetime import datetime, timedelta, timezone
+
+    equipment = equipment_of(db, sensor_id)
+    low = add_mode(db, equipment, "low_load", 1200, 1400)
+    high = add_mode(db, equipment, "high_load", 1400, 1600)
+
+    add_captures(db, sensor_id, 20, start_days_ago=40.0, centre=0.05, seed=1)
+    set_mode(db, sensor_id, low, "low_load")
+
+    switched = datetime.now(timezone.utc) - timedelta(days=20)
+    add_captures(db, sensor_id, 20, start_days_ago=19.0, centre=0.20, seed=2)
+    set_mode(db, sensor_id, high, "high_load", after=switched)
+
+    result = reset_baseline(db, sensor_id, reason="two loads")
+    assert result["mode_scoped"] > 0
+
+    low_normal = load_baseline_map(db, sensor_id, mode_id=low)[(0, "rms")]
+    high_normal = load_baseline_map(db, sensor_id, mode_id=high)[(0, "rms")]
+    all_normal = load_baseline_map(db, sensor_id)[(0, "rms")]
+
+    assert float(low_normal["median"]) == pytest.approx(0.05, abs=0.01)
+    assert float(high_normal["median"]) == pytest.approx(0.20, abs=0.01)
+    assert low_normal["sample_count"] == 20
+    assert high_normal["sample_count"] == 20
+
+    # And the all-conditions normal is the average of neither -- which is
+    # exactly why the mode-specific ones have to exist.
+    combined = float(all_normal["median"])
+    assert combined != pytest.approx(float(low_normal["median"]), abs=0.001)
+    assert combined != pytest.approx(float(high_normal["median"]), abs=0.001)
+
+
+def test_reading_without_a_mode_gets_the_all_conditions_normal(db, sensor_id):
+    """A capture whose mode is unknown -- every capture on a machine nobody
+    has configured -- must still have a normal to be judged against."""
+    equipment = equipment_of(db, sensor_id)
+    mode = add_mode(db, equipment, "normal_running", 1400, 1600)
+    add_captures(db, sensor_id, 20, seed=1)
+    set_mode(db, sensor_id, mode, "normal_running")
+    reset_baseline(db, sensor_id, reason="one mode")
+
+    unscoped = load_baseline_map(db, sensor_id)
+    assert unscoped, "there must still be a normal without a mode"
+    assert all(row["mode_id"] is None for row in unscoped.values())
+
+
+def test_a_mode_with_too_little_history_falls_back_rather_than_vanishing(db, sensor_id):
+    """Additive, deliberately. Offering a mode-specific normal where it can
+    be built and the all-conditions one where it cannot means a feature can
+    never end up with less than it had before this ticket."""
+    equipment = equipment_of(db, sensor_id)
+    from datetime import datetime, timedelta, timezone
+
+    common = add_mode(db, equipment, "low_load", 1200, 1400)
+    rare = add_mode(db, equipment, "high_load", 1400, 1600)
+
+    add_captures(db, sensor_id, 25, start_days_ago=40.0, seed=1)
+    set_mode(db, sensor_id, common, "low_load")
+    switched = datetime.now(timezone.utc) - timedelta(days=5)
+    add_captures(db, sensor_id, 3, start_days_ago=4.0, seed=2)
+    set_mode(db, sensor_id, rare, "high_load", after=switched)
+
+    reset_baseline(db, sensor_id, reason="one busy mode, one rare")
+
+    rare_view = load_baseline_map(db, sensor_id, mode_id=rare)
+    assert rare_view, "the rare mode must still get a normal"
+    assert rare_view[(0, "rms")]["mode_id"] is None, (
+        "three captures is not a normal, so the all-conditions one is used"
+    )
+
+    common_view = load_baseline_map(db, sensor_id, mode_id=common)
+    assert str(common_view[(0, "rms")]["mode_id"]) == common
+
+
+def test_captures_with_an_unknown_mode_build_no_mode_baseline(db, sensor_id):
+    """Unknown is not a mode to learn a normal for. Those captures still
+    feed the all-conditions baseline, which is what unknown means."""
+    add_captures(db, sensor_id, 20, seed=1)
+    set_mode(db, sensor_id, None, "unknown")
+
+    result = reset_baseline(db, sensor_id, reason="nothing classified")
+    assert result["stored"] > 0, "the all-conditions normal is still built"
+    assert result["mode_scoped"] == 0, (
+        "a normal for 'we do not know what this was' is not a normal"
+    )
