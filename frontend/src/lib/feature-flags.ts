@@ -24,6 +24,19 @@ export const FEATURE_FLAGS = {
     env: "VITE_DIGITAL_TWIN_V2",
     default: import.meta.env.DEV,
   },
+  /**
+   * The Senvia 3D equipment library — the kit's own viewer, embedded.
+   *
+   * 48 machines with the full toolbar (sample condition, rotate shafts, see
+   * inside, flow, sensors, rotation direction, guards, save image, export GLB)
+   * against the hand-built viewer's handful of procedural models. On by
+   * default; turn it off to fall back to `digitalTwinV2`, which is the escape
+   * hatch if a browser cannot give the frame a second WebGL context.
+   */
+  senvia3dLibrary: {
+    env: "VITE_SENVIA_3D_LIBRARY",
+    default: true,
+  },
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAGS;

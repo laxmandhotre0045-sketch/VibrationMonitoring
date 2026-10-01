@@ -21,6 +21,7 @@ from app.routers.integrations import router as integrations_router
 from app.routers.lookups import router as lookups_router
 from app.routers.measurements import router as measurements_router
 from app.routers.plants import router as plants_router
+from app.routers.status import router as status_router
 from app.routers.thresholds import router as thresholds_router
 from app.routers.users import router as users_router
 from app.services.schema_drift import report_schema_drift
@@ -107,6 +108,7 @@ app.include_router(integrations_router)
 app.include_router(lookups_router)
 app.include_router(measurements_router)
 app.include_router(plants_router)
+app.include_router(status_router)
 app.include_router(thresholds_router)
 app.include_router(users_router)
 

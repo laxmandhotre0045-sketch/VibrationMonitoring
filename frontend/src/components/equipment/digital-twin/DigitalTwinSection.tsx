@@ -2,6 +2,7 @@ import React from "react";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { DigitalTwinPanel } from "./DigitalTwinPanel";
 import { DigitalTwinPanelV2 } from "./DigitalTwinPanelV2";
+import { SenviaLibraryPanel } from "./SenviaLibraryPanel";
 
 interface DigitalTwinSectionProps {
   activeStep: number;
@@ -10,21 +11,26 @@ interface DigitalTwinSectionProps {
 }
 
 /**
- * Picks the Digital Twin implementation.
+ * Picks the 3D implementation.
  *
- * `digitalTwinV2` selects the rebuilt viewer — GLB models, studio lighting,
- * x-ray and HTML labels. With the flag off the original viewer renders
- * unchanged, which is the escape hatch while v2 is being signed off.
+ * `senvia3dLibrary` is the shipped one: the Senvia 3D equipment library from
+ * the kit, embedded whole — 48 machines, correct rotation, the full toolbar. It
+ * replaced the hand-built viewers rather than extending them, because those
+ * re-derived a handful of machines that the kit already draws properly.
  *
- * Both sides lazy-load their own three.js chunk, so whichever one is switched
- * off costs nothing but this import.
+ * The two older viewers stay behind it as escape hatches. `digitalTwinV2` is
+ * the GLB viewer with studio lighting and HTML labels; with both flags off the
+ * original renders unchanged. Each lazy-loads its own three.js chunk, so the
+ * ones not in use cost nothing but these imports.
  *
- * Once v2 is the only implementation, delete `DigitalTwinPanel`,
- * `DigitalTwinViewer`, `twin-scene.ts`, `DigitalTwinControls`,
+ * Once the library has been signed off on a customer site, delete
+ * `DigitalTwinPanel`, `DigitalTwinPanelV2`, `DigitalTwinViewer`,
+ * `DigitalTwinViewerV2`, `twin-scene.ts`, `DigitalTwinControls`,
  * `DigitalTwinSummary` and this file, and point `EquipmentForm` straight at
- * `DigitalTwinPanelV2`.
+ * `SenviaLibraryPanel`.
  */
 export function DigitalTwinSection(props: DigitalTwinSectionProps) {
+  if (isFeatureEnabled("senvia3dLibrary")) return <SenviaLibraryPanel {...props} />;
   return isFeatureEnabled("digitalTwinV2") ? (
     <DigitalTwinPanelV2 {...props} />
   ) : (
